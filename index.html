@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeepTech Deal Flow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [x-cloak] { display: none; }
+    .sidebar-link { @apply flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer; }
+    .sidebar-link.active { @apply bg-indigo-600 text-white; }
+    input[type=range] { accent-color: #6366f1; }
+    .score-green { @apply bg-green-100 text-green-800 border border-green-300; }
+    .score-orange { @apply bg-orange-100 text-orange-800 border border-orange-300; }
+    .score-red { @apply bg-red-100 text-red-800 border border-red-300; }
+    .stage-sourcing { @apply bg-sky-100 text-sky-800; }
+    .stage-dd { @apply bg-yellow-100 text-yellow-800; }
+    .stage-ts { @apply bg-purple-100 text-purple-800; }
+    .stage-closed { @apply bg-green-100 text-green-800; }
+    .stage-rejected { @apply bg-red-100 text-red-800; }
+    .fade-in { animation: fadeIn 0.2s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex">
+
+<!-- SIDEBAR -->
+<aside id="sidebar" class="w-64 bg-slate-800 min-h-screen flex flex-col flex-shrink-0">
+  <div class="px-6 py-5 border-b border-slate-700">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">DT</div>
+      <div>
+        <div class="text-white font-semibold text-sm">DeepTech</div>
+        <div class="text-slate-400 text-xs">Deal Flow Manager</div>
+      </div>
+    </div>
+  </div>
+  <nav class="flex-1 p-4 space-y-1">
+    <button onclick="navigate('dashboard')" id="nav-dashboard" class="sidebar-link w-full text-left active">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Dashboard
+    </button>
+    <button onclick="navigate('pipeline')" id="nav-pipeline" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Pipeline
+    </button>
+    <button onclick="navigate('new')" id="nav-new" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Nuovo Deal
+    </button>
+    <button onclick="navigate('priority')" id="nav-priority" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+      Priorità
+    </button>
+  </nav>
+  <div class="p-4 border-t border-slate-700">
+    <div class="text-xs text-slate-500 text-center">TRL Focus: ~4 | v1.0</div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="flex-1 overflow-auto">
+  <div id="page-dashboard" class="p-6 fade-in"></div>
+  <div id="page-pipeline" class="p-6 fade-in hidden"></div>
+  <div id="page-new" class="p-6 fade-in hidden"></div>
+  <div id="page-priority" class="p-6 fade-in hidden"></div>
+</main>
+
+<!-- MODAL DEAL DETAIL -->
+<div id="modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div id="modal-content" class="bg-white rounded-2xl w-full max-w-4xl mx-4 shadow-2xl">
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA MODEL & STORAGE
+// ============================================================
+const STORAGE_KEY = 'dealflow_demo';
+
+const DEMO_DEALS = [
+  {
+    id: 'deal-001',
+    company: 'QuantumSense Srl',
+    sector: 'Quantum Computing',
+    description: 'Sensori quantistici per imaging medicale ad alta risoluzione basati su NV-center in diamante sintetico. Tecnologia brevettata, prototipo funzionante in laboratorio.',
+    pipelineSource: 'External',
+    sourceName: 'Politecnico di Milano – TTO',
+    useOfInvestment: ['R&D', 'IP Protection'],
+    useOfInvestmentNotes: 'Completamento del prototipo TRL5 e deposito PCT internazionale',
+    trl: 4,
+    industrialNeed: 8,
+    industrialNeedJustification: 'MRI e diagnostica avanzata con risoluzione sub-millimetrica: mercato in forte crescita, validazione clinica in corso con ospedale partner.',
+    devPerformance: 7,
+    devPerformanceJustification: 'Sensibilità 10x superiore ai sensori SQUID tradizionali dimostrata in lab. Sfida: miniaturizzazione per uso clinico.',
+    team: 8,
+    market: 9,
+    businessModel: 6,
+    ip: 9,
+    regulatory: 5,
+    coInvestors: [
+      { name: 'CDP Venture Capital', type: 'Public', interest: 'High' },
+      { name: 'Sofinnova Partners', type: 'VC', interest: 'Medium' }
+    ],
+    capTable: [
+      { shareholder: 'Fondatori', percent: '55', round: 'Pre-seed', notes: 'Lock-up 3 anni' },
+      { shareholder: 'Politecnico (TTO)', percent: '15', round: 'Pre-seed', notes: 'Licenza IP convertita' },
+      { shareholder: 'Angel round', percent: '10', round: 'Seed', notes: '' },
+      { shareholder: 'Nostro fondo', percent: '20', round: 'Seed', notes: 'Lead investor' }
+    ],
+    investmentAmount: 1500000,
+    valuation: 7500000,
+    instrument: 'equity',
+    stage: 'Due Diligence',
+    notes: 'Call tecnica programmata per 20 mag. Richiesta opinion legale su brevetto US. Verificare esclusiva licenza con PoliMi.'
+  },
+  {
+    id: 'deal-002',
+    company: 'BioReactor.AI',
+    sector: 'Biotech / AI',
+    description: 'Piattaforma AI per ottimizzazione in tempo reale di bioreattori industriali. Algoritmi proprietari di digital twin per fermentazione e produzione di biofarmaci.',
+    pipelineSource: 'Internal',
+    sourceName: '',
+    useOfInvestment: ['MVP', 'Hiring'],
+    useOfInvestmentNotes: 'Deploy pilota con 3 clienti pharma e assunzione 2 ML engineer',
+    trl: 4,
+    industrialNeed: 9,
+    industrialNeedJustification: 'Il 60% dei batch fallisce per variabilità di processo. I clienti pharma pagano già per soluzioni parziali. 2 LOI firmati.',
+    devPerformance: 6,
+    devPerformanceJustification: 'Simulazione accurata al 92% su dati storici. Da validare su produzione live. Latenza ancora elevata (2s vs target 200ms).',
+    team: 7,
+    market: 8,
+    businessModel: 8,
+    ip: 5,
+    regulatory: 7,
+    coInvestors: [
+      { name: 'Bayer Leaps', type: 'CVC', interest: 'High' },
+      { name: 'Indaco Venture Partners', type: 'VC', interest: 'High' },
+      { name: 'Business Angel Network Sud Italia', type: 'Angel', interest: 'Low' }
+    ],
+    capTable: [
+      { shareholder: 'Fondatori (3)', percent: '70', round: 'Bootstrap', notes: '' },
+      { shareholder: 'Nostro fondo', percent: '18', round: 'Seed', notes: 'Board seat' },
+      { shareholder: 'Bayer Leaps', percent: '12', round: 'Seed', notes: 'Co-lead' }
+    ],
+    investmentAmount: 2000000,
+    valuation: 10000000,
+    instrument: 'convertible',
+    stage: 'Term Sheet',
+    notes: 'Term sheet inviato il 5 mag. Attesa risposta entro 15 mag. Clausola anti-dilution da negoziare.'
+  },
+  {
+    id: 'deal-003',
+    company: 'HydroCrack Technologies',
+    sector: 'CleanTech / Energia',
+    description: 'Elettrolizzatore ad alta efficienza per produzione di idrogeno verde tramite fotocatalisi. Efficienza Faradaica 85% dimostrata, costo target <2€/kg H₂.',
+    pipelineSource: 'External',
+    sourceName: 'EIC Accelerator Scouting',
+    useOfInvestment: ['R&D', 'Industrialization trials'],
+    useOfInvestmentNotes: 'Scale-up da 1kW a 50kW e test di durata 1000h',
+    trl: 3,
+    industrialNeed: 7,
+    industrialNeedJustification: 'Obiettivi REPowerEU: forte domanda istituzionale. Competizione intensa ma spazio per tecnologie superiori. Nessun cliente ancora.',
+    devPerformance: 8,
+    devPerformanceJustification: 'Performance in laboratorio eccellenti, superiori allo stato dell\'arte. Degrado a lungo termine ancora da caratterizzare su scala.',
+    team: 6,
+    market: 9,
+    businessModel: 5,
+    ip: 7,
+    regulatory: 6,
+    coInvestors: [
+      { name: 'European Innovation Council Fund', type: 'Public', interest: 'Medium' },
+      { name: 'Eni Next', type: 'CVC', interest: 'Medium' }
+    ],
+    capTable: [
+      { shareholder: 'Università partner (spin-off)', percent: '30', round: 'Pre-seed', notes: 'Licenza esclusiva' },
+      { shareholder: 'Fondatori', percent: '50', round: 'Pre-seed', notes: '' },
+      { shareholder: 'Nostro fondo', percent: '20', round: 'Seed', notes: 'Lead, con pro-rata' }
+    ],
+    investmentAmount: 1200000,
+    valuation: 5000000,
+    instrument: 'SAFE',
+    stage: 'Sourcing',
+    notes: 'Prima call fatta, materiale richiesto. Valutare grant EIC in parallelo. TRL basso, da monitorare.'
+  }
+];
+
+function loadDeals() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch(e) {}
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_DEALS));
+  return JSON.parse(JSON.stringify(DEMO_DEALS));
+}
+
+function saveDeals(deals) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
+}
+
+let deals = loadDeals();
+
+// ============================================================
+// SCORING ENGINE
+// ============================================================
+function coInvestorScore(coInvestors) {
+  if (!coInvestors || coInvestors.length === 0) return 0;
+  const weights = { High: 10, Medium: 6, Low: 2 };
+  const scores = coInvestors.map(c => weights[c.interest] || 0);
+  const avg = scores.reduce((a,b) => a+b, 0) / scores.length;
+  return Math.min(10, avg);
+}
+
+function computeScore(deal) {
+  const ci = coInvestorScore(deal.coInvestors);
+  const score =
+    (deal.industrialNeed   || 0) * 0.25 +
+    (deal.devPerformance   || 0) * 0.25 +
+    (deal.team             || 0) * 0.15 +
+    (deal.market           || 0) * 0.10 +
+    (deal.businessModel    || 0) * 0.10 +
+    (deal.ip               || 0) * 0.05 +
+    (deal.regulatory       || 0) * 0.05 +
+    ci                           * 0.05;
+  return Math.round(score * 10) / 10;
+}
+
+function scoreBadge(score) {
+  const cls = score >= 7 ? 'score-green' : score >= 5 ? 'score-orange' : 'score-red';
+  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold ${cls}">${score.toFixed(1)}</span>`;
+}
+
+function stageBadge(stage) {
+  const map = {
+    'Sourcing': 'stage-sourcing',
+    'Due Diligence': 'stage-dd',
+    'Term Sheet': 'stage-ts',
+    'Closed': 'stage-closed',
+    'Rejected': 'stage-rejected'
+  };
+  const cls = map[stage] || 'bg-slate-100 text-slate-600';
+  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}">${stage}</span>`;
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+const pages = ['dashboard', 'pipeline', 'new', 'priority'];
+
+function navigate(page, dealId) {
+  pages.forEach(p => {
+    document.getElementById('page-' + p).classList.add('hidden');
+    const nav = document.getElementById('nav-' + p);
+    if (nav) nav.classList.remove('active');
+  });
+  document.getElementById('page-' + page).classList.remove('hidden');
+  const nav = document.getElementById('nav-' + page);
+  if (nav) nav.classList.add('active');
+
+  switch(page) {
+    case 'dashboard': renderDashboard(); break;
+    case 'pipeline':  renderPipeline(); break;
+    case 'new':       renderForm(null); break;
+    case 'priority':  renderPriority(); break;
+  }
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const el = document.getElementById('page-dashboard');
+  deals = loadDeals();
+  const total = deals.length;
+  const byStage = {};
+  deals.forEach(d => { byStage[d.stage] = (byStage[d.stage] || 0) + 1; });
+  const scores = deals.map(d => computeScore(d));
+  const avgScore = scores.length ? (scores.reduce((a,b) => a+b,0) / scores.length).toFixed(1) : '–';
+  const top3 = [...deals].sort((a,b) => computeScore(b) - computeScore(a)).slice(0,3);
+
+  const stageOrder = ['Sourcing','Due Diligence','Term Sheet','Closed','Rejected'];
+  const stageColors = {
+    'Sourcing': 'bg-sky-500',
+    'Due Diligence': 'bg-yellow-500',
+    'Term Sheet': 'bg-purple-500',
+    'Closed': 'bg-green-500',
+    'Rejected': 'bg-red-400'
+  };
+
+  el.innerHTML = `
+    <div class="max-w-5xl mx-auto">
+      <h1 class="text-2xl font-bold text-slate-800 mb-1">Dashboard</h1>
+      <p class="text-slate-500 text-sm mb-6">Panoramica del portafoglio deal · ${new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</p>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+          <div class="text-3xl font-bold text-indigo-600 mb-1">${total}</div>
+          <div class="text-sm text-slate-500 font-medium">Deal Totali</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+          <div class="text-3xl font-bold text-indigo-600 mb-1">${avgScore}</div>
+          <div class="text-sm text-slate-500 font-medium">Score Medio</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+          <div class="text-3xl font-bold text-indigo-600 mb-1">${byStage['Due Diligence'] || 0}</div>
+          <div class="text-sm text-slate-500 font-medium">In Due Diligence</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+          <div class="text-3xl font-bold text-indigo-600 mb-1">${byStage['Term Sheet'] || 0}</div>
+          <div class="text-sm text-slate-500 font-medium">Term Sheet Attivi</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- By Stage -->
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+          <h2 class="text-base font-semibold text-slate-700 mb-4">Deal per Stage</h2>
+          <div class="space-y-3">
+            ${stageOrder.map(s => {
+              const count = byStage[s] || 0;
+              const pct = total ? Math.round(count/total*100) : 0;
+              return `
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="text-slate-600">${s}</span>
+                  <span class="font-medium text-slate-700">${count}</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2">
+                  <div class="${stageColors[s] || 'bg-slate-400'} h-2 rounded-full" style="width:${pct}%"></div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Top 3 -->
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+          <h2 class="text-base font-semibold text-slate-700 mb-4">Top 3 Deal per Score</h2>
+          <div class="space-y-3">
+            ${top3.map((d,i) => {
+              const s = computeScore(d);
+              const medals = ['🥇','🥈','🥉'];
+              return `
+              <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors" onclick="openDeal('${d.id}')">
+                <span class="text-xl">${medals[i]}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-slate-800 truncate">${d.company}</div>
+                  <div class="text-xs text-slate-500">${d.sector} · ${d.stage}</div>
+                </div>
+                ${scoreBadge(s)}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-slate-700">Tutti i Deal</h2>
+          <button onclick="navigate('pipeline')" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Vedi pipeline →</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-slate-500 border-b border-slate-100">
+                <th class="pb-2 font-medium">Azienda</th>
+                <th class="pb-2 font-medium">Settore</th>
+                <th class="pb-2 font-medium">TRL</th>
+                <th class="pb-2 font-medium">Stage</th>
+                <th class="pb-2 font-medium">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${deals.map(d => `
+              <tr class="border-b border-slate-50 hover:bg-slate-50 cursor-pointer" onclick="openDeal('${d.id}')">
+                <td class="py-3 font-medium text-slate-800">${d.company}</td>
+                <td class="py-3 text-slate-600">${d.sector}</td>
+                <td class="py-3"><span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded">TRL ${d.trl}</span></td>
+                <td class="py-3">${stageBadge(d.stage)}</td>
+                <td class="py-3">${scoreBadge(computeScore(d))}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// PIPELINE
+// ============================================================
+let pipelineSort = { col: 'score', dir: 'desc' };
+let pipelineFilter = '';
+
+function renderPipeline() {
+  const el = document.getElementById('page-pipeline');
+  deals = loadDeals();
+  el.innerHTML = `
+    <div class="max-w-6xl mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800 mb-1">Pipeline Deal</h1>
+          <p class="text-slate-500 text-sm">Tutti i deal in gestione</p>
+        </div>
+        <button onclick="navigate('new')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nuovo Deal
+        </button>
+      </div>
+
+      <!-- Filters -->
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-4 flex flex-wrap gap-3 items-center">
+        <input id="pipeline-search" type="text" placeholder="Cerca azienda o settore..."
+          class="flex-1 min-w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          oninput="pipelineFilter=this.value; renderPipelineTable()" value="${pipelineFilter}">
+        <select id="pipeline-stage-filter" onchange="renderPipelineTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="">Tutti gli stage</option>
+          <option value="Sourcing">Sourcing</option>
+          <option value="Due Diligence">Due Diligence</option>
+          <option value="Term Sheet">Term Sheet</option>
+          <option value="Closed">Closed</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm" id="pipeline-table">
+            <thead class="bg-slate-50 border-b border-slate-200">
+              <tr class="text-left text-slate-600">
+                ${thBtn('company','Azienda')}
+                ${thBtn('sector','Settore')}
+                ${thBtn('trl','TRL')}
+                ${thBtn('stage','Stage')}
+                ${thBtn('investment','Investimento')}
+                ${thBtn('score','Score')}
+                <th class="px-4 py-3 font-medium">Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="pipeline-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+  renderPipelineTable();
+}
+
+function thBtn(col, label) {
+  const active = pipelineSort.col === col;
+  const arrow = active ? (pipelineSort.dir === 'asc' ? ' ↑' : ' ↓') : '';
+  return `<th class="px-4 py-3 font-medium cursor-pointer hover:text-indigo-600 select-none" onclick="sortPipeline('${col}')">${label}${arrow}</th>`;
+}
+
+function sortPipeline(col) {
+  if (pipelineSort.col === col) {
+    pipelineSort.dir = pipelineSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    pipelineSort.col = col;
+    pipelineSort.dir = col === 'score' ? 'desc' : 'asc';
+  }
+  renderPipeline();
+}
+
+function renderPipelineTable() {
+  deals = loadDeals();
+  const search = (document.getElementById('pipeline-search')?.value || pipelineFilter).toLowerCase();
+  const stageF = document.getElementById('pipeline-stage-filter')?.value || '';
+
+  let filtered = deals.filter(d => {
+    const matchSearch = !search || d.company.toLowerCase().includes(search) || d.sector.toLowerCase().includes(search);
+    const matchStage = !stageF || d.stage === stageF;
+    return matchSearch && matchStage;
+  });
+
+  const col = pipelineSort.col;
+  const dir = pipelineSort.dir === 'asc' ? 1 : -1;
+  filtered.sort((a,b) => {
+    let va, vb;
+    if (col === 'score') { va = computeScore(a); vb = computeScore(b); }
+    else if (col === 'trl') { va = a.trl; vb = b.trl; }
+    else if (col === 'investment') { va = a.investmentAmount || 0; vb = b.investmentAmount || 0; }
+    else { va = (a[col]||'').toLowerCase(); vb = (b[col]||'').toLowerCase(); }
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
+
+  const tbody = document.getElementById('pipeline-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = filtered.map(d => {
+    const score = computeScore(d);
+    const amt = d.investmentAmount ? '€' + Number(d.investmentAmount).toLocaleString('it-IT') : '–';
+    return `
+    <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="openDeal('${d.id}')">
+      <td class="px-4 py-3 font-medium text-slate-800">${d.company}</td>
+      <td class="px-4 py-3 text-slate-600">${d.sector}</td>
+      <td class="px-4 py-3"><span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded">TRL ${d.trl}</span></td>
+      <td class="px-4 py-3">${stageBadge(d.stage)}</td>
+      <td class="px-4 py-3 text-slate-700">${amt}</td>
+      <td class="px-4 py-3">${scoreBadge(score)}</td>
+      <td class="px-4 py-3">
+        <div class="flex gap-2" onclick="event.stopPropagation()">
+          <button onclick="openDeal('${d.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium transition-colors">Dettaglio</button>
+          <button onclick="editDeal('${d.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded font-medium transition-colors">Modifica</button>
+          <button onclick="confirmDelete('${d.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-2 py-1 rounded font-medium transition-colors">Elimina</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-slate-400">Nessun deal trovato</td></tr>';
+  }
+}
+
+// ============================================================
+// PRIORITY VIEW
+// ============================================================
+function renderPriority() {
+  const el = document.getElementById('page-priority');
+  deals = loadDeals();
+  const sorted = [...deals].sort((a,b) => computeScore(b) - computeScore(a));
+
+  el.innerHTML = `
+    <div class="max-w-3xl mx-auto">
+      <h1 class="text-2xl font-bold text-slate-800 mb-1">Ranking Priorità</h1>
+      <p class="text-slate-500 text-sm mb-6">Deal ordinati per score complessivo</p>
+      <div class="space-y-3">
+        ${sorted.map((d,i) => {
+          const score = computeScore(d);
+          const scoreBar = Math.round(score / 10 * 100);
+          const barColor = score >= 7 ? 'bg-green-500' : score >= 5 ? 'bg-orange-400' : 'bg-red-400';
+          return `
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-2xl font-bold text-slate-300 w-8 text-center mt-1">#${i+1}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3 mb-1 flex-wrap">
+                  <span class="font-semibold text-slate-800 text-lg">${d.company}</span>
+                  ${scoreBadge(score)}
+                  ${stageBadge(d.stage)}
+                </div>
+                <div class="text-sm text-slate-500 mb-3">${d.sector} · <span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-1.5 py-0.5 rounded">TRL ${d.trl}</span></div>
+
+                <!-- Score breakdown mini -->
+                <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-600 mb-3">
+                  <div class="flex justify-between"><span>Bisogno industriale</span><span class="font-medium">${d.industrialNeed}/10</span></div>
+                  <div class="flex justify-between"><span>Dev & Performance</span><span class="font-medium">${d.devPerformance}/10</span></div>
+                  <div class="flex justify-between"><span>Team</span><span class="font-medium">${d.team}/10</span></div>
+                  <div class="flex justify-between"><span>Mercato</span><span class="font-medium">${d.market}/10</span></div>
+                </div>
+
+                <div class="w-full bg-slate-100 rounded-full h-2 mb-3">
+                  <div class="${barColor} h-2 rounded-full transition-all" style="width:${scoreBar}%"></div>
+                </div>
+
+                <div class="flex gap-2 flex-wrap">
+                  <button onclick="openDeal('${d.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium transition-colors">Dettaglio</button>
+                  <button onclick="editDeal('${d.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition-colors">Modifica</button>
+                  <button onclick="quickStage('${d.id}')" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-medium transition-colors">Avanza Stage</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function quickStage(id) {
+  deals = loadDeals();
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  const order = ['Sourcing','Due Diligence','Term Sheet','Closed'];
+  const idx = order.indexOf(d.stage);
+  if (idx >= 0 && idx < order.length - 1) {
+    d.stage = order[idx + 1];
+    saveDeals(deals);
+    renderPriority();
+  }
+}
+
+// ============================================================
+// DEAL FORM
+// ============================================================
+let editingDeal = null;
+let formCoInvestors = [];
+let formCapTable = [];
+
+function renderForm(dealId) {
+  deals = loadDeals();
+  editingDeal = dealId ? deals.find(d => d.id === dealId) : null;
+  const d = editingDeal || {};
+
+  formCoInvestors = JSON.parse(JSON.stringify(d.coInvestors || []));
+  formCapTable = JSON.parse(JSON.stringify(d.capTable || []));
+
+  const useOptions = ['R&D','MVP','Hiring','IP Protection','Industrialization trials'];
+
+  const el = document.getElementById('page-new');
+  el.innerHTML = `
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center gap-3 mb-6">
+        <button onclick="navigate('pipeline')" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">${editingDeal ? 'Modifica Deal' : 'Nuovo Deal'}</h1>
+          <p class="text-slate-500 text-sm">${editingDeal ? d.company : 'Inserisci i dettagli del nuovo deal'}</p>
+        </div>
+      </div>
+
+      <form id="deal-form" onsubmit="saveDeal(event)" class="space-y-6">
+
+        <!-- SEZIONE 1: Info Base -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Informazioni Base</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Azienda *</label>
+              <input name="company" type="text" required value="${esc(d.company||'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Settore *</label>
+              <input name="sector" type="text" required value="${esc(d.sector||'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-600 mb-1">Descrizione</label>
+              <textarea name="description" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.description||'')}</textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Fonte Pipeline</label>
+              <select name="pipelineSource" id="form-source-type" onchange="toggleSourceName()" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                <option value="Internal" ${d.pipelineSource==='Internal'?'selected':''}>Internal</option>
+                <option value="External" ${d.pipelineSource==='External'?'selected':''}>External</option>
+              </select>
+            </div>
+            <div id="source-name-wrap" class="${d.pipelineSource==='Internal'?'hidden':''}">
+              <label class="block text-sm font-medium text-slate-600 mb-1">Nome Fonte</label>
+              <input name="sourceName" type="text" value="${esc(d.sourceName||'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Stage</label>
+              <select name="stage" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                ${['Sourcing','Due Diligence','Term Sheet','Closed','Rejected'].map(s => `<option value="${s}" ${d.stage===s?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEZIONE 2: Uso Investimento & TRL -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Investimento & Tecnologia</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-600 mb-2">Utilizzo dell'investimento iniziale</label>
+              <div class="flex flex-wrap gap-2 mb-2">
+                ${useOptions.map(opt => {
+                  const checked = (d.useOfInvestment||[]).includes(opt);
+                  return `<label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" name="useOfInvestment" value="${opt}" ${checked?'checked':''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+                    <span class="text-sm text-slate-600">${opt}</span>
+                  </label>`;
+                }).join('')}
+              </div>
+              <textarea name="useOfInvestmentNotes" placeholder="Note aggiuntive sull'utilizzo..." rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.useOfInvestmentNotes||'')}</textarea>
+            </div>
+
+            <!-- TRL Slider -->
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-600 mb-2">
+                Livello TRL: <span id="trl-val" class="text-indigo-600 font-bold">${d.trl||4}</span>
+                <span id="trl-label" class="text-xs text-slate-400 ml-2"></span>
+              </label>
+              <input type="range" name="trl" min="1" max="9" value="${d.trl||4}"
+                class="w-full" oninput="updateTRL(this.value)">
+              <div class="flex justify-between text-xs text-slate-400 mt-1">
+                <span>TRL 1</span><span>TRL 5</span><span>TRL 9</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Investimento richiesto (€)</label>
+              <input name="investmentAmount" type="number" min="0" value="${d.investmentAmount||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Valutazione (€)</label>
+              <input name="valuation" type="number" min="0" value="${d.valuation||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Strumento</label>
+              <select name="instrument" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                ${['equity','convertible','SAFE','grant'].map(i => `<option value="${i}" ${d.instrument===i?'selected':''}>${i.charAt(0).toUpperCase()+i.slice(1)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEZIONE 3: Criteri di Valutazione -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Criteri di Valutazione</h2>
+
+          ${criterionSlider('industrialNeed','Bisogno Industriale Validato','25%',d.industrialNeed||5,'industrialNeedJustification','Giustificazione bisogno industriale',d.industrialNeedJustification)}
+          ${criterionSlider('devPerformance','Livello Sviluppo & Performance','25%',d.devPerformance||5,'devPerformanceJustification','Giustificazione sviluppo e performance',d.devPerformanceJustification)}
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            ${simpleSlider('team','Team','15%',d.team||5)}
+            ${simpleSlider('market','Dimensione Mercato','10%',d.market||5)}
+            ${simpleSlider('businessModel','Modello di Business','10%',d.businessModel||5)}
+            ${simpleSlider('ip','IP / Brevetti','5%',d.ip||5)}
+            ${simpleSlider('regulatory','Regulatory','5%',d.regulatory||5)}
+          </div>
+
+          <!-- Live Score Preview -->
+          <div class="mt-5 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-indigo-700">Score Preliminare (senza co-investitori)</span>
+              <span id="live-score" class="text-xl font-bold text-indigo-600">–</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEZIONE 4: Co-Investitori -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-700">Co-Investitori Potenziali <span class="text-xs text-slate-400 font-normal">(peso 5%)</span></h2>
+            <button type="button" onclick="addCoInvestor()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi</button>
+          </div>
+          <div id="co-investors-list" class="space-y-2"></div>
+        </div>
+
+        <!-- SEZIONE 5: Cap Table -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-700">Cap Table (ipotesi)</h2>
+            <button type="button" onclick="addCapTableRow()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi riga</button>
+          </div>
+          <div id="cap-table-list" class="space-y-2"></div>
+        </div>
+
+        <!-- SEZIONE 6: Note -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Note & Prossimi Passi</h2>
+          <textarea name="notes" rows="4" placeholder="Inserisci note, azioni da fare, scadenze..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.notes||'')}</textarea>
+        </div>
+
+        <div class="flex justify-end gap-3 pb-8">
+          <button type="button" onclick="navigate('pipeline')" class="px-5 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Annulla</button>
+          <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors">
+            ${editingDeal ? 'Salva Modifiche' : 'Crea Deal'}
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  updateTRL(d.trl||4);
+  renderCoInvestorsList();
+  renderCapTableList();
+  setupLiveScore();
+}
+
+function criterionSlider(name, label, weight, value, justName, justPlaceholder, justValue) {
+  return `
+  <div class="mb-4">
+    <label class="block text-sm font-medium text-slate-600 mb-1">
+      ${label} <span class="text-xs text-slate-400">(${weight})</span>: <span id="${name}-val" class="text-indigo-600 font-bold">${value}</span>/10
+    </label>
+    <input type="range" name="${name}" min="0" max="10" value="${value}" class="w-full mb-2" oninput="document.getElementById('${name}-val').textContent=this.value; updateLiveScore()">
+    <textarea name="${justName}" rows="2" placeholder="${justPlaceholder}..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(justValue||'')}</textarea>
+  </div>`;
+}
+
+function simpleSlider(name, label, weight, value) {
+  return `
+  <div>
+    <label class="block text-sm font-medium text-slate-600 mb-1">
+      ${label} <span class="text-xs text-slate-400">(${weight})</span>: <span id="${name}-val" class="text-indigo-600 font-bold">${value}</span>/10
+    </label>
+    <input type="range" name="${name}" min="0" max="10" value="${value}" class="w-full" oninput="document.getElementById('${name}-val').textContent=this.value; updateLiveScore()">
+  </div>`;
+}
+
+function toggleSourceName() {
+  const type = document.getElementById('form-source-type').value;
+  const wrap = document.getElementById('source-name-wrap');
+  wrap.classList.toggle('hidden', type === 'Internal');
+}
+
+const TRL_LABELS = {
+  1: 'Principi di base osservati',
+  2: 'Concetto tecnologico formulato',
+  3: 'Proof of concept sperimentale',
+  4: 'Tecnologia validata in laboratorio',
+  5: 'Tecnologia validata in ambiente rilevante',
+  6: 'Prototipo dimostrativo',
+  7: 'Prototipo in ambiente operativo',
+  8: 'Sistema completo e qualificato',
+  9: 'Sistema in operatività reale'
+};
+
+function updateTRL(val) {
+  const v = document.getElementById('trl-val');
+  const l = document.getElementById('trl-label');
+  if (v) v.textContent = val;
+  if (l) l.textContent = TRL_LABELS[val] || '';
+}
+
+function setupLiveScore() {
+  document.querySelectorAll('#deal-form input[type=range]').forEach(el => {
+    el.addEventListener('input', updateLiveScore);
+  });
+  updateLiveScore();
+}
+
+function updateLiveScore() {
+  const form = document.getElementById('deal-form');
+  if (!form) return;
+  const g = name => parseFloat(form.querySelector(`[name="${name}"]`)?.value || 0);
+  const score =
+    g('industrialNeed') * 0.25 +
+    g('devPerformance') * 0.25 +
+    g('team') * 0.15 +
+    g('market') * 0.10 +
+    g('businessModel') * 0.10 +
+    g('ip') * 0.05 +
+    g('regulatory') * 0.05;
+  const el = document.getElementById('live-score');
+  if (el) el.textContent = score.toFixed(1) + '/10';
+}
+
+// Co-Investors
+function renderCoInvestorsList() {
+  const el = document.getElementById('co-investors-list');
+  if (!el) return;
+  if (formCoInvestors.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessun co-investitore aggiunto</p>';
+    return;
+  }
+  el.innerHTML = formCoInvestors.map((ci, i) => `
+    <div class="flex gap-2 items-center flex-wrap">
+      <input type="text" value="${esc(ci.name||'')}" placeholder="Nome"
+        oninput="formCoInvestors[${i}].name=this.value"
+        class="flex-1 min-w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      <select onchange="formCoInvestors[${i}].type=this.value" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        ${['VC','CVC','Angel','Public'].map(t => `<option value="${t}" ${ci.type===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <select onchange="formCoInvestors[${i}].interest=this.value" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        ${['High','Medium','Low'].map(l => `<option value="${l}" ${ci.interest===l?'selected':''}>${l}</option>`).join('')}
+      </select>
+      <button type="button" onclick="removeCoInvestor(${i})" class="text-red-400 hover:text-red-600 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function addCoInvestor() {
+  formCoInvestors.push({ name: '', type: 'VC', interest: 'Medium' });
+  renderCoInvestorsList();
+}
+
+function removeCoInvestor(i) {
+  formCoInvestors.splice(i, 1);
+  renderCoInvestorsList();
+}
+
+// Cap Table
+function renderCapTableList() {
+  const el = document.getElementById('cap-table-list');
+  if (!el) return;
+  if (formCapTable.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessuna riga nel cap table</p>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-slate-500 border-b border-slate-100">
+          <th class="pb-2 font-medium">Azionista</th>
+          <th class="pb-2 font-medium">%</th>
+          <th class="pb-2 font-medium">Round</th>
+          <th class="pb-2 font-medium">Note</th>
+          <th class="pb-2"></th>
+        </tr></thead>
+        <tbody>
+          ${formCapTable.map((row, i) => `
+          <tr>
+            <td class="py-1 pr-2"><input type="text" value="${esc(row.shareholder||'')}" placeholder="Azionista" oninput="formCapTable[${i}].shareholder=this.value" class="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300"></td>
+            <td class="py-1 pr-2 w-20"><input type="text" value="${esc(row.percent||'')}" placeholder="%" oninput="formCapTable[${i}].percent=this.value" class="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300"></td>
+            <td class="py-1 pr-2 w-28"><input type="text" value="${esc(row.round||'')}" placeholder="Round" oninput="formCapTable[${i}].round=this.value" class="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300"></td>
+            <td class="py-1 pr-2"><input type="text" value="${esc(row.notes||'')}" placeholder="Note" oninput="formCapTable[${i}].notes=this.value" class="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300"></td>
+            <td class="py-1">
+              <button type="button" onclick="removeCapTableRow(${i})" class="text-red-400 hover:text-red-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function addCapTableRow() {
+  formCapTable.push({ shareholder: '', percent: '', round: '', notes: '' });
+  renderCapTableList();
+}
+
+function removeCapTableRow(i) {
+  formCapTable.splice(i, 1);
+  renderCapTableList();
+}
+
+// Save
+function saveDeal(e) {
+  e.preventDefault();
+  deals = loadDeals();
+  const form = document.getElementById('deal-form');
+  const fd = new FormData(form);
+
+  const g = name => fd.get(name) || '';
+  const gi = name => parseInt(fd.get(name)) || 0;
+
+  const deal = {
+    id: editingDeal ? editingDeal.id : 'deal-' + Date.now(),
+    company: g('company'),
+    sector: g('sector'),
+    description: g('description'),
+    pipelineSource: g('pipelineSource'),
+    sourceName: g('sourceName'),
+    useOfInvestment: fd.getAll('useOfInvestment'),
+    useOfInvestmentNotes: g('useOfInvestmentNotes'),
+    trl: gi('trl'),
+    industrialNeed: gi('industrialNeed'),
+    industrialNeedJustification: g('industrialNeedJustification'),
+    devPerformance: gi('devPerformance'),
+    devPerformanceJustification: g('devPerformanceJustification'),
+    team: gi('team'),
+    market: gi('market'),
+    businessModel: gi('businessModel'),
+    ip: gi('ip'),
+    regulatory: gi('regulatory'),
+    coInvestors: formCoInvestors,
+    capTable: formCapTable,
+    investmentAmount: parseFloat(fd.get('investmentAmount')) || 0,
+    valuation: parseFloat(fd.get('valuation')) || 0,
+    instrument: g('instrument'),
+    stage: g('stage'),
+    notes: g('notes')
+  };
+
+  if (editingDeal) {
+    const idx = deals.findIndex(d => d.id === editingDeal.id);
+    deals[idx] = deal;
+  } else {
+    deals.push(deal);
+  }
+  saveDeals(deals);
+  navigate('pipeline');
+}
+
+// ============================================================
+// DEAL DETAIL MODAL
+// ============================================================
+function openDeal(id) {
+  deals = loadDeals();
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  const score = computeScore(d);
+
+  const weights = [
+    { label: 'Bisogno Industriale', key: 'industrialNeed', w: 0.25, just: d.industrialNeedJustification },
+    { label: 'Dev & Performance', key: 'devPerformance', w: 0.25, just: d.devPerformanceJustification },
+    { label: 'Team', key: 'team', w: 0.15, just: null },
+    { label: 'Mercato', key: 'market', w: 0.10, just: null },
+    { label: 'Business Model', key: 'businessModel', w: 0.10, just: null },
+    { label: 'IP / Brevetti', key: 'ip', w: 0.05, just: null },
+    { label: 'Regulatory', key: 'regulatory', w: 0.05, just: null },
+  ];
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="p-6 border-b border-slate-100">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800 mb-1">${esc(d.company)}</h2>
+          <div class="flex flex-wrap gap-2 items-center text-sm">
+            <span class="text-slate-500">${esc(d.sector)}</span>
+            <span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded">TRL ${d.trl}</span>
+            ${stageBadge(d.stage)}
+            ${scoreBadge(score)}
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 flex-shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+
+      <!-- Descrizione -->
+      ${d.description ? `<div><h3 class="text-sm font-semibold text-slate-600 mb-1 uppercase tracking-wide">Descrizione</h3><p class="text-sm text-slate-700 leading-relaxed">${esc(d.description)}</p></div>` : ''}
+
+      <!-- Info Deal -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-50 rounded-lg p-3">
+          <div class="text-xs text-slate-500 mb-0.5">Fonte</div>
+          <div class="text-sm font-medium text-slate-700">${esc(d.pipelineSource)}${d.sourceName ? '<br><span class="text-xs text-slate-500">'+esc(d.sourceName)+'</span>' : ''}</div>
+        </div>
+        <div class="bg-slate-50 rounded-lg p-3">
+          <div class="text-xs text-slate-500 mb-0.5">Investimento</div>
+          <div class="text-sm font-medium text-slate-700">${d.investmentAmount ? '€'+Number(d.investmentAmount).toLocaleString('it-IT') : '–'}</div>
+        </div>
+        <div class="bg-slate-50 rounded-lg p-3">
+          <div class="text-xs text-slate-500 mb-0.5">Valutazione</div>
+          <div class="text-sm font-medium text-slate-700">${d.valuation ? '€'+Number(d.valuation).toLocaleString('it-IT') : '–'}</div>
+        </div>
+        <div class="bg-slate-50 rounded-lg p-3">
+          <div class="text-xs text-slate-500 mb-0.5">Strumento</div>
+          <div class="text-sm font-medium text-slate-700">${esc(d.instrument||'–')}</div>
+        </div>
+      </div>
+
+      <!-- Uso investimento -->
+      ${d.useOfInvestment && d.useOfInvestment.length ? `
+      <div>
+        <h3 class="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Utilizzo Investimento</h3>
+        <div class="flex flex-wrap gap-1.5 mb-2">${d.useOfInvestment.map(u => `<span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full">${u}</span>`).join('')}</div>
+        ${d.useOfInvestmentNotes ? `<p class="text-xs text-slate-600">${esc(d.useOfInvestmentNotes)}</p>` : ''}
+      </div>` : ''}
+
+      <!-- Score Breakdown -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Breakdown Score</h3>
+        <div class="space-y-2">
+          ${weights.map(w => {
+            const val = d[w.key] || 0;
+            const contrib = val * w.w;
+            const barW = Math.round(val / 10 * 100);
+            const barColor = val >= 7 ? 'bg-green-400' : val >= 5 ? 'bg-orange-400' : 'bg-red-400';
+            return `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-slate-600">${w.label} <span class="text-xs text-slate-400">(${Math.round(w.w*100)}%)</span></span>
+                <span class="font-medium text-slate-700">${val}/10 <span class="text-xs text-slate-400">→ ${contrib.toFixed(2)}</span></span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-1.5">
+                <div class="${barColor} h-1.5 rounded-full" style="width:${barW}%"></div>
+              </div>
+              ${w.just ? `<p class="text-xs text-slate-500 mt-0.5 italic">${esc(w.just)}</p>` : ''}
+            </div>`;
+          }).join('')}
+          <!-- Co-investor score -->
+          ${(() => {
+            const ci = coInvestorScore(d.coInvestors);
+            const barW = Math.round(ci / 10 * 100);
+            const barColor = ci >= 7 ? 'bg-green-400' : ci >= 5 ? 'bg-orange-400' : 'bg-red-400';
+            return `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-slate-600">Co-investitori <span class="text-xs text-slate-400">(5%)</span></span>
+                <span class="font-medium text-slate-700">${ci.toFixed(1)}/10 <span class="text-xs text-slate-400">→ ${(ci*0.05).toFixed(2)}</span></span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-1.5">
+                <div class="${barColor} h-1.5 rounded-full" style="width:${barW}%"></div>
+              </div>
+            </div>`;
+          })()}
+          <div class="flex justify-between text-sm font-semibold pt-2 border-t border-slate-200">
+            <span class="text-slate-700">Score Totale</span>
+            <span>${scoreBadge(score)}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Co-Investitori -->
+      ${d.coInvestors && d.coInvestors.length ? `
+      <div>
+        <h3 class="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Co-Investitori Potenziali</h3>
+        <div class="space-y-1.5">
+          ${d.coInvestors.map(ci => {
+            const interestColor = ci.interest === 'High' ? 'text-green-600 bg-green-50' : ci.interest === 'Medium' ? 'text-orange-600 bg-orange-50' : 'text-red-600 bg-red-50';
+            return `<div class="flex items-center gap-3 text-sm">
+              <span class="font-medium text-slate-700">${esc(ci.name)}</span>
+              <span class="bg-slate-100 text-slate-600 text-xs px-1.5 py-0.5 rounded">${ci.type}</span>
+              <span class="${interestColor} text-xs px-1.5 py-0.5 rounded font-medium">${ci.interest}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Cap Table -->
+      ${d.capTable && d.capTable.length ? `
+      <div>
+        <h3 class="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Cap Table (ipotesi)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left text-slate-500 border-b border-slate-100">
+              <th class="pb-1.5 font-medium">Azionista</th>
+              <th class="pb-1.5 font-medium">%</th>
+              <th class="pb-1.5 font-medium">Round</th>
+              <th class="pb-1.5 font-medium">Note</th>
+            </tr></thead>
+            <tbody>
+              ${d.capTable.map(row => `<tr class="border-b border-slate-50">
+                <td class="py-1.5 font-medium text-slate-700">${esc(row.shareholder)}</td>
+                <td class="py-1.5 text-slate-600">${esc(row.percent)}%</td>
+                <td class="py-1.5 text-slate-600">${esc(row.round)}</td>
+                <td class="py-1.5 text-slate-500 text-xs">${esc(row.notes)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <!-- Note -->
+      ${d.notes ? `
+      <div>
+        <h3 class="text-sm font-semibold text-slate-600 mb-1 uppercase tracking-wide">Note & Prossimi Passi</h3>
+        <p class="text-sm text-slate-700 leading-relaxed bg-amber-50 border border-amber-100 rounded-lg p-3">${esc(d.notes)}</p>
+      </div>` : ''}
+    </div>
+
+    <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+      <button onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Chiudi</button>
+      <button onclick="closeModal(); editDeal('${d.id}')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors">Modifica Deal</button>
+    </div>
+  `;
+
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ============================================================
+// EDIT & DELETE
+// ============================================================
+function editDeal(id) {
+  deals = loadDeals();
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+
+  // Show the new page
+  pages.forEach(p => {
+    document.getElementById('page-' + p).classList.add('hidden');
+    const nav = document.getElementById('nav-' + p);
+    if (nav) nav.classList.remove('active');
+  });
+  document.getElementById('page-new').classList.remove('hidden');
+  document.getElementById('nav-new').classList.add('active');
+  renderForm(id);
+}
+
+function confirmDelete(id) {
+  deals = loadDeals();
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  if (confirm(`Eliminare il deal "${d.company}"? L'operazione non è reversibile.`)) {
+    const newDeals = deals.filter(x => x.id !== id);
+    saveDeals(newDeals);
+    deals = newDeals;
+    renderPipeline();
+  }
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+renderDashboard();
+</script>
+</body>
+</html>
