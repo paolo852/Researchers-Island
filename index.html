@@ -56,7 +56,9 @@
       Team
     </button>
   </nav>
-  <div class="p-4 border-t border-slate-700">
+  <div class="p-4 border-t border-slate-700 space-y-2">
+    <div id="sidebar-user" class="text-xs text-slate-400 text-center"></div>
+    <button onclick="doLogout()" class="w-full text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 rounded font-medium">Logout</button>
     <div class="text-xs text-slate-500 text-center">TRL Focus: ~4 | v1.0</div>
   </div>
 </aside>
@@ -69,6 +71,30 @@
   <div id="page-priority" class="p-6 fade-in hidden"></div>
   <div id="page-team" class="p-6 fade-in hidden"></div>
 </main>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay" class="fixed inset-0 z-[100] bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-800 flex items-center justify-center hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 bg-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-3">DT</div>
+      <h1 class="text-xl font-bold text-slate-800">Deeptech Deal Flow Manager</h1>
+      <p class="text-sm text-slate-500 mt-1">Accedi per continuare</p>
+    </div>
+    <form onsubmit="doLogin(event)" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nome utente</label>
+        <input id="login-username" type="text" required autofocus class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Password</label>
+        <input id="login-password" type="password" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div id="login-error" class="text-sm text-red-600 hidden">Credenziali non valide o utente non autorizzato.</div>
+      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium">Accedi</button>
+      <p class="text-xs text-slate-400 text-center pt-2">Demo: utente <code class="bg-slate-100 px-1 rounded">admin</code> / password <code class="bg-slate-100 px-1 rounded">admin</code></p>
+    </form>
+  </div>
+</div>
 
 <!-- QUICK ADD MODAL -->
 <div id="quick-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
@@ -1517,9 +1543,10 @@ function persistFilesOnDeal() {
 // ============================================================
 const TEAM_KEY = 'dealflow_team';
 const DEMO_TEAM = [
-  { id: 'tm-001', name: 'Marco Bianchi', email: 'marco.bianchi@fondo.it', role: 'Partner', status: 'Active' },
-  { id: 'tm-002', name: 'Giulia Rossi', email: 'giulia.rossi@fondo.it', role: 'Analyst', status: 'Active' },
-  { id: 'tm-003', name: 'Luca Verdi', email: 'luca.verdi@fondo.it', role: 'Associate', status: 'Invited' }
+  { id: 'tm-admin', name: 'Admin Demo', email: 'admin@fondo.it', role: 'Partner', status: 'Active', username: 'admin', password: 'admin', canLogin: true },
+  { id: 'tm-001', name: 'Marco Bianchi', email: 'marco.bianchi@fondo.it', role: 'Partner', status: 'Active', username: 'mbianchi', password: 'demo123', canLogin: true },
+  { id: 'tm-002', name: 'Giulia Rossi', email: 'giulia.rossi@fondo.it', role: 'Analyst', status: 'Active', username: 'grossi', password: 'demo123', canLogin: true },
+  { id: 'tm-003', name: 'Luca Verdi', email: 'luca.verdi@fondo.it', role: 'Associate', status: 'Invited', username: '', password: '', canLogin: false }
 ];
 function loadTeam() {
   const raw = localStorage.getItem(TEAM_KEY);
@@ -1556,17 +1583,21 @@ function renderTeam() {
                 <th class="px-4 py-3 font-medium">Nome</th>
                 <th class="px-4 py-3 font-medium">Email</th>
                 <th class="px-4 py-3 font-medium">Ruolo</th>
+                <th class="px-4 py-3 font-medium">Username</th>
+                <th class="px-4 py-3 font-medium">Accesso</th>
                 <th class="px-4 py-3 font-medium">Stato</th>
                 <th class="px-4 py-3 font-medium">Azioni</th>
               </tr>
             </thead>
             <tbody>
-              ${team.length === 0 ? '<tr><td colspan="5" class="text-center py-12 text-slate-400">Nessun membro nel team</td></tr>' :
+              ${team.length === 0 ? '<tr><td colspan="7" class="text-center py-12 text-slate-400">Nessun membro nel team</td></tr>' :
                 team.map(m => `
                 <tr class="border-b border-slate-100 hover:bg-slate-50">
                   <td class="px-4 py-3 font-medium text-slate-800">${esc(m.name)}</td>
                   <td class="px-4 py-3 text-slate-600">${esc(m.email)}</td>
                   <td class="px-4 py-3 text-slate-600">${esc(m.role)}</td>
+                  <td class="px-4 py-3 text-slate-600 font-mono text-xs">${esc(m.username||'—')}</td>
+                  <td class="px-4 py-3">${m.canLogin ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">✓ Autorizzato</span>' : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Non autorizzato</span>'}</td>
                   <td class="px-4 py-3">${statusBadge(m.status)}</td>
                   <td class="px-4 py-3">
                     <div class="flex gap-2 flex-wrap">
@@ -1617,6 +1648,26 @@ function openTeamModal(id) {
           </select>
         </div>
       </div>
+      <div class="border-t border-slate-100 pt-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700">Credenziali di accesso</h3>
+          <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+            <input type="checkbox" name="canLogin" value="1" ${m&&m.canLogin?'checked':''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+            <span>Autorizzato all'accesso</span>
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Username</label>
+            <input name="username" type="text" autocomplete="off" value="${esc(m?m.username:'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Password</label>
+            <input name="password" type="text" autocomplete="off" value="${esc(m?m.password:'')}" placeholder="${m&&m.password?'••••••':'imposta password'}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">⚠ Demo: le password sono salvate in chiaro nel localStorage.</p>
+      </div>
       <div class="flex justify-end gap-3 pt-2">
         <button type="button" onclick="closeTeamModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annulla</button>
         <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Salva</button>
@@ -1630,11 +1681,20 @@ function saveTeamMember(e, id) {
   e.preventDefault();
   const fd = new FormData(e.target);
   const team = loadTeam();
+  const fields = {
+    name: fd.get('name'),
+    email: fd.get('email'),
+    role: fd.get('role'),
+    status: fd.get('status'),
+    username: (fd.get('username')||'').trim(),
+    password: fd.get('password')||'',
+    canLogin: fd.get('canLogin') === '1'
+  };
   if (id) {
     const idx = team.findIndex(x => x.id === id);
-    if (idx >= 0) team[idx] = { ...team[idx], name: fd.get('name'), email: fd.get('email'), role: fd.get('role'), status: fd.get('status') };
+    if (idx >= 0) team[idx] = { ...team[idx], ...fields };
   } else {
-    team.push({ id: 'tm-'+Date.now(), name: fd.get('name'), email: fd.get('email'), role: fd.get('role'), status: fd.get('status') });
+    team.push({ id: 'tm-'+Date.now(), ...fields });
   }
   saveTeam(team);
   closeTeamModal();
@@ -1660,6 +1720,48 @@ function deleteTeamMember(id) {
 }
 
 // ============================================================
+// AUTH
+// ============================================================
+const SESSION_KEY = 'dealflow_session';
+function currentUser() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); } catch(e) { return null; }
+}
+function doLogin(e) {
+  e.preventDefault();
+  const u = document.getElementById('login-username').value.trim();
+  const p = document.getElementById('login-password').value;
+  // Ensure team is seeded so admin/admin works on first launch
+  const team = loadTeam();
+  const member = team.find(m => m.canLogin && m.status !== 'Inactive' && m.username === u && m.password === p);
+  if (!member) {
+    document.getElementById('login-error').classList.remove('hidden');
+    return;
+  }
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: member.id, name: member.name, role: member.role, username: member.username }));
+  document.getElementById('login-error').classList.add('hidden');
+  document.getElementById('login-password').value = '';
+  showApp();
+}
+function doLogout() {
+  sessionStorage.removeItem(SESSION_KEY);
+  showLogin();
+}
+function showLogin() {
+  document.getElementById('login-overlay').classList.remove('hidden');
+  document.getElementById('sidebar').classList.add('hidden');
+  document.querySelector('main').classList.add('hidden');
+}
+function showApp() {
+  document.getElementById('login-overlay').classList.add('hidden');
+  document.getElementById('sidebar').classList.remove('hidden');
+  document.querySelector('main').classList.remove('hidden');
+  const u = currentUser();
+  const el = document.getElementById('sidebar-user');
+  if (u && el) el.textContent = u.name + ' · ' + u.role;
+  renderPipeline();
+}
+
+// ============================================================
 // INIT
 // ============================================================
 // Ensure tasks/files arrays exist on existing deals
@@ -1670,8 +1772,22 @@ deals.forEach(d => {
   if (!d.files) { d.files = []; _migrated = true; }
 });
 if (_migrated) saveDeals(deals);
-loadTeam(); // seed demo team
-renderPipeline();
+// Seed team & migrate existing team members to include auth fields
+let team = loadTeam();
+let _teamMigrated = false;
+team.forEach(m => {
+  if (m.username === undefined) { m.username = ''; _teamMigrated = true; }
+  if (m.password === undefined) { m.password = ''; _teamMigrated = true; }
+  if (m.canLogin === undefined) { m.canLogin = false; _teamMigrated = true; }
+});
+// Ensure admin demo user exists for first-time login on existing installs
+if (!team.some(m => m.username === 'admin')) {
+  team.unshift({ id: 'tm-admin', name: 'Admin Demo', email: 'admin@fondo.it', role: 'Partner', status: 'Active', username: 'admin', password: 'admin', canLogin: true });
+  _teamMigrated = true;
+}
+if (_teamMigrated) saveTeam(team);
+
+if (currentUser()) showApp(); else showLogin();
 </script>
 </body>
 </html>
