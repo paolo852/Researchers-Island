@@ -502,12 +502,19 @@ function renderPipelineTable() {
 
   const tbody = document.getElementById('pipeline-tbody');
   if (!tbody) return;
+  const team = loadTeam();
+  const teamById = Object.fromEntries(team.map(m => [m.id, m]));
   tbody.innerHTML = filtered.map(d => {
     const score = computeScore(d);
     const amt = d.investmentAmount ? '€' + Number(d.investmentAmount).toLocaleString('it-IT') : '–';
+    const lead = d.dealLead && teamById[d.dealLead] ? teamById[d.dealLead].name : '';
+    const members = (d.dealTeam || []).filter(id => teamById[id]).map(id => teamById[id].name);
+    const teamLine = lead || members.length
+      ? `<div class="text-xs text-slate-500 mt-0.5">${lead ? '<span class="font-medium text-indigo-600">★ '+esc(lead)+'</span>' : ''}${lead && members.length ? ' · ' : ''}${members.length ? esc(members.slice(0,3).join(', ')) + (members.length>3?' +'+(members.length-3):'') : ''}</div>`
+      : '';
     return `
     <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="openDeal('${d.id}')">
-      <td class="px-4 py-3 font-medium text-slate-800">${d.company}</td>
+      <td class="px-4 py-3 font-medium text-slate-800">${esc(d.company)}${teamLine}</td>
       <td class="px-4 py-3 text-slate-600">${d.sector}</td>
       <td class="px-4 py-3"><span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded">TRL ${d.trl}</span></td>
       <td class="px-4 py-3">${stageBadge(d.stage)}</td>
@@ -663,6 +670,43 @@ function renderForm(dealId) {
               </select>
             </div>
           </div>
+        </div>
+
+        <!-- SEZIONE 1b: Team del Progetto -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-700">Team del Progetto</h2>
+            <button type="button" onclick="navigate('team')" class="text-xs text-indigo-600 hover:text-indigo-800">Gestisci membri →</button>
+          </div>
+          ${(() => {
+            const team = loadTeam();
+            if (team.length === 0) return '<p class="text-sm text-slate-400 italic">Nessun membro nel team. Vai alla sezione Team per aggiungerne.</p>';
+            const assigned = d.dealTeam || [];
+            const lead = d.dealLead || '';
+            return `
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-600 mb-2">Deal Lead</label>
+                  <select name="dealLead" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                    <option value="">— Nessuno —</option>
+                    ${team.map(m => `<option value="${esc(m.id)}" ${lead===m.id?'selected':''}>${esc(m.name)} (${esc(m.role)})</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-600 mb-2">Membri assegnati al progetto</label>
+                  <div class="flex flex-wrap gap-2 p-2 border border-slate-200 rounded-lg max-h-32 overflow-y-auto">
+                    ${team.map(m => `
+                      <label class="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded text-sm cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" name="dealTeam" value="${esc(m.id)}" ${assigned.includes(m.id)?'checked':''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+                        <span>${esc(m.name)}</span>
+                        <span class="text-xs text-slate-400">${esc(m.role)}</span>
+                      </label>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            `;
+          })()}
         </div>
 
         <!-- SEZIONE 2: Uso Investimento & TRL -->
@@ -987,6 +1031,8 @@ function saveDeal(e) {
     businessModel: gi('businessModel'),
     ip: gi('ip'),
     regulatory: gi('regulatory'),
+    dealLead: g('dealLead'),
+    dealTeam: fd.getAll('dealTeam'),
     coInvestors: formCoInvestors,
     capTable: formCapTable,
     investmentAmount: parseFloat(fd.get('investmentAmount')) || 0,
