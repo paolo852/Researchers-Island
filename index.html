@@ -1207,7 +1207,10 @@ function editDeal(id) {
     if (nav) nav.classList.remove('active');
   });
   document.getElementById('page-new').classList.remove('hidden');
-  document.getElementById('nav-new').classList.add('active');
+  const navNew = document.getElementById('nav-new');
+  if (navNew) navNew.classList.add('active');
+  const navPipeline = document.getElementById('nav-pipeline');
+  if (navPipeline) navPipeline.classList.add('active');
   renderForm(id);
 }
 
