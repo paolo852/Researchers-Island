@@ -29,9 +29,15 @@
   <div class="px-6 py-5 border-b border-slate-700">
     <div class="flex items-center gap-2">
       <div class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">DT</div>
-      <div>
+      <div class="flex-1">
         <div class="text-white font-semibold text-sm">DeepTech</div>
         <div class="text-slate-400 text-xs">Deal Flow Manager</div>
+      </div>
+      <div class="relative">
+        <button id="notif-bell-btn" onclick="toggleNotifPanel(event)" class="relative text-slate-300 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition-colors" title="Notifiche">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span id="notif-bell-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1"></span>
+        </button>
       </div>
     </div>
   </div>
@@ -55,6 +61,10 @@
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-2a4 4 0 100-8 4 4 0 000 8zm6 4a4 4 0 10-3-7.75"/></svg>
       Team
     </button>
+    <button onclick="navigate('settings')" id="nav-settings" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Impostazioni
+    </button>
   </nav>
   <div class="p-4 border-t border-slate-700 space-y-2">
     <div id="sidebar-user" class="text-xs text-slate-400 text-center"></div>
@@ -70,7 +80,22 @@
   <div id="page-new" class="p-6 fade-in hidden"></div>
   <div id="page-priority" class="p-6 fade-in hidden"></div>
   <div id="page-team" class="p-6 fade-in hidden"></div>
+  <div id="page-settings" class="p-6 fade-in hidden"></div>
 </main>
+
+<!-- NOTIFICATIONS PANEL -->
+<div id="notif-panel" class="hidden fixed top-16 left-64 ml-2 z-[80] w-96 max-h-[70vh] bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col">
+  <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+    <h3 class="text-sm font-semibold text-slate-700">Notifiche</h3>
+    <div class="flex items-center gap-2">
+      <button onclick="markAllNotifRead()" class="text-xs text-indigo-600 hover:text-indigo-800">Segna tutte come lette</button>
+      <button onclick="closeNotifPanel()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="notif-list" class="flex-1 overflow-y-auto"></div>
+</div>
 
 <!-- LOGIN OVERLAY -->
 <div id="login-overlay" class="fixed inset-0 z-[100] bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-800 flex items-center justify-center hidden">
@@ -279,7 +304,7 @@ function stageBadge(stage) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const pages = ['dashboard', 'pipeline', 'new', 'priority', 'team'];
+const pages = ['dashboard', 'pipeline', 'new', 'priority', 'team', 'settings'];
 
 function navigate(page, dealId) {
   pages.forEach(p => {
@@ -297,6 +322,7 @@ function navigate(page, dealId) {
     case 'new':       renderForm(null); break;
     case 'priority':  renderPriority(); break;
     case 'team':      renderTeam(); break;
+    case 'settings':  renderSettings(); break;
   }
 }
 
@@ -789,16 +815,13 @@ function renderForm(dealId) {
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
           <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Criteri di Valutazione</h2>
 
-          ${criterionSlider('industrialNeed','Bisogno Industriale Validato','25%',d.industrialNeed||5,'industrialNeedJustification','Giustificazione bisogno industriale',d.industrialNeedJustification)}
-          ${criterionSlider('devPerformance','Livello Sviluppo & Performance','25%',d.devPerformance||5,'devPerformanceJustification','Giustificazione sviluppo e performance',d.devPerformanceJustification)}
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            ${criterionSlider('team','Team','15%',d.team||5,'teamJustification','Commento sul team',d.teamJustification)}
-            ${criterionSlider('market','Dimensione Mercato','10%',d.market||5,'marketJustification','Commento sul mercato',d.marketJustification)}
-            ${criterionSlider('competitiveAdvantage','Vantaggio Competitivo','10%',d.competitiveAdvantage||5,'competitiveAdvantageJustification','Descrivi il vantaggio competitivo',d.competitiveAdvantageJustification)}
-            ${criterionSlider('ip','IP / Brevetti','5%',d.ip||5,'ipJustification','Commento su IP e brevetti',d.ipJustification)}
-            ${criterionSlider('risks','Rischi (10 = rischio basso)','5%',d.risks||5,'risksJustification','Descrivi i principali rischi',d.risksJustification)}
-          </div>
+          ${criterionBlock('industrialNeed','Bisogno Industriale Validato','25%',d.industrialNeed||5,'industrialNeedJustification','Giustificazione bisogno industriale',d.industrialNeedJustification,d)}
+          ${criterionBlock('devPerformance','Livello Sviluppo & Performance','25%',d.devPerformance||5,'devPerformanceJustification','Giustificazione sviluppo e performance',d.devPerformanceJustification,d)}
+          ${criterionBlock('team','Team','15%',d.team||5,'teamJustification','Commento sul team',d.teamJustification,d)}
+          ${criterionBlock('market','Dimensione Mercato','10%',d.market||5,'marketJustification','Commento sul mercato',d.marketJustification,d)}
+          ${criterionBlock('competitiveAdvantage','Vantaggio Competitivo','10%',d.competitiveAdvantage||5,'competitiveAdvantageJustification','Descrivi il vantaggio competitivo',d.competitiveAdvantageJustification,d)}
+          ${criterionBlock('ip','IP / Brevetti','5%',d.ip||5,'ipJustification','Commento su IP e brevetti',d.ipJustification,d)}
+          ${criterionBlock('risks','Rischi (10 = rischio basso)','5%',d.risks||5,'risksJustification','Descrivi i principali rischi',d.risksJustification,d)}
 
           <!-- Live Score Preview -->
           <div class="mt-5 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
@@ -839,15 +862,6 @@ function renderForm(dealId) {
           <div id="researchers-list" class="space-y-3"></div>
         </div>
 
-        <!-- SEZIONE 7: Tasks -->
-        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-          <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
-            <h2 class="text-base font-semibold text-slate-700">Tasks</h2>
-            <button type="button" onclick="addTask()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi task</button>
-          </div>
-          <div id="tasks-list" class="space-y-2"></div>
-        </div>
-
         <!-- SEZIONE 8: Documenti -->
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
           <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
@@ -881,7 +895,7 @@ function renderForm(dealId) {
   renderCoInvestorsList();
   renderCapTableList();
   renderResearchersList();
-  renderTasksList();
+  CRITERION_KEYS.forEach(k => { renderCriterionTasks(k); renderCriterionComments(k); });
   renderFilesList();
   setupLiveScore();
 }
@@ -1085,13 +1099,33 @@ function saveDeal(e) {
     files: editingDeal ? (editingDeal.files || []) : (formFiles || [])
   };
 
+  // Preserve comments from prior state
+  deal.comments = editingDeal ? (editingDeal.comments || []) : [];
+
+  let stageChanged = false;
+  let prevStage = '';
   if (editingDeal) {
     const idx = deals.findIndex(d => d.id === editingDeal.id);
+    prevStage = deals[idx].stage;
+    if (prevStage !== deal.stage) stageChanged = true;
     deals[idx] = deal;
   } else {
     deals.push(deal);
   }
   saveDeals(deals);
+  if (stageChanged) {
+    const recipients = new Set([...(deal.dealTeam||[]), deal.dealLead].filter(Boolean));
+    const me = currentUser();
+    recipients.forEach(uid => {
+      if (me && uid === me.id) return;
+      addNotification({
+        userId: uid, type: 'deal_stage_change',
+        title: 'Cambio stage deal',
+        body: `${deal.company}: ${prevStage} → ${deal.stage}.`,
+        dealId: deal.id
+      });
+    });
+  }
   navigate('pipeline');
 }
 
@@ -1407,10 +1441,22 @@ function quickAddSave(e) {
     instrument: 'equity',
     stage: fd.get('stage') || 'Sourcing',
     notes: '',
-    researchers: [], tasks: [], files: []
+    researchers: [], tasks: [], files: [], comments: [], dealTeam: [], dealLead: ''
   };
   deals.push(newDeal);
   saveDeals(deals);
+  // Notify all team members of new deal (except creator)
+  const me = currentUser();
+  loadTeam().forEach(m => {
+    if (me && m.id === me.id) return;
+    if (m.status === 'Inactive') return;
+    addNotification({
+      userId: m.id, type: 'new_deal',
+      title: 'Nuovo deal aggiunto',
+      body: `${me?me.name:'Qualcuno'} ha aggiunto il deal "${newDeal.company}" (${newDeal.sector}).`,
+      dealId: newDeal.id
+    });
+  });
   closeQuickAdd();
   editDeal(newDeal.id);
 }
@@ -1508,6 +1554,527 @@ function persistTasksOnDeal() {
   const idx = deals.findIndex(d => d.id === editingDeal.id);
   if (idx >= 0) { deals[idx].tasks = JSON.parse(JSON.stringify(formTasks)); saveDeals(deals); editingDeal = deals[idx]; }
 }
+
+// ============================================================
+// PER-CRITERION TASKS, COMMENTS, NOTIFICATIONS, SETTINGS
+// ============================================================
+const CRITERION_KEYS = ['industrialNeed','devPerformance','team','market','competitiveAdvantage','ip','risks'];
+const CRITERION_LABELS = {
+  industrialNeed: 'Bisogno Industriale',
+  devPerformance: 'Sviluppo & Performance',
+  team: 'Team',
+  market: 'Mercato',
+  competitiveAdvantage: 'Vantaggio Competitivo',
+  ip: 'IP / Brevetti',
+  risks: 'Rischi'
+};
+
+function memberSlug(m) {
+  if (m.username && m.username.trim()) return m.username.trim();
+  return (m.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.+|\.+$/g,'') || ('m-'+m.id);
+}
+
+function criterionBlock(key, label, weight, value, justName, justPlaceholder, justValue, deal) {
+  return `
+  <div class="mb-5 pb-4 border-b border-slate-100 last:border-b-0">
+    <label class="block text-sm font-medium text-slate-600 mb-1">
+      ${label} <span class="text-xs text-slate-400">(${weight})</span>: <span id="${key}-val" class="text-indigo-600 font-bold">${value}</span>/10
+    </label>
+    <input type="range" name="${key}" min="0" max="10" value="${value}" class="w-full mb-2" oninput="document.getElementById('${key}-val').textContent=this.value; updateLiveScore()">
+    <textarea name="${justName}" rows="2" placeholder="${justPlaceholder}..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-3">${esc(justValue||'')}</textarea>
+
+    <details class="mb-2 bg-slate-50 rounded-lg border border-slate-200" ${(deal && ((deal.tasks||[]).some(t=>t.criterion===key) || (deal.comments||[]).some(c=>c.criterion===key))) ? 'open' : ''}>
+      <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-600 select-none flex items-center justify-between">
+        <span>Task & Discussione</span>
+        <span class="text-slate-400 font-normal">${((deal&&deal.tasks)||[]).filter(t=>t.criterion===key).length} task · ${((deal&&deal.comments)||[]).filter(c=>c.criterion===key).length} commenti</span>
+      </summary>
+      <div class="p-3 space-y-3 border-t border-slate-200">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Task per il criterio</h4>
+            <button type="button" onclick="addCriterionTask('${key}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">+ Aggiungi task</button>
+          </div>
+          <div id="crit-tasks-${key}" class="space-y-2"></div>
+        </div>
+        <div>
+          <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">Discussione</h4>
+          <div id="crit-comments-${key}" class="space-y-2 mb-2"></div>
+          <div class="relative">
+            <textarea id="crit-comment-input-${key}" rows="2" placeholder="Scrivi un commento... usa @ per menzionare un membro" oninput="onCommentInput(event,'${key}')" onkeydown="onCommentKeydown(event,'${key}')" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white"></textarea>
+            <div id="mention-dd-${key}" class="hidden absolute z-30 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto w-64"></div>
+            <div class="flex justify-end mt-1">
+              <button type="button" onclick="postCriterionComment('${key}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-medium">Pubblica</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>`;
+}
+
+function getDealForForm() {
+  if (!editingDeal) return null;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  return idx >= 0 ? deals[idx] : null;
+}
+
+function ensureDealLists(deal) {
+  if (!deal.tasks) deal.tasks = [];
+  if (!deal.comments) deal.comments = [];
+}
+
+function renderCriterionTasks(key) {
+  const el = document.getElementById('crit-tasks-' + key);
+  if (!el) return;
+  const deal = getDealForForm();
+  const tasks = deal ? (deal.tasks||[]).filter(t => t.criterion === key) : [];
+  const team = loadTeam();
+  if (tasks.length === 0) {
+    el.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun task per questo criterio</p>';
+    return;
+  }
+  el.innerHTML = tasks.map(t => {
+    const done = t.status === 'Done';
+    const prCol = t.priority === 'High' ? 'bg-red-50 text-red-700' : t.priority === 'Low' ? 'bg-slate-50 text-slate-600' : 'bg-orange-50 text-orange-700';
+    return `
+    <div class="flex flex-wrap items-center gap-2 p-2 bg-white border border-slate-200 rounded">
+      <input type="checkbox" ${done?'checked':''} onchange="toggleCriterionTaskDone('${t.id}','${key}')" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+      <input type="text" value="${esc(t.title||'')}" placeholder="Titolo task" oninput="updateCriterionTask('${t.id}','title',this.value)" class="flex-1 min-w-32 border border-slate-200 rounded px-2 py-1 text-sm ${done?'line-through text-slate-400':''} focus:outline-none focus:ring-1 focus:ring-indigo-300">
+      <select onchange="updateCriterionTask('${t.id}','assignee',this.value,true)" class="border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300">
+        <option value="">— Assegnatario —</option>
+        ${team.map(m => `<option value="${esc(m.id)}" ${t.assignee===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}
+      </select>
+      <input type="date" value="${esc(t.dueDate||'')}" onchange="updateCriterionTask('${t.id}','dueDate',this.value)" class="border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300">
+      <select onchange="updateCriterionTask('${t.id}','status',this.value); renderCriterionTasks('${key}')" class="border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300">
+        ${['To do','In progress','Done'].map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <select onchange="updateCriterionTask('${t.id}','priority',this.value)" class="border border-slate-200 rounded px-2 py-1 text-xs ${prCol} focus:outline-none focus:ring-1 focus:ring-indigo-300">
+        ${['High','Med','Low'].map(p => `<option value="${p}" ${t.priority===p?'selected':''}>${p}</option>`).join('')}
+      </select>
+      <button type="button" onclick="deleteCriterionTask('${t.id}','${key}')" class="text-red-400 hover:text-red-600 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function addCriterionTask(criterion) {
+  if (!editingDeal) { alert('Salva prima il deal per aggiungere task.'); return; }
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  ensureDealLists(deals[idx]);
+  const task = { id: 't-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), criterion, title:'', assignee:'', dueDate:'', status:'To do', priority:'Med' };
+  deals[idx].tasks.push(task);
+  saveDeals(deals);
+  editingDeal = deals[idx];
+  renderCriterionTasks(criterion);
+}
+
+function updateCriterionTask(taskId, field, value, notifyIfAssignee) {
+  if (!editingDeal) return;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  const t = (deals[idx].tasks||[]).find(x => x.id === taskId);
+  if (!t) return;
+  const prevAssignee = t.assignee;
+  t[field] = value;
+  saveDeals(deals);
+  editingDeal = deals[idx];
+  if (notifyIfAssignee && field === 'assignee' && value && value !== prevAssignee) {
+    const team = loadTeam();
+    const m = team.find(x => x.id === value);
+    addNotification({
+      userId: value,
+      type: 'task_assigned',
+      title: 'Nuovo task assegnato',
+      body: `Ti è stato assegnato un task "${t.title||'(senza titolo)'}" su ${deals[idx].company} — criterio ${CRITERION_LABELS[t.criterion]||t.criterion}.`,
+      dealId: deals[idx].id,
+      criterion: t.criterion
+    });
+  }
+}
+
+function toggleCriterionTaskDone(taskId, criterion) {
+  if (!editingDeal) return;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  const t = (deals[idx].tasks||[]).find(x => x.id === taskId);
+  if (!t) return;
+  t.status = t.status === 'Done' ? 'To do' : 'Done';
+  saveDeals(deals);
+  editingDeal = deals[idx];
+  renderCriterionTasks(criterion);
+}
+
+function deleteCriterionTask(taskId, criterion) {
+  if (!editingDeal) return;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  deals[idx].tasks = (deals[idx].tasks||[]).filter(x => x.id !== taskId);
+  saveDeals(deals);
+  editingDeal = deals[idx];
+  renderCriterionTasks(criterion);
+}
+
+// --- Comments ---
+function renderCriterionComments(key) {
+  const el = document.getElementById('crit-comments-' + key);
+  if (!el) return;
+  const deal = getDealForForm();
+  const comments = deal ? (deal.comments||[]).filter(c => c.criterion === key) : [];
+  if (comments.length === 0) {
+    el.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun commento ancora. Avvia la discussione!</p>';
+    return;
+  }
+  el.innerHTML = comments.map(c => {
+    const ts = new Date(c.timestamp);
+    const tsStr = ts.toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) + ' ' + ts.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    const txt = esc(c.text||'').replace(/@([\w.\-]+)/g, '<span class="text-indigo-600 font-medium">@$1</span>');
+    return `
+    <div class="bg-white border border-slate-200 rounded-lg p-2.5">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-xs">
+          <span class="font-semibold text-slate-700">${esc(c.authorName||'?')}</span>
+          ${c.authorRole ? `<span class="text-slate-400 ml-1">· ${esc(c.authorRole)}</span>` : ''}
+        </div>
+        <span class="text-[10px] text-slate-400">${tsStr}</span>
+      </div>
+      <div class="text-sm text-slate-700 whitespace-pre-wrap leading-snug">${txt}</div>
+    </div>`;
+  }).join('');
+}
+
+function postCriterionComment(key) {
+  if (!editingDeal) { alert('Salva prima il deal per commentare.'); return; }
+  const ta = document.getElementById('crit-comment-input-' + key);
+  if (!ta) return;
+  const text = (ta.value||'').trim();
+  if (!text) return;
+  const u = currentUser();
+  if (!u) return;
+  const team = loadTeam();
+  // Detect mentions
+  const mentions = [];
+  const re = /@([\w.\-]+)/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const handle = m[1].toLowerCase();
+    const found = team.find(x => (x.username||'').toLowerCase() === handle || memberSlug(x).toLowerCase() === handle);
+    if (found && !mentions.includes(found.id)) mentions.push(found.id);
+  }
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  ensureDealLists(deals[idx]);
+  const comment = {
+    id: 'c-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    criterion: key,
+    authorId: u.id, authorName: u.name, authorRole: u.role,
+    text, mentions, timestamp: new Date().toISOString()
+  };
+  deals[idx].comments.push(comment);
+  saveDeals(deals);
+  editingDeal = deals[idx];
+  ta.value = '';
+  hideMentionDropdown(key);
+  renderCriterionComments(key);
+  // Notify mentioned users
+  mentions.forEach(uid => {
+    if (uid === u.id) return;
+    addNotification({
+      userId: uid,
+      type: 'mention',
+      title: 'Sei stato menzionato',
+      body: `${u.name} ti ha menzionato in un commento su ${deals[idx].company} (${CRITERION_LABELS[key]||key}): "${text.slice(0,80)}${text.length>80?'…':''}"`,
+      dealId: deals[idx].id,
+      criterion: key
+    });
+  });
+  // Update header count of the details
+  renderCriterionTasks(key); // no-op for tasks but refreshes
+}
+
+// --- @ Mention autocomplete ---
+function onCommentInput(e, key) {
+  const ta = e.target;
+  const pos = ta.selectionStart;
+  const before = ta.value.slice(0, pos);
+  const match = before.match(/@([\w.\-]*)$/);
+  if (!match) { hideMentionDropdown(key); return; }
+  const q = match[1].toLowerCase();
+  const team = loadTeam().filter(m => m.status !== 'Inactive');
+  const matches = team.filter(m => {
+    const u = (m.username||'').toLowerCase();
+    const s = memberSlug(m).toLowerCase();
+    const n = (m.name||'').toLowerCase();
+    return !q || u.startsWith(q) || s.startsWith(q) || n.includes(q);
+  }).slice(0, 8);
+  const dd = document.getElementById('mention-dd-' + key);
+  if (!dd || matches.length === 0) { hideMentionDropdown(key); return; }
+  dd.innerHTML = matches.map(m => {
+    const handle = m.username || memberSlug(m);
+    return `<div onmousedown="event.preventDefault(); insertMention('${key}','${esc(handle)}')" class="px-3 py-1.5 hover:bg-indigo-50 cursor-pointer text-sm flex items-center gap-2">
+      <span class="font-medium text-slate-700">@${esc(handle)}</span>
+      <span class="text-xs text-slate-400">${esc(m.name)}</span>
+    </div>`;
+  }).join('');
+  dd.classList.remove('hidden');
+}
+function onCommentKeydown(e, key) {
+  if (e.key === 'Escape') hideMentionDropdown(key);
+}
+function hideMentionDropdown(key) {
+  const dd = document.getElementById('mention-dd-' + key);
+  if (dd) dd.classList.add('hidden');
+}
+function insertMention(key, handle) {
+  const ta = document.getElementById('crit-comment-input-' + key);
+  if (!ta) return;
+  const pos = ta.selectionStart;
+  const before = ta.value.slice(0, pos);
+  const after = ta.value.slice(pos);
+  const newBefore = before.replace(/@([\w.\-]*)$/, '@' + handle + ' ');
+  ta.value = newBefore + after;
+  const newPos = newBefore.length;
+  ta.focus();
+  ta.setSelectionRange(newPos, newPos);
+  hideMentionDropdown(key);
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+const NOTIF_KEY = 'dealflow_notifications';
+const NOTIF_TYPE_TO_SETTING = {
+  mention: 'mentions',
+  task_assigned: 'tasksAssigned',
+  task_due_soon: 'tasksDueSoon',
+  deal_stage_change: 'stageChange',
+  new_deal: 'newDeal'
+};
+function loadNotifications() {
+  try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); }
+function userSettings(userId) {
+  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true };
+  try {
+    const raw = localStorage.getItem('dealflow_settings_' + userId);
+    if (!raw) return def;
+    return { ...def, ...JSON.parse(raw) };
+  } catch(e) { return def; }
+}
+function saveUserSettings(userId, s) {
+  localStorage.setItem('dealflow_settings_' + userId, JSON.stringify(s));
+}
+function addNotification(n) {
+  if (!n.userId) return;
+  const settingKey = NOTIF_TYPE_TO_SETTING[n.type];
+  if (settingKey) {
+    const s = userSettings(n.userId);
+    if (s[settingKey] === false) return;
+  }
+  const list = loadNotifications();
+  list.unshift({
+    id: 'n-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    userId: n.userId,
+    type: n.type,
+    title: n.title,
+    body: n.body,
+    dealId: n.dealId || null,
+    criterion: n.criterion || null,
+    read: false,
+    timestamp: new Date().toISOString()
+  });
+  // Cap at 200
+  if (list.length > 200) list.length = 200;
+  saveNotifications(list);
+  refreshNotifBadge();
+}
+function refreshNotifBadge() {
+  const u = currentUser();
+  const badge = document.getElementById('notif-bell-badge');
+  if (!badge) return;
+  if (!u) { badge.classList.add('hidden'); return; }
+  const cnt = loadNotifications().filter(n => n.userId === u.id && !n.read).length;
+  if (cnt === 0) { badge.classList.add('hidden'); badge.textContent = ''; }
+  else { badge.classList.remove('hidden'); badge.textContent = cnt > 99 ? '99+' : String(cnt); }
+}
+function toggleNotifPanel(e) {
+  if (e) e.stopPropagation();
+  const p = document.getElementById('notif-panel');
+  if (p.classList.contains('hidden')) { renderNotifList(); p.classList.remove('hidden'); }
+  else p.classList.add('hidden');
+}
+function closeNotifPanel() {
+  document.getElementById('notif-panel').classList.add('hidden');
+}
+function renderNotifList() {
+  const u = currentUser();
+  const el = document.getElementById('notif-list');
+  if (!el) return;
+  if (!u) { el.innerHTML = '<p class="p-4 text-sm text-slate-400">Nessun utente</p>'; return; }
+  const list = loadNotifications().filter(n => n.userId === u.id);
+  if (list.length === 0) {
+    el.innerHTML = '<p class="p-6 text-sm text-slate-400 text-center">Nessuna notifica</p>';
+    return;
+  }
+  const typeIcon = {
+    mention: '@', task_assigned: '✓', task_due_soon: '⏰', deal_stage_change: '⇄', new_deal: '★'
+  };
+  el.innerHTML = list.slice(0, 50).map(n => {
+    const ts = new Date(n.timestamp);
+    const tsStr = ts.toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) + ' ' + ts.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    const ic = typeIcon[n.type] || '•';
+    return `
+    <div class="px-4 py-3 border-b border-slate-100 ${n.read?'bg-white':'bg-indigo-50/40'} hover:bg-slate-50 cursor-pointer" onclick="onNotifClick('${n.id}')">
+      <div class="flex items-start gap-2">
+        <div class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold flex-shrink-0">${ic}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm font-semibold text-slate-700 truncate">${esc(n.title)}</div>
+            ${n.read?'':'<span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></span>'}
+          </div>
+          <div class="text-xs text-slate-600 mt-0.5 leading-snug">${esc(n.body||'')}</div>
+          <div class="flex items-center justify-between mt-1">
+            <span class="text-[10px] text-slate-400">${tsStr}</span>
+            ${n.read?'':`<button onclick="event.stopPropagation(); markNotifRead('${n.id}')" class="text-[10px] text-indigo-600 hover:text-indigo-800">Segna letta</button>`}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function onNotifClick(id) {
+  const list = loadNotifications();
+  const n = list.find(x => x.id === id);
+  if (!n) return;
+  n.read = true;
+  saveNotifications(list);
+  refreshNotifBadge();
+  closeNotifPanel();
+  if (n.dealId) {
+    if (deals.findIndex(d => d.id === n.dealId) >= 0 || loadDeals().some(d => d.id === n.dealId)) {
+      editDeal(n.dealId);
+    }
+  } else {
+    renderNotifList();
+  }
+}
+function markNotifRead(id) {
+  const list = loadNotifications();
+  const n = list.find(x => x.id === id);
+  if (!n) return;
+  n.read = true;
+  saveNotifications(list);
+  refreshNotifBadge();
+  renderNotifList();
+}
+function markAllNotifRead() {
+  const u = currentUser();
+  if (!u) return;
+  const list = loadNotifications();
+  list.forEach(n => { if (n.userId === u.id) n.read = true; });
+  saveNotifications(list);
+  refreshNotifBadge();
+  renderNotifList();
+}
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('notif-panel');
+  const btn = document.getElementById('notif-bell-btn');
+  if (!panel || panel.classList.contains('hidden')) return;
+  if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+  panel.classList.add('hidden');
+});
+
+// Generate task_due_soon notifications at app start (dedup by task id + date marker)
+function generateDueSoonNotifications() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const horizon = new Date(today.getTime() + 3*24*60*60*1000);
+  const allDeals = loadDeals();
+  const existing = loadNotifications();
+  // Build dedup set: type=task_due_soon dedup by `${taskId}|${YYYY-MM-DD}`
+  const todayStr = today.toISOString().slice(0,10);
+  const dedup = new Set(existing.filter(n => n.type==='task_due_soon').map(n => (n._dedupKey || '')));
+  let changed = false;
+  allDeals.forEach(d => {
+    (d.tasks||[]).forEach(t => {
+      if (!t.dueDate || !t.assignee) return;
+      if (t.status === 'Done') return;
+      const due = new Date(t.dueDate);
+      if (isNaN(due.getTime())) return;
+      due.setHours(0,0,0,0);
+      if (due < today || due > horizon) return;
+      const key = `${t.id}|${todayStr}`;
+      if (dedup.has(key)) return;
+      const s = userSettings(t.assignee);
+      if (s.tasksDueSoon === false) return;
+      existing.unshift({
+        id: 'n-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+        userId: t.assignee,
+        type: 'task_due_soon',
+        title: 'Task in scadenza',
+        body: `Il task "${t.title||'(senza titolo)'}" su ${d.company} scade il ${due.toLocaleDateString('it-IT')}.`,
+        dealId: d.id, criterion: t.criterion || null,
+        read: false, timestamp: new Date().toISOString(),
+        _dedupKey: key
+      });
+      dedup.add(key);
+      changed = true;
+    });
+  });
+  if (changed) {
+    if (existing.length > 200) existing.length = 200;
+    saveNotifications(existing);
+  }
+}
+
+// ============================================================
+// SETTINGS PAGE
+// ============================================================
+function renderSettings() {
+  const el = document.getElementById('page-settings');
+  const u = currentUser();
+  if (!u) { el.innerHTML = ''; return; }
+  const s = userSettings(u.id);
+  const row = (key, label, desc) => `
+    <label class="flex items-start justify-between gap-4 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+      <div class="flex-1">
+        <div class="text-sm font-medium text-slate-700">${label}</div>
+        <div class="text-xs text-slate-500 mt-0.5">${desc}</div>
+      </div>
+      <input type="checkbox" data-setting="${key}" ${s[key]?'checked':''} onchange="updateSetting('${key}', this.checked)" class="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-300 w-5 h-5">
+    </label>
+  `;
+  el.innerHTML = `
+    <div class="max-w-2xl mx-auto">
+      <h1 class="text-2xl font-bold text-slate-800 mb-1">Impostazioni</h1>
+      <p class="text-slate-500 text-sm mb-6">Preferenze notifiche per ${esc(u.name)}</p>
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3">
+        <h2 class="text-base font-semibold text-slate-700 mb-2">Notifiche</h2>
+        ${row('mentions','Notifiche @menzioni','Ricevi una notifica quando un membro ti menziona in un commento')}
+        ${row('tasksAssigned','Notifiche task assegnati','Ricevi una notifica quando ti viene assegnato un task')}
+        ${row('tasksDueSoon','Notifiche task in scadenza','Avvisi per i task con scadenza nei prossimi 3 giorni')}
+        ${row('stageChange','Notifiche cambio stage deal','Avvisi quando cambia lo stage di un deal a cui partecipi')}
+        ${row('newDeal','Notifiche nuovi deal','Avvisi quando viene creato un nuovo deal')}
+      </div>
+    </div>
+  `;
+}
+function updateSetting(key, val) {
+  const u = currentUser();
+  if (!u) return;
+  const s = userSettings(u.id);
+  s[key] = !!val;
+  saveUserSettings(u.id, s);
+}
+
 
 // ============================================================
 // FILES (per deal)
@@ -1811,6 +2378,8 @@ function showApp() {
   const u = currentUser();
   const el = document.getElementById('sidebar-user');
   if (u && el) el.textContent = u.name + ' · ' + u.role;
+  generateDueSoonNotifications();
+  refreshNotifBadge();
   renderPipeline();
 }
 
@@ -1824,6 +2393,11 @@ deals.forEach(d => {
   if (!d.tasks) { d.tasks = []; _migrated = true; }
   if (!d.files) { d.files = []; _migrated = true; }
   if (!d.researchers) { d.researchers = []; _migrated = true; }
+  if (!d.comments) { d.comments = []; _migrated = true; }
+  // Migrate legacy tasks without criterion key
+  (d.tasks || []).forEach(t => {
+    if (!t.criterion) { t.criterion = 'industrialNeed'; _migrated = true; }
+  });
 });
 if (_migrated) saveDeals(deals);
 // Seed team & migrate existing team members to include auth fields
@@ -1840,6 +2414,31 @@ if (!team.some(m => m.username === 'admin')) {
   _teamMigrated = true;
 }
 if (_teamMigrated) saveTeam(team);
+
+// Seed demo notifications for admin on first load
+(function seedDemoNotifications() {
+  if (localStorage.getItem(NOTIF_KEY)) return;
+  const admin = team.find(m => m.username === 'admin');
+  if (!admin) return;
+  const firstDeal = (loadDeals()[0] || {});
+  const demo = [
+    {
+      id: 'n-demo-1', userId: admin.id, type: 'mention',
+      title: 'Sei stato menzionato',
+      body: `Marco Bianchi ti ha menzionato in un commento su ${firstDeal.company||'un deal'} (Bisogno Industriale): "@admin puoi confermare il piano industriale?"`,
+      dealId: firstDeal.id || null, criterion: 'industrialNeed',
+      read: false, timestamp: new Date(Date.now() - 60*60*1000).toISOString()
+    },
+    {
+      id: 'n-demo-2', userId: admin.id, type: 'task_assigned',
+      title: 'Nuovo task assegnato',
+      body: `Ti è stato assegnato un task "Verificare brevetti depositati" su ${firstDeal.company||'un deal'}.`,
+      dealId: firstDeal.id || null, criterion: 'ip',
+      read: false, timestamp: new Date(Date.now() - 30*60*1000).toISOString()
+    }
+  ];
+  saveNotifications(demo);
+})();
 
 if (currentUser()) showApp(); else showLogin();
 </script>
