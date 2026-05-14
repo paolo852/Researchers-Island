@@ -35,22 +35,25 @@
       </div>
     </div>
   </div>
+  <div class="px-6 py-3 border-b border-slate-700">
+    <div class="text-white font-semibold text-sm">Deeptech Deal Flow Manager</div>
+  </div>
   <nav class="flex-1 p-4 space-y-1">
-    <button onclick="navigate('dashboard')" id="nav-dashboard" class="sidebar-link w-full text-left active">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-      Dashboard
-    </button>
-    <button onclick="navigate('pipeline')" id="nav-pipeline" class="sidebar-link w-full text-left">
+    <button onclick="navigate('pipeline')" id="nav-pipeline" class="sidebar-link w-full text-left active">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Pipeline
     </button>
-    <button onclick="navigate('new')" id="nav-new" class="sidebar-link w-full text-left">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-      Nuovo Deal
+    <button onclick="navigate('dashboard')" id="nav-dashboard" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Dashboard
     </button>
     <button onclick="navigate('priority')" id="nav-priority" class="sidebar-link w-full text-left">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
       Priorità
+    </button>
+    <button onclick="navigate('team')" id="nav-team" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-2a4 4 0 100-8 4 4 0 000 8zm6 4a4 4 0 10-3-7.75"/></svg>
+      Team
     </button>
   </nav>
   <div class="p-4 border-t border-slate-700">
@@ -60,16 +63,24 @@
 
 <!-- MAIN CONTENT -->
 <main class="flex-1 overflow-auto">
-  <div id="page-dashboard" class="p-6 fade-in"></div>
-  <div id="page-pipeline" class="p-6 fade-in hidden"></div>
+  <div id="page-dashboard" class="p-6 fade-in hidden"></div>
+  <div id="page-pipeline" class="p-6 fade-in"></div>
   <div id="page-new" class="p-6 fade-in hidden"></div>
   <div id="page-priority" class="p-6 fade-in hidden"></div>
+  <div id="page-team" class="p-6 fade-in hidden"></div>
 </main>
 
-<!-- MODAL DEAL DETAIL -->
-<div id="modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
-  <div id="modal-content" class="bg-white rounded-2xl w-full max-w-4xl mx-4 shadow-2xl">
-    <div id="modal-body"></div>
+<!-- QUICK ADD MODAL -->
+<div id="quick-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
+    <div id="quick-modal-body"></div>
+  </div>
+</div>
+
+<!-- TEAM MEMBER MODAL -->
+<div id="team-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
+    <div id="team-modal-body"></div>
   </div>
 </div>
 
@@ -246,7 +257,7 @@ function stageBadge(stage) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const pages = ['dashboard', 'pipeline', 'new', 'priority'];
+const pages = ['dashboard', 'pipeline', 'new', 'priority', 'team'];
 
 function navigate(page, dealId) {
   pages.forEach(p => {
@@ -263,6 +274,7 @@ function navigate(page, dealId) {
     case 'pipeline':  renderPipeline(); break;
     case 'new':       renderForm(null); break;
     case 'priority':  renderPriority(); break;
+    case 'team':      renderTeam(); break;
   }
 }
 
@@ -406,9 +418,9 @@ function renderPipeline() {
           <h1 class="text-2xl font-bold text-slate-800 mb-1">Pipeline Deal</h1>
           <p class="text-slate-500 text-sm">Tutti i deal in gestione</p>
         </div>
-        <button onclick="navigate('new')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+        <button onclick="openQuickAdd()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-md">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Nuovo Deal
+          Nuovo Lead
         </button>
       </div>
 
@@ -503,8 +515,7 @@ function renderPipelineTable() {
       <td class="px-4 py-3">${scoreBadge(score)}</td>
       <td class="px-4 py-3">
         <div class="flex gap-2" onclick="event.stopPropagation()">
-          <button onclick="openDeal('${d.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium transition-colors">Dettaglio</button>
-          <button onclick="editDeal('${d.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded font-medium transition-colors">Modifica</button>
+          <button onclick="openDeal('${d.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium transition-colors">Apri</button>
           <button onclick="confirmDelete('${d.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-2 py-1 rounded font-medium transition-colors">Elimina</button>
         </div>
       </td>
@@ -557,8 +568,7 @@ function renderPriority() {
                 </div>
 
                 <div class="flex gap-2 flex-wrap">
-                  <button onclick="openDeal('${d.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium transition-colors">Dettaglio</button>
-                  <button onclick="editDeal('${d.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition-colors">Modifica</button>
+                  <button onclick="openDeal('${d.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium transition-colors">Apri</button>
                   <button onclick="quickStage('${d.id}')" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-medium transition-colors">Avanza Stage</button>
                 </div>
               </div>
@@ -589,6 +599,8 @@ function quickStage(id) {
 let editingDeal = null;
 let formCoInvestors = [];
 let formCapTable = [];
+let formTasks = [];
+let formFiles = [];
 
 function renderForm(dealId) {
   deals = loadDeals();
@@ -597,6 +609,8 @@ function renderForm(dealId) {
 
   formCoInvestors = JSON.parse(JSON.stringify(d.coInvestors || []));
   formCapTable = JSON.parse(JSON.stringify(d.capTable || []));
+  formTasks = JSON.parse(JSON.stringify(d.tasks || []));
+  formFiles = JSON.parse(JSON.stringify(d.files || []));
 
   const useOptions = ['R&D','MVP','Hiring','IP Protection','Industrialization trials'];
 
@@ -607,9 +621,9 @@ function renderForm(dealId) {
         <button onclick="navigate('pipeline')" class="text-slate-400 hover:text-slate-600">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <div>
-          <h1 class="text-2xl font-bold text-slate-800">${editingDeal ? 'Modifica Deal' : 'Nuovo Deal'}</h1>
-          <p class="text-slate-500 text-sm">${editingDeal ? d.company : 'Inserisci i dettagli del nuovo deal'}</p>
+        <div class="flex-1">
+          <h1 class="text-2xl font-bold text-slate-800">${editingDeal ? esc(d.company) : 'Nuovo Deal'}</h1>
+          <p class="text-slate-500 text-sm">${editingDeal ? (esc(d.sector)+' · '+stageBadgeText(d.stage)+' · Score '+computeScore(d).toFixed(1)) : 'Inserisci i dettagli del nuovo deal'}</p>
         </div>
       </div>
 
@@ -747,6 +761,34 @@ function renderForm(dealId) {
           <textarea name="notes" rows="4" placeholder="Inserisci note, azioni da fare, scadenze..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.notes||'')}</textarea>
         </div>
 
+        <!-- SEZIONE 7: Tasks -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-700">Tasks</h2>
+            <button type="button" onclick="addTask()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi task</button>
+          </div>
+          <div id="tasks-list" class="space-y-2"></div>
+        </div>
+
+        <!-- SEZIONE 8: Documenti -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-700">Documenti</h2>
+            <span id="files-size-warning" class="text-xs text-slate-400"></span>
+          </div>
+          <div id="file-drop-zone" class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors mb-3"
+            ondragover="event.preventDefault(); this.classList.add('border-indigo-500','bg-indigo-50');"
+            ondragleave="this.classList.remove('border-indigo-500','bg-indigo-50');"
+            ondrop="handleFileDrop(event); this.classList.remove('border-indigo-500','bg-indigo-50');"
+            onclick="document.getElementById('file-input').click()">
+            <svg class="w-8 h-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p class="text-sm text-slate-600">Trascina i file qui o <span class="text-indigo-600 font-medium">clicca per caricare</span></p>
+            <p class="text-xs text-slate-400 mt-1">PDF, DOCX, XLSX, PPTX, PNG, JPG</p>
+          </div>
+          <input id="file-input" type="file" multiple accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onchange="handleFileSelect(event)" class="hidden">
+          <div id="files-list" class="space-y-2"></div>
+        </div>
+
         <div class="flex justify-end gap-3 pb-8">
           <button type="button" onclick="navigate('pipeline')" class="px-5 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Annulla</button>
           <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors">
@@ -760,6 +802,8 @@ function renderForm(dealId) {
   updateTRL(d.trl||4);
   renderCoInvestorsList();
   renderCapTableList();
+  renderTasksList();
+  renderFilesList();
   setupLiveScore();
 }
 
@@ -949,7 +993,9 @@ function saveDeal(e) {
     valuation: parseFloat(fd.get('valuation')) || 0,
     instrument: g('instrument'),
     stage: g('stage'),
-    notes: g('notes')
+    notes: g('notes'),
+    tasks: editingDeal ? (editingDeal.tasks || []) : (formTasks || []),
+    files: editingDeal ? (editingDeal.files || []) : (formFiles || [])
   };
 
   if (editingDeal) {
@@ -963,9 +1009,13 @@ function saveDeal(e) {
 }
 
 // ============================================================
-// DEAL DETAIL MODAL
+// DEAL DETAIL — unified with the edit form
 // ============================================================
 function openDeal(id) {
+  editDeal(id);
+}
+
+function _unused_openDealModal(id) {
   deals = loadDeals();
   const d = deals.find(x => x.id === id);
   if (!d) return;
@@ -1130,15 +1180,16 @@ function openDeal(id) {
     </div>
   `;
 
-  document.getElementById('modal-overlay').classList.remove('hidden');
+  // legacy modal removed — unused
 }
 
-function closeModal() {
-  document.getElementById('modal-overlay').classList.add('hidden');
-}
+function closeModal() {}
 
-document.getElementById('modal-overlay').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
+document.getElementById('quick-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeQuickAdd();
+});
+document.getElementById('team-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeTeamModal();
 });
 
 // ============================================================
@@ -1186,9 +1237,392 @@ function esc(str) {
 }
 
 // ============================================================
+// HELPERS
+// ============================================================
+function stageBadgeText(stage) { return stage || '–'; }
+
+// ============================================================
+// QUICK ADD MODAL — fast lead insertion (5 fields)
+// ============================================================
+function openQuickAdd() {
+  const body = document.getElementById('quick-modal-body');
+  body.innerHTML = `
+    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">Nuovo Lead</h2>
+        <p class="text-xs text-slate-500">Inserimento rapido — completi i dettagli dopo</p>
+      </div>
+      <button onclick="closeQuickAdd()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="quick-add-form" onsubmit="quickAddSave(event)" class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Azienda *</label>
+        <input name="company" type="text" required autofocus class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Settore *</label>
+        <input name="sector" type="text" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Fonte</label>
+          <select name="pipelineSource" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <option value="Internal">Internal</option>
+            <option value="External">External</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Stage</label>
+          <select name="stage" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            ${['Sourcing','Due Diligence','Term Sheet','Closed','Rejected'].map(s => `<option value="${s}" ${s==='Sourcing'?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Descrizione breve</label>
+        <textarea name="description" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeQuickAdd()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annulla</button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Salva e apri</button>
+      </div>
+    </form>
+  `;
+  document.getElementById('quick-modal-overlay').classList.remove('hidden');
+}
+function closeQuickAdd() {
+  document.getElementById('quick-modal-overlay').classList.add('hidden');
+}
+function quickAddSave(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  deals = loadDeals();
+  const newDeal = {
+    id: 'deal-' + Date.now(),
+    company: fd.get('company') || '',
+    sector: fd.get('sector') || '',
+    description: fd.get('description') || '',
+    pipelineSource: fd.get('pipelineSource') || 'Internal',
+    sourceName: '',
+    useOfInvestment: [],
+    useOfInvestmentNotes: '',
+    trl: 4,
+    industrialNeed: 5, industrialNeedJustification: '',
+    devPerformance: 5, devPerformanceJustification: '',
+    team: 5, market: 5, businessModel: 5, ip: 5, regulatory: 5,
+    coInvestors: [], capTable: [],
+    investmentAmount: 0, valuation: 0,
+    instrument: 'equity',
+    stage: fd.get('stage') || 'Sourcing',
+    notes: '',
+    tasks: [], files: []
+  };
+  deals.push(newDeal);
+  saveDeals(deals);
+  closeQuickAdd();
+  editDeal(newDeal.id);
+}
+
+// ============================================================
+// TASKS (per deal)
+// ============================================================
+function getTeamMembers() { return loadTeam(); }
+
+function renderTasksList() {
+  const el = document.getElementById('tasks-list');
+  if (!el) return;
+  const team = getTeamMembers();
+  const teamOpts = team.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+  if (formTasks.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessun task. Clicca "+ Aggiungi task" per crearne uno.</p>';
+    return;
+  }
+  el.innerHTML = formTasks.map((t, i) => {
+    const done = t.status === 'Done';
+    const prCol = t.priority === 'High' ? 'bg-red-50 text-red-700' : t.priority === 'Low' ? 'bg-slate-50 text-slate-600' : 'bg-orange-50 text-orange-700';
+    return `
+    <div class="flex flex-wrap items-center gap-2 p-3 border border-slate-200 rounded-lg">
+      <input type="checkbox" ${done?'checked':''} onchange="toggleTaskDone(${i})" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+      <input type="text" value="${esc(t.title||'')}" placeholder="Titolo task" oninput="formTasks[${i}].title=this.value; persistTasksOnDeal()" class="flex-1 min-w-40 border border-slate-200 rounded px-2 py-1 text-sm ${done?'line-through text-slate-400':''} focus:outline-none focus:ring-1 focus:ring-indigo-300">
+      <select onchange="formTasks[${i}].assignee=this.value; persistTasksOnDeal()" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300">
+        <option value="">— Assegnatario —</option>
+        ${team.map(m => `<option value="${esc(m.id)}" ${t.assignee===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}
+      </select>
+      <input type="date" value="${esc(t.dueDate||'')}" onchange="formTasks[${i}].dueDate=this.value; persistTasksOnDeal()" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300">
+      <select onchange="formTasks[${i}].status=this.value; persistTasksOnDeal(); renderTasksList()" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300">
+        ${['To do','In progress','Done'].map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <select onchange="formTasks[${i}].priority=this.value; persistTasksOnDeal()" class="border border-slate-200 rounded px-2 py-1 text-sm ${prCol} focus:outline-none focus:ring-1 focus:ring-indigo-300">
+        ${['High','Med','Low'].map(p => `<option value="${p}" ${t.priority===p?'selected':''}>${p}</option>`).join('')}
+      </select>
+      <button type="button" onclick="removeTask(${i})" class="text-red-400 hover:text-red-600 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+function addTask() {
+  formTasks.push({ id: 't-'+Date.now(), title:'', assignee:'', dueDate:'', status:'To do', priority:'Med' });
+  persistTasksOnDeal();
+  renderTasksList();
+}
+function removeTask(i) { formTasks.splice(i,1); persistTasksOnDeal(); renderTasksList(); }
+function toggleTaskDone(i) {
+  formTasks[i].status = formTasks[i].status === 'Done' ? 'To do' : 'Done';
+  persistTasksOnDeal();
+  renderTasksList();
+}
+function persistTasksOnDeal() {
+  if (!editingDeal) return;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx >= 0) { deals[idx].tasks = JSON.parse(JSON.stringify(formTasks)); saveDeals(deals); editingDeal = deals[idx]; }
+}
+
+// ============================================================
+// FILES (per deal)
+// ============================================================
+const FILE_WARN_BYTES = 4 * 1024 * 1024;
+
+function fmtBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(2) + ' MB';
+}
+function totalFilesSize() {
+  return formFiles.reduce((s,f) => s + (f.size||0), 0);
+}
+function updateFilesWarning() {
+  const el = document.getElementById('files-size-warning');
+  if (!el) return;
+  const tot = totalFilesSize();
+  if (tot > FILE_WARN_BYTES) {
+    el.innerHTML = `<span class="text-red-600 font-medium">Attenzione: ${fmtBytes(tot)} totali — vicino al limite localStorage</span>`;
+  } else {
+    el.textContent = `Totale: ${fmtBytes(tot)}`;
+  }
+}
+function renderFilesList() {
+  const el = document.getElementById('files-list');
+  if (!el) return;
+  updateFilesWarning();
+  if (formFiles.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessun documento caricato</p>';
+    return;
+  }
+  el.innerHTML = formFiles.map((f, i) => `
+    <div class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg">
+      <svg class="w-5 h-5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-medium text-slate-700 truncate">${esc(f.name)}</div>
+        <div class="text-xs text-slate-400">${fmtBytes(f.size||0)} · ${new Date(f.uploadedAt).toLocaleDateString('it-IT')}</div>
+      </div>
+      <a href="${f.dataUrl}" download="${esc(f.name)}" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">Scarica</a>
+      <button type="button" onclick="removeFile(${i})" class="text-red-400 hover:text-red-600 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+function handleFileDrop(e) {
+  e.preventDefault();
+  if (e.dataTransfer && e.dataTransfer.files) processFiles(e.dataTransfer.files);
+}
+function handleFileSelect(e) {
+  processFiles(e.target.files);
+  e.target.value = '';
+}
+function processFiles(fileList) {
+  Array.from(fileList).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      formFiles.push({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: ev.target.result,
+        uploadedAt: new Date().toISOString()
+      });
+      persistFilesOnDeal();
+      renderFilesList();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function removeFile(i) { formFiles.splice(i,1); persistFilesOnDeal(); renderFilesList(); }
+function persistFilesOnDeal() {
+  if (!editingDeal) return;
+  try {
+    deals = loadDeals();
+    const idx = deals.findIndex(d => d.id === editingDeal.id);
+    if (idx >= 0) { deals[idx].files = JSON.parse(JSON.stringify(formFiles)); saveDeals(deals); editingDeal = deals[idx]; }
+  } catch (err) {
+    alert('Errore salvataggio file: ' + err.message + '\nProbabilmente hai raggiunto il limite di localStorage.');
+  }
+}
+
+// ============================================================
+// TEAM
+// ============================================================
+const TEAM_KEY = 'dealflow_team';
+const DEMO_TEAM = [
+  { id: 'tm-001', name: 'Marco Bianchi', email: 'marco.bianchi@fondo.it', role: 'Partner', status: 'Active' },
+  { id: 'tm-002', name: 'Giulia Rossi', email: 'giulia.rossi@fondo.it', role: 'Analyst', status: 'Active' },
+  { id: 'tm-003', name: 'Luca Verdi', email: 'luca.verdi@fondo.it', role: 'Associate', status: 'Invited' }
+];
+function loadTeam() {
+  const raw = localStorage.getItem(TEAM_KEY);
+  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  localStorage.setItem(TEAM_KEY, JSON.stringify(DEMO_TEAM));
+  return JSON.parse(JSON.stringify(DEMO_TEAM));
+}
+function saveTeam(t) { localStorage.setItem(TEAM_KEY, JSON.stringify(t)); }
+
+function renderTeam() {
+  const el = document.getElementById('page-team');
+  const team = loadTeam();
+  const statusBadge = (s) => {
+    const map = { 'Active':'bg-green-100 text-green-800', 'Invited':'bg-yellow-100 text-yellow-800', 'Inactive':'bg-slate-100 text-slate-600' };
+    return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${map[s]||'bg-slate-100'}">${s}</span>`;
+  };
+  el.innerHTML = `
+    <div class="max-w-5xl mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800 mb-1">Team</h1>
+          <p class="text-slate-500 text-sm">Membri del team e gestione utenze</p>
+        </div>
+        <button onclick="openTeamModal(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-md">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nuovo Membro
+        </button>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200">
+              <tr class="text-left text-slate-600">
+                <th class="px-4 py-3 font-medium">Nome</th>
+                <th class="px-4 py-3 font-medium">Email</th>
+                <th class="px-4 py-3 font-medium">Ruolo</th>
+                <th class="px-4 py-3 font-medium">Stato</th>
+                <th class="px-4 py-3 font-medium">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${team.length === 0 ? '<tr><td colspan="5" class="text-center py-12 text-slate-400">Nessun membro nel team</td></tr>' :
+                team.map(m => `
+                <tr class="border-b border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-3 font-medium text-slate-800">${esc(m.name)}</td>
+                  <td class="px-4 py-3 text-slate-600">${esc(m.email)}</td>
+                  <td class="px-4 py-3 text-slate-600">${esc(m.role)}</td>
+                  <td class="px-4 py-3">${statusBadge(m.status)}</td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2 flex-wrap">
+                      ${m.status !== 'Inactive' ? `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2 py-1 rounded font-medium">${m.status==='Active'?'Disattiva utenza':'Attiva utenza'}</button>` : `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Riattiva</button>`}
+                      <button onclick="openTeamModal('${m.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded font-medium">Modifica</button>
+                      <button onclick="deleteTeamMember('${m.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-2 py-1 rounded font-medium">Elimina</button>
+                    </div>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function openTeamModal(id) {
+  const team = loadTeam();
+  const m = id ? team.find(x => x.id === id) : null;
+  const body = document.getElementById('team-modal-body');
+  body.innerHTML = `
+    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-lg font-bold text-slate-800">${m ? 'Modifica Membro' : 'Nuovo Membro'}</h2>
+      <button onclick="closeTeamModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form onsubmit="saveTeamMember(event, '${m?m.id:''}')" class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nome *</label>
+        <input name="name" type="text" required value="${esc(m?m.name:'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Email *</label>
+        <input name="email" type="email" required value="${esc(m?m.email:'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Ruolo</label>
+          <select name="role" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            ${['Partner','Analyst','Associate','Advisor','External'].map(r => `<option value="${r}" ${m&&m.role===r?'selected':''}>${r}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Stato</label>
+          <select name="status" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            ${['Active','Invited','Inactive'].map(s => `<option value="${s}" ${m&&m.status===s?'selected':(!m&&s==='Invited'?'selected':'')}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeTeamModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annulla</button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Salva</button>
+      </div>
+    </form>
+  `;
+  document.getElementById('team-modal-overlay').classList.remove('hidden');
+}
+function closeTeamModal() { document.getElementById('team-modal-overlay').classList.add('hidden'); }
+function saveTeamMember(e, id) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const team = loadTeam();
+  if (id) {
+    const idx = team.findIndex(x => x.id === id);
+    if (idx >= 0) team[idx] = { ...team[idx], name: fd.get('name'), email: fd.get('email'), role: fd.get('role'), status: fd.get('status') };
+  } else {
+    team.push({ id: 'tm-'+Date.now(), name: fd.get('name'), email: fd.get('email'), role: fd.get('role'), status: fd.get('status') });
+  }
+  saveTeam(team);
+  closeTeamModal();
+  renderTeam();
+}
+function toggleTeamStatus(id) {
+  const team = loadTeam();
+  const m = team.find(x => x.id === id);
+  if (!m) return;
+  if (m.status === 'Active') m.status = 'Invited';
+  else m.status = 'Active';
+  saveTeam(team);
+  renderTeam();
+}
+function deleteTeamMember(id) {
+  const team = loadTeam();
+  const m = team.find(x => x.id === id);
+  if (!m) return;
+  if (confirm(`Eliminare il membro "${m.name}"?`)) {
+    saveTeam(team.filter(x => x.id !== id));
+    renderTeam();
+  }
+}
+
+// ============================================================
 // INIT
 // ============================================================
-renderDashboard();
+// Ensure tasks/files arrays exist on existing deals
+deals = loadDeals();
+let _migrated = false;
+deals.forEach(d => {
+  if (!d.tasks) { d.tasks = []; _migrated = true; }
+  if (!d.files) { d.files = []; _migrated = true; }
+});
+if (_migrated) saveDeals(deals);
+loadTeam(); // seed demo team
+renderPipeline();
 </script>
 </body>
 </html>
