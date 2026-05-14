@@ -120,22 +120,20 @@ const DEMO_DEALS = [
   {
     id: 'deal-001',
     company: 'QuantumSense Srl',
-    sector: 'Quantum Computing',
+    sector: 'Medtech',
     description: 'Sensori quantistici per imaging medicale ad alta risoluzione basati su NV-center in diamante sintetico. Tecnologia brevettata, prototipo funzionante in laboratorio.',
     pipelineSource: 'External',
     sourceName: 'Politecnico di Milano – TTO',
     useOfInvestment: ['R&D', 'IP Protection'],
     useOfInvestmentNotes: 'Completamento del prototipo TRL5 e deposito PCT internazionale',
     trl: 4,
-    industrialNeed: 8,
-    industrialNeedJustification: 'MRI e diagnostica avanzata con risoluzione sub-millimetrica: mercato in forte crescita, validazione clinica in corso con ospedale partner.',
-    devPerformance: 7,
-    devPerformanceJustification: 'Sensibilità 10x superiore ai sensori SQUID tradizionali dimostrata in lab. Sfida: miniaturizzazione per uso clinico.',
-    team: 8,
-    market: 9,
-    businessModel: 6,
-    ip: 9,
-    regulatory: 5,
+    industrialNeed: 8, industrialNeedJustification: 'MRI e diagnostica avanzata con risoluzione sub-millimetrica: mercato in forte crescita, validazione clinica in corso con ospedale partner.',
+    devPerformance: 7, devPerformanceJustification: 'Sensibilità 10x superiore ai sensori SQUID tradizionali dimostrata in lab. Sfida: miniaturizzazione per uso clinico.',
+    team: 8, teamJustification: 'Team con 3 PhD in fisica quantistica e 1 esperto regolatorio FDA.',
+    market: 9, marketJustification: 'Mercato global MRI >$7Mld, segmento diagnostica avanzata in crescita del 12% annuo.',
+    competitiveAdvantage: 8, competitiveAdvantageJustification: 'Unico sensore a temperatura ambiente con sensibilità comparabile ai SQUID. Brevetto depositato PCT.',
+    ip: 9, ipJustification: 'Brevetto europeo concesso, PCT in corso. Licenza esclusiva con PoliMi.',
+    risks: 6, risksJustification: 'Rischio principale: miniaturizzazione e approvazione FDA (percorso 510k stimato 18 mesi). Competitore IBM in fase preclinica.',
     coInvestors: [
       { name: 'CDP Venture Capital', type: 'Public', interest: 'High' },
       { name: 'Sofinnova Partners', type: 'VC', interest: 'Medium' }
@@ -146,66 +144,63 @@ const DEMO_DEALS = [
       { shareholder: 'Angel round', percent: '10', round: 'Seed', notes: '' },
       { shareholder: 'Nostro fondo', percent: '20', round: 'Seed', notes: 'Lead investor' }
     ],
-    investmentAmount: 1500000,
-    valuation: 7500000,
-    instrument: 'equity',
-    stage: 'Due Diligence',
-    notes: 'Call tecnica programmata per 20 mag. Richiesta opinion legale su brevetto US. Verificare esclusiva licenza con PoliMi.'
+    researchers: [
+      { name: 'Prof. Laura Bianchi', institution: 'Politecnico di Milano', role: 'Principal Investigator', expertise: 'Fisica quantistica, NV-center', contact: 'l.bianchi@polimi.it', notes: '50+ pubblicazioni, brevetto fondante.' },
+      { name: 'Dr. Marco Esposito', institution: 'Politecnico di Milano', role: 'Co-PI', expertise: 'Imaging biomedico', contact: 'linkedin.com/in/mesposito', notes: 'Ex GE Healthcare, 8 anni industria.' }
+    ],
+    investmentAmount: 1500000, valuation: 7500000, instrument: 'equity',
+    stage: 'Due Diligence', tasks: [], files: [], dealTeam: [], dealLead: ''
   },
   {
     id: 'deal-002',
     company: 'BioReactor.AI',
-    sector: 'Biotech / AI',
+    sector: 'Medtech',
     description: 'Piattaforma AI per ottimizzazione in tempo reale di bioreattori industriali. Algoritmi proprietari di digital twin per fermentazione e produzione di biofarmaci.',
     pipelineSource: 'Internal',
     sourceName: '',
     useOfInvestment: ['MVP', 'Hiring'],
     useOfInvestmentNotes: 'Deploy pilota con 3 clienti pharma e assunzione 2 ML engineer',
     trl: 4,
-    industrialNeed: 9,
-    industrialNeedJustification: 'Il 60% dei batch fallisce per variabilità di processo. I clienti pharma pagano già per soluzioni parziali. 2 LOI firmati.',
-    devPerformance: 6,
-    devPerformanceJustification: 'Simulazione accurata al 92% su dati storici. Da validare su produzione live. Latenza ancora elevata (2s vs target 200ms).',
-    team: 7,
-    market: 8,
-    businessModel: 8,
-    ip: 5,
-    regulatory: 7,
+    industrialNeed: 9, industrialNeedJustification: 'Il 60% dei batch fallisce per variabilità di processo. I clienti pharma pagano già per soluzioni parziali. 2 LOI firmati.',
+    devPerformance: 6, devPerformanceJustification: 'Simulazione accurata al 92% su dati storici. Da validare su produzione live. Latenza ancora elevata (2s vs target 200ms).',
+    team: 7, teamJustification: 'Founder con background bioingegneria e ML. Manca figura commerciale senior.',
+    market: 8, marketJustification: 'Mercato biofarmaceutico $500Mld. Il segmento ottimizzazione processi vale ~$4Mld.',
+    competitiveAdvantage: 7, competitiveAdvantageJustification: 'Algoritmi proprietari addestrati su dataset esclusivo di 200 processi. Dati difficilmente replicabili.',
+    ip: 5, ipJustification: 'Solo copyright sul software. Nessun brevetto. Alta rischio di cloning.',
+    risks: 7, risksJustification: 'Rischio di adozione (integrazione nei sistemi MES clienti). Competizione da Sartorius e Cytovance. Dati clienti sensibili.',
     coInvestors: [
       { name: 'Bayer Leaps', type: 'CVC', interest: 'High' },
       { name: 'Indaco Venture Partners', type: 'VC', interest: 'High' },
-      { name: 'Business Angel Network Sud Italia', type: 'Angel', interest: 'Low' }
+      { name: 'Business Angel Network', type: 'Angel', interest: 'Low' }
     ],
     capTable: [
       { shareholder: 'Fondatori (3)', percent: '70', round: 'Bootstrap', notes: '' },
       { shareholder: 'Nostro fondo', percent: '18', round: 'Seed', notes: 'Board seat' },
       { shareholder: 'Bayer Leaps', percent: '12', round: 'Seed', notes: 'Co-lead' }
     ],
-    investmentAmount: 2000000,
-    valuation: 10000000,
-    instrument: 'convertible',
-    stage: 'Term Sheet',
-    notes: 'Term sheet inviato il 5 mag. Attesa risposta entro 15 mag. Clausola anti-dilution da negoziare.'
+    researchers: [
+      { name: 'Dr. Giulia Ferrara', institution: 'IIT – Istituto Italiano di Tecnologia', role: 'Chief Scientist', expertise: 'Machine learning, bioprocessi', contact: 'g.ferrara@iit.it', notes: 'Premio ERC Starting Grant 2023.' }
+    ],
+    investmentAmount: 2000000, valuation: 10000000, instrument: 'convertible',
+    stage: 'Term Sheet', tasks: [], files: [], dealTeam: [], dealLead: ''
   },
   {
     id: 'deal-003',
     company: 'HydroCrack Technologies',
-    sector: 'CleanTech / Energia',
+    sector: 'Cleantech',
     description: 'Elettrolizzatore ad alta efficienza per produzione di idrogeno verde tramite fotocatalisi. Efficienza Faradaica 85% dimostrata, costo target <2€/kg H₂.',
     pipelineSource: 'External',
     sourceName: 'EIC Accelerator Scouting',
     useOfInvestment: ['R&D', 'Industrialization trials'],
     useOfInvestmentNotes: 'Scale-up da 1kW a 50kW e test di durata 1000h',
     trl: 3,
-    industrialNeed: 7,
-    industrialNeedJustification: 'Obiettivi REPowerEU: forte domanda istituzionale. Competizione intensa ma spazio per tecnologie superiori. Nessun cliente ancora.',
-    devPerformance: 8,
-    devPerformanceJustification: 'Performance in laboratorio eccellenti, superiori allo stato dell\'arte. Degrado a lungo termine ancora da caratterizzare su scala.',
-    team: 6,
-    market: 9,
-    businessModel: 5,
-    ip: 7,
-    regulatory: 6,
+    industrialNeed: 7, industrialNeedJustification: 'Obiettivi REPowerEU: forte domanda istituzionale. Competizione intensa ma spazio per tecnologie superiori.',
+    devPerformance: 8, devPerformanceJustification: 'Performance in laboratorio eccellenti, superiori allo stato dell\'arte. Degrado a lungo termine ancora da caratterizzare su scala.',
+    team: 6, teamJustification: 'Team tecnico forte ma manca esperienza industriale e di scaling.',
+    market: 9, marketJustification: 'Mercato idrogeno verde >$300Mld al 2030. Sussidi pubblici massicci in EU e USA.',
+    competitiveAdvantage: 6, competitiveAdvantageJustification: 'Efficienza superiore ma vantaggio non ancora validato fuori dal laboratorio. Posizione IP difendibile.',
+    ip: 7, ipJustification: 'Domanda brevettuale in corso. Accordo esclusiva con Università depositante.',
+    risks: 5, risksJustification: 'Rischio scaling elevato. Concorrenti capitalizzati (Nel, ITM Power). Dipendenza da iridio, metallo critico con supply chain fragile.',
     coInvestors: [
       { name: 'European Innovation Council Fund', type: 'Public', interest: 'Medium' },
       { name: 'Eni Next', type: 'CVC', interest: 'Medium' }
@@ -215,11 +210,12 @@ const DEMO_DEALS = [
       { shareholder: 'Fondatori', percent: '50', round: 'Pre-seed', notes: '' },
       { shareholder: 'Nostro fondo', percent: '20', round: 'Seed', notes: 'Lead, con pro-rata' }
     ],
-    investmentAmount: 1200000,
-    valuation: 5000000,
-    instrument: 'SAFE',
-    stage: 'Sourcing',
-    notes: 'Prima call fatta, materiale richiesto. Valutare grant EIC in parallelo. TRL basso, da monitorare.'
+    researchers: [
+      { name: 'Prof. Antonio Greco', institution: 'Università di Bologna', role: 'Principal Investigator', expertise: 'Elettrochimica, fotocatalisi', contact: 'a.greco@unibo.it', notes: 'Coordinatore progetto H2020 HydroEU.' },
+      { name: 'Dr. Sara Lombardi', institution: 'Università di Bologna', role: 'PhD Researcher', expertise: 'Materiali per celle a combustibile', contact: 'sara.lombardi@unibo.it', notes: 'Tesi su degrado catalizzatori, dati originali della startup.' }
+    ],
+    investmentAmount: 1200000, valuation: 5000000, instrument: 'SAFE',
+    stage: 'Sourcing', tasks: [], files: [], dealTeam: [], dealLead: ''
   }
 ];
 
@@ -252,14 +248,14 @@ function coInvestorScore(coInvestors) {
 function computeScore(deal) {
   const ci = coInvestorScore(deal.coInvestors);
   const score =
-    (deal.industrialNeed   || 0) * 0.25 +
-    (deal.devPerformance   || 0) * 0.25 +
-    (deal.team             || 0) * 0.15 +
-    (deal.market           || 0) * 0.10 +
-    (deal.businessModel    || 0) * 0.10 +
-    (deal.ip               || 0) * 0.05 +
-    (deal.regulatory       || 0) * 0.05 +
-    ci                           * 0.05;
+    (deal.industrialNeed      || 0) * 0.25 +
+    (deal.devPerformance      || 0) * 0.25 +
+    (deal.team                || 0) * 0.15 +
+    (deal.market              || 0) * 0.10 +
+    (deal.competitiveAdvantage|| 0) * 0.10 +
+    (deal.ip                  || 0) * 0.05 +
+    (deal.risks               || 0) * 0.05 +
+    ci                              * 0.05;
   return Math.round(score * 10) / 10;
 }
 
@@ -634,6 +630,7 @@ let formCoInvestors = [];
 let formCapTable = [];
 let formTasks = [];
 let formFiles = [];
+let formResearchers = [];
 
 function renderForm(dealId) {
   deals = loadDeals();
@@ -644,6 +641,7 @@ function renderForm(dealId) {
   formCapTable = JSON.parse(JSON.stringify(d.capTable || []));
   formTasks = JSON.parse(JSON.stringify(d.tasks || []));
   formFiles = JSON.parse(JSON.stringify(d.files || []));
+  formResearchers = JSON.parse(JSON.stringify(d.researchers || []));
 
   const useOptions = ['R&D','MVP','Hiring','IP Protection','Industrialization trials'];
 
@@ -672,7 +670,11 @@ function renderForm(dealId) {
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-600 mb-1">Settore *</label>
-              <input name="sector" type="text" required value="${esc(d.sector||'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              <select name="sector" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                <option value="">— Seleziona settore —</option>
+                <option value="Medtech" ${(d.sector||'')==='Medtech'?'selected':''}>Medtech</option>
+                <option value="Cleantech" ${(d.sector||'')==='Cleantech'?'selected':''}>Cleantech</option>
+              </select>
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-slate-600 mb-1">Descrizione</label>
@@ -791,11 +793,11 @@ function renderForm(dealId) {
           ${criterionSlider('devPerformance','Livello Sviluppo & Performance','25%',d.devPerformance||5,'devPerformanceJustification','Giustificazione sviluppo e performance',d.devPerformanceJustification)}
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            ${simpleSlider('team','Team','15%',d.team||5)}
-            ${simpleSlider('market','Dimensione Mercato','10%',d.market||5)}
-            ${simpleSlider('businessModel','Modello di Business','10%',d.businessModel||5)}
-            ${simpleSlider('ip','IP / Brevetti','5%',d.ip||5)}
-            ${simpleSlider('regulatory','Regulatory','5%',d.regulatory||5)}
+            ${criterionSlider('team','Team','15%',d.team||5,'teamJustification','Commento sul team',d.teamJustification)}
+            ${criterionSlider('market','Dimensione Mercato','10%',d.market||5,'marketJustification','Commento sul mercato',d.marketJustification)}
+            ${criterionSlider('competitiveAdvantage','Vantaggio Competitivo','10%',d.competitiveAdvantage||5,'competitiveAdvantageJustification','Descrivi il vantaggio competitivo',d.competitiveAdvantageJustification)}
+            ${criterionSlider('ip','IP / Brevetti','5%',d.ip||5,'ipJustification','Commento su IP e brevetti',d.ipJustification)}
+            ${criterionSlider('risks','Rischi (10 = rischio basso)','5%',d.risks||5,'risksJustification','Descrivi i principali rischi',d.risksJustification)}
           </div>
 
           <!-- Live Score Preview -->
@@ -825,10 +827,16 @@ function renderForm(dealId) {
           <div id="cap-table-list" class="space-y-2"></div>
         </div>
 
-        <!-- SEZIONE 6: Note -->
+        <!-- SEZIONE 6: Ricercatori -->
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-          <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Note & Prossimi Passi</h2>
-          <textarea name="notes" rows="4" placeholder="Inserisci note, azioni da fare, scadenze..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.notes||'')}</textarea>
+          <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <div>
+              <h2 class="text-base font-semibold text-slate-700">Team di Ricerca</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Ricercatori e figure scientifiche coinvolte nel progetto</p>
+            </div>
+            <button type="button" onclick="addResearcher()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi ricercatore</button>
+          </div>
+          <div id="researchers-list" class="space-y-3"></div>
         </div>
 
         <!-- SEZIONE 7: Tasks -->
@@ -872,6 +880,7 @@ function renderForm(dealId) {
   updateTRL(d.trl||4);
   renderCoInvestorsList();
   renderCapTableList();
+  renderResearchersList();
   renderTasksList();
   renderFilesList();
   setupLiveScore();
@@ -935,13 +944,13 @@ function updateLiveScore() {
   if (!form) return;
   const g = name => parseFloat(form.querySelector(`[name="${name}"]`)?.value || 0);
   const score =
-    g('industrialNeed') * 0.25 +
-    g('devPerformance') * 0.25 +
-    g('team') * 0.15 +
-    g('market') * 0.10 +
-    g('businessModel') * 0.10 +
-    g('ip') * 0.05 +
-    g('regulatory') * 0.05;
+    g('industrialNeed')       * 0.25 +
+    g('devPerformance')       * 0.25 +
+    g('team')                 * 0.15 +
+    g('market')               * 0.10 +
+    g('competitiveAdvantage') * 0.10 +
+    g('ip')                   * 0.05 +
+    g('risks')                * 0.05;
   const el = document.getElementById('live-score');
   if (el) el.textContent = score.toFixed(1) + '/10';
 }
@@ -1053,10 +1062,15 @@ function saveDeal(e) {
     devPerformance: gi('devPerformance'),
     devPerformanceJustification: g('devPerformanceJustification'),
     team: gi('team'),
+    teamJustification: g('teamJustification'),
     market: gi('market'),
-    businessModel: gi('businessModel'),
+    marketJustification: g('marketJustification'),
+    competitiveAdvantage: gi('competitiveAdvantage'),
+    competitiveAdvantageJustification: g('competitiveAdvantageJustification'),
     ip: gi('ip'),
-    regulatory: gi('regulatory'),
+    ipJustification: g('ipJustification'),
+    risks: gi('risks'),
+    risksJustification: g('risksJustification'),
     dealLead: g('dealLead'),
     dealTeam: fd.getAll('dealTeam'),
     coInvestors: formCoInvestors,
@@ -1066,6 +1080,7 @@ function saveDeal(e) {
     instrument: g('instrument'),
     stage: g('stage'),
     notes: g('notes'),
+    researchers: formResearchers,
     tasks: editingDeal ? (editingDeal.tasks || []) : (formTasks || []),
     files: editingDeal ? (editingDeal.files || []) : (formFiles || [])
   };
@@ -1392,7 +1407,7 @@ function quickAddSave(e) {
     instrument: 'equity',
     stage: fd.get('stage') || 'Sourcing',
     notes: '',
-    tasks: [], files: []
+    researchers: [], tasks: [], files: []
   };
   deals.push(newDeal);
   saveDeals(deals);
@@ -1402,6 +1417,44 @@ function quickAddSave(e) {
 
 // ============================================================
 // TASKS (per deal)
+// ============================================================
+// RESEARCHERS
+// ============================================================
+function renderResearchersList() {
+  const el = document.getElementById('researchers-list');
+  if (!el) return;
+  if (formResearchers.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessun ricercatore aggiunto. Clicca "+ Aggiungi ricercatore".</p>';
+    return;
+  }
+  el.innerHTML = formResearchers.map((r, i) => `
+    <div class="p-4 border border-slate-200 rounded-lg bg-slate-50 space-y-3">
+      <div class="flex items-start justify-between gap-2">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1">
+          <input type="text" value="${esc(r.name||'')}" placeholder="Nome e cognome *" oninput="formResearchers[${i}].name=this.value" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+          <input type="text" value="${esc(r.institution||'')}" placeholder="Istituzione / Università" oninput="formResearchers[${i}].institution=this.value" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+          <input type="text" value="${esc(r.role||'')}" placeholder="Ruolo (es. PI, Co-PI, PhD)" oninput="formResearchers[${i}].role=this.value" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+        </div>
+        <button type="button" onclick="removeResearcher(${i})" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <input type="text" value="${esc(r.expertise||'')}" placeholder="Area di competenza" oninput="formResearchers[${i}].expertise=this.value" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+        <input type="text" value="${esc(r.contact||'')}" placeholder="Email / LinkedIn" oninput="formResearchers[${i}].contact=this.value" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+      </div>
+      <textarea placeholder="Note sul ricercatore (pubblicazioni rilevanti, brevetti, esperienza industriale...)" rows="2" oninput="formResearchers[${i}].notes=this.value" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white resize-none">${esc(r.notes||'')}</textarea>
+    </div>`).join('');
+}
+function addResearcher() {
+  formResearchers.push({ name:'', institution:'', role:'', expertise:'', contact:'', notes:'' });
+  renderResearchersList();
+}
+function removeResearcher(i) {
+  formResearchers.splice(i, 1);
+  renderResearchersList();
+}
+
 // ============================================================
 function getTeamMembers() { return loadTeam(); }
 
@@ -1770,6 +1823,7 @@ let _migrated = false;
 deals.forEach(d => {
   if (!d.tasks) { d.tasks = []; _migrated = true; }
   if (!d.files) { d.files = []; _migrated = true; }
+  if (!d.researchers) { d.researchers = []; _migrated = true; }
 });
 if (_migrated) saveDeals(deals);
 // Seed team & migrate existing team members to include auth fields
