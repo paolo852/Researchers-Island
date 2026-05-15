@@ -140,6 +140,13 @@
   </div>
 </div>
 
+<!-- INVESTOR SUGGESTIONS MODAL -->
+<div id="suggestions-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
+    <div id="suggestions-modal-body"></div>
+  </div>
+</div>
+
 <!-- TEAM MEMBER MODAL -->
 <div id="team-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
   <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
@@ -849,7 +856,13 @@ function renderForm(dealId) {
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
           <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
             <h2 class="text-base font-semibold text-slate-700">Co-Investitori Potenziali <span class="text-xs text-slate-400 font-normal">(peso 5%)</span></h2>
-            <button type="button" onclick="addCoInvestor()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi</button>
+            <div class="flex gap-2">
+              <button type="button" onclick="openInvestorSuggestions()" class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                Suggerisci dall'elenco
+              </button>
+              <button type="button" onclick="addCoInvestor()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi</button>
+            </div>
           </div>
           <div id="co-investors-list" class="space-y-2"></div>
         </div>
@@ -1327,6 +1340,9 @@ document.getElementById('team-modal-overlay').addEventListener('click', function
 });
 document.getElementById('investor-modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeInvestorModal();
+});
+document.getElementById('suggestions-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeSuggestionsModal();
 });
 
 // ============================================================
@@ -2512,6 +2528,131 @@ function deleteInvestor(id) {
 }
 
 // ============================================================
+// ============================================================
+// INVESTOR MATCHING
+// ============================================================
+function computeInvestorMatch(deal, inv) {
+  const details = [];
+  let score = 0;
+
+  // Settore (30 pt)
+  const sectorMatch = (inv.sectors || []).includes(deal.sector);
+  if (sectorMatch) { score += 30; details.push({ ok: true,  label: 'Settore', note: deal.sector + ' è tra i settori del fondo' }); }
+  else             {              details.push({ ok: false, label: 'Settore', note: (inv.sectors||[]).join(', ') || '—' }); }
+
+  // TRL (25 pt)
+  const trl = deal.trl || 0;
+  const trlMin = inv.trlMin || 1, trlMax = inv.trlMax || 9;
+  const trlMatch = trl >= trlMin && trl <= trlMax;
+  if (trlMatch) { score += 25; details.push({ ok: true,  label: 'TRL', note: `TRL ${trl} è nel range ${trlMin}–${trlMax}` }); }
+  else          {              details.push({ ok: false, label: 'TRL', note: `TRL ${trl} fuori dal range ${trlMin}–${trlMax}` }); }
+
+  // Stage (20 pt) — mappa deal stage → termini usati dagli investitori
+  const stageMap = { 'Sourcing': 'Seed', 'Due Diligence': 'Seed', 'Term Sheet': 'Series A', 'Closed': 'Series A', 'Rejected': null };
+  const dealStageKey = stageMap[deal.stage] || deal.stage;
+  const stageMatch = (inv.stages || []).some(s => s === dealStageKey || s.toLowerCase().includes(dealStageKey.toLowerCase()));
+  if (stageMatch) { score += 20; details.push({ ok: true,  label: 'Stage', note: `${deal.stage} compatibile con ${(inv.stages||[]).join(', ')}` }); }
+  else            {              details.push({ ok: false, label: 'Stage', note: `Stage preferiti: ${(inv.stages||[]).join(', ')}` }); }
+
+  // Ticket (15 pt)
+  const amount = deal.investmentAmount || 0;
+  const ticketMin = inv.ticketMin || 0, ticketMax = inv.ticketMax || Infinity;
+  const ticketMatch = amount > 0 && amount >= ticketMin && amount <= ticketMax;
+  const fmt = n => n ? '€'+Number(n).toLocaleString('it-IT') : '—';
+  if (ticketMatch)     { score += 15; details.push({ ok: true,  label: 'Ticket', note: `${fmt(amount)} nel range ${fmt(ticketMin)}–${fmt(ticketMax)}` }); }
+  else if (amount > 0) {              details.push({ ok: false, label: 'Ticket', note: `${fmt(amount)} fuori dal range ${fmt(ticketMin)}–${fmt(ticketMax)}` }); }
+  else                 {              details.push({ ok: null,  label: 'Ticket', note: 'Importo non specificato nel deal' }); }
+
+  // Status relazione (10 pt)
+  const statusScores = { 'Warm': 10, 'Partner': 10, 'In valutazione': 5, 'Cold': 0 };
+  const statusPts = statusScores[inv.status] || 0;
+  score += statusPts;
+  details.push({ ok: statusPts > 0, label: 'Relazione', note: inv.status + (statusPts > 0 ? ' — contatto già avviato' : ' — da scaldare') });
+
+  return { score, pct: Math.round(score), details };
+}
+
+function openInvestorSuggestions() {
+  // Read current deal from form (editingDeal or draft)
+  const deal = editingDeal || {};
+  // If form has live values, override key fields
+  const form = document.getElementById('deal-form');
+  if (form) {
+    const fd = new FormData(form);
+    deal.sector = fd.get('sector') || deal.sector;
+    deal.stage  = fd.get('stage')  || deal.stage;
+    deal.trl    = parseInt(fd.get('trl')) || deal.trl;
+    deal.investmentAmount = parseFloat(fd.get('investmentAmount')) || deal.investmentAmount;
+    deal.instrument = fd.get('instrument') || deal.instrument;
+  }
+
+  const investors = loadInvestors();
+  const results = investors
+    .map(inv => ({ inv, ...computeInvestorMatch(deal, inv) }))
+    .sort((a, b) => b.score - a.score);
+
+  const scoreColor = pct => pct >= 70 ? 'text-green-700 bg-green-50 border-green-200'
+                          : pct >= 40 ? 'text-amber-700 bg-amber-50 border-amber-200'
+                          :             'text-red-700 bg-red-50 border-red-200';
+  const barColor  = pct => pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-400';
+  const checkIcon = ok => ok === true  ? '<span class="text-green-600">✓</span>'
+                        : ok === false ? '<span class="text-red-400">✗</span>'
+                        :               '<span class="text-slate-400">–</span>';
+
+  document.getElementById('suggestions-modal-body').innerHTML = `
+    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">Investitori suggeriti</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Match basato su settore, TRL, stage, ticket e relazione</p>
+      </div>
+      <button onclick="closeSuggestionsModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+      ${results.length === 0 ? '<p class="text-slate-400 text-sm">Nessun investitore in anagrafica.</p>' :
+        results.map(({ inv, pct, details }) => `
+        <div class="border border-slate-200 rounded-xl p-4 ${pct >= 70 ? 'border-green-200 bg-green-50/30' : ''}">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="font-semibold text-slate-800">${esc(inv.name)}</div>
+              <div class="text-xs text-slate-500">${esc(inv.type)} · ${esc(inv.status)}${inv.contactName ? ' · '+esc(inv.contactName) : ''}</div>
+            </div>
+            <div class="text-right flex-shrink-0 ml-4">
+              <div class="text-2xl font-bold ${pct >= 70 ? 'text-green-700' : pct >= 40 ? 'text-amber-700' : 'text-slate-500'}">${pct}<span class="text-sm font-normal">%</span></div>
+              <div class="w-24 bg-slate-200 rounded-full h-1.5 mt-1">
+                <div class="${barColor(pct)} h-1.5 rounded-full" style="width:${pct}%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-1.5 text-xs">
+            ${details.map(d => `
+              <div class="flex items-start gap-1 ${d.ok === false ? 'opacity-60' : ''}">
+                ${checkIcon(d.ok)}
+                <span><span class="font-medium text-slate-700">${d.label}:</span> <span class="text-slate-600">${esc(d.note)}</span></span>
+              </div>`).join('')}
+          </div>
+          <div class="mt-3 flex gap-2">
+            <button onclick="addSuggestedInvestor('${inv.id}');closeSuggestionsModal()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium">+ Aggiungi ai co-investitori</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  document.getElementById('suggestions-modal-overlay').classList.remove('hidden');
+}
+
+function closeSuggestionsModal() {
+  document.getElementById('suggestions-modal-overlay').classList.add('hidden');
+}
+
+function addSuggestedInvestor(invId) {
+  const inv = loadInvestors().find(x => x.id === invId);
+  if (!inv) return;
+  // Avoid duplicates
+  if (formCoInvestors.some(c => c.name === inv.name)) return;
+  formCoInvestors.push({ name: inv.name, type: inv.type, interest: inv.status === 'Warm' || inv.status === 'Partner' ? 'High' : inv.status === 'In valutazione' ? 'Medium' : 'Low' });
+  renderCoInvestorsList();
+}
+
 // TEAM
 // ============================================================
 const TEAM_KEY = 'dealflow_team';
