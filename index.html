@@ -61,6 +61,10 @@
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-2a4 4 0 100-8 4 4 0 000 8zm6 4a4 4 0 10-3-7.75"/></svg>
       Team
     </button>
+    <button onclick="navigate('investors')" id="nav-investors" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+      Investitori
+    </button>
     <button onclick="navigate('settings')" id="nav-settings" class="sidebar-link w-full text-left">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       Impostazioni
@@ -81,6 +85,7 @@
   <div id="page-priority" class="p-6 fade-in hidden"></div>
   <div id="page-team" class="p-6 fade-in hidden"></div>
   <div id="page-settings" class="p-6 fade-in hidden"></div>
+  <div id="page-investors" class="p-6 fade-in hidden"></div>
 </main>
 
 <!-- NOTIFICATIONS PANEL -->
@@ -125,6 +130,13 @@
 <div id="quick-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
   <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
     <div id="quick-modal-body"></div>
+  </div>
+</div>
+
+<!-- INVESTOR MODAL -->
+<div id="investor-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
+    <div id="investor-modal-body"></div>
   </div>
 </div>
 
@@ -304,7 +316,7 @@ function stageBadge(stage) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const pages = ['dashboard', 'pipeline', 'new', 'priority', 'team', 'settings'];
+const pages = ['dashboard', 'pipeline', 'new', 'priority', 'team', 'investors', 'settings'];
 
 function navigate(page, dealId) {
   pages.forEach(p => {
@@ -322,6 +334,7 @@ function navigate(page, dealId) {
     case 'new':       renderForm(null); break;
     case 'priority':  renderPriority(); break;
     case 'team':      renderTeam(); break;
+    case 'investors': renderInvestors(); break;
     case 'settings':  renderSettings(); break;
   }
 }
@@ -1312,6 +1325,9 @@ document.getElementById('quick-modal-overlay').addEventListener('click', functio
 document.getElementById('team-modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeTeamModal();
 });
+document.getElementById('investor-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeInvestorModal();
+});
 
 // ============================================================
 // EDIT & DELETE
@@ -2155,6 +2171,343 @@ function persistFilesOnDeal() {
     if (idx >= 0) { deals[idx].files = JSON.parse(JSON.stringify(formFiles)); saveDeals(deals); editingDeal = deals[idx]; }
   } catch (err) {
     alert('Errore salvataggio file: ' + err.message + '\nProbabilmente hai raggiunto il limite di localStorage.');
+  }
+}
+
+// ============================================================
+// ============================================================
+// INVESTORS
+// ============================================================
+const INVESTORS_KEY = 'dealflow_investors';
+const DEMO_INVESTORS = [
+  {
+    id: 'inv-001',
+    name: 'CDP Venture Capital SGR',
+    type: 'Public Fund',
+    manager: 'CDP Equity',
+    country: 'Italia',
+    website: 'www.cdpventure.it',
+    contactName: 'Andrea Rossini',
+    contactEmail: 'a.rossini@cdpventure.it',
+    contactLinkedin: '',
+    aum: '2.000 M€',
+    ticketMin: 500000,
+    ticketMax: 5000000,
+    stages: ['Seed', 'Series A', 'Series B'],
+    sectors: ['Medtech', 'Cleantech', 'Deep Tech'],
+    geographies: ['Italia', 'Europa'],
+    trlMin: 4,
+    trlMax: 8,
+    instruments: ['equity', 'convertible'],
+    portfolioCount: 120,
+    portfolioNotes: 'Include Newcleo, Genenta, D-Orbit.',
+    coInvestmentInterest: true,
+    leadInvestor: true,
+    boardSeat: true,
+    status: 'Warm',
+    relationship: 'Contatto diretto con partner',
+    notes: 'Preferenza per spin-off universitari. Ciclo decisionale 4-6 mesi. Richiede due diligence tecnica approfondita.'
+  },
+  {
+    id: 'inv-002',
+    name: 'Sofinnova Partners',
+    type: 'VC',
+    manager: 'Sofinnova Partners SAS',
+    country: 'Francia',
+    website: 'www.sofinnova.eu',
+    contactName: 'Marie Dupont',
+    contactEmail: 'm.dupont@sofinnova.eu',
+    contactLinkedin: 'linkedin.com/in/mdupont',
+    aum: '2.500 M€',
+    ticketMin: 2000000,
+    ticketMax: 20000000,
+    stages: ['Series A', 'Series B', 'Series C'],
+    sectors: ['Medtech', 'Biotech'],
+    geographies: ['Europa', 'USA'],
+    trlMin: 5,
+    trlMax: 9,
+    instruments: ['equity'],
+    portfolioCount: 200,
+    portfolioNotes: 'Portfolio biotech/medtech di riferimento in Europa.',
+    coInvestmentInterest: true,
+    leadInvestor: true,
+    boardSeat: true,
+    status: 'Cold',
+    relationship: 'Incontro a BioEurope 2024',
+    notes: 'Focus su biotech clinico, meno interesse per deeptech hardware.'
+  },
+  {
+    id: 'inv-003',
+    name: 'Eni Next',
+    type: 'CVC',
+    manager: 'Eni S.p.A.',
+    country: 'Italia',
+    website: 'www.eninext.com',
+    contactName: 'Paolo Conti',
+    contactEmail: 'p.conti@eninext.com',
+    contactLinkedin: '',
+    aum: '500 M€',
+    ticketMin: 1000000,
+    ticketMax: 10000000,
+    stages: ['Seed', 'Series A'],
+    sectors: ['Cleantech'],
+    geographies: ['Europa', 'USA', 'Africa'],
+    trlMin: 3,
+    trlMax: 7,
+    instruments: ['equity', 'SAFE'],
+    portfolioCount: 40,
+    portfolioNotes: 'Idrogeno, CCUS, rinnovabili, circular economy.',
+    coInvestmentInterest: true,
+    leadInvestor: false,
+    boardSeat: false,
+    status: 'In valutazione',
+    relationship: 'Presentazione portafoglio in corso',
+    notes: 'Interesse strategico più che finanziario. Cerca tecnologie complementari al core business Eni.'
+  }
+];
+
+function loadInvestors() {
+  const raw = localStorage.getItem(INVESTORS_KEY);
+  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  localStorage.setItem(INVESTORS_KEY, JSON.stringify(DEMO_INVESTORS));
+  return JSON.parse(JSON.stringify(DEMO_INVESTORS));
+}
+function saveInvestors(list) { localStorage.setItem(INVESTORS_KEY, JSON.stringify(list)); }
+
+function renderInvestors() {
+  const el = document.getElementById('page-investors');
+  const list = loadInvestors();
+  const statusColors = {
+    'Warm': 'bg-green-100 text-green-800',
+    'Cold': 'bg-slate-100 text-slate-600',
+    'In valutazione': 'bg-yellow-100 text-yellow-800',
+    'Partner': 'bg-indigo-100 text-indigo-800'
+  };
+  const typeColors = {
+    'VC': 'bg-blue-100 text-blue-700',
+    'CVC': 'bg-purple-100 text-purple-700',
+    'Public Fund': 'bg-emerald-100 text-emerald-700',
+    'Family Office': 'bg-orange-100 text-orange-700',
+    'Angel Network': 'bg-pink-100 text-pink-700',
+    'Acceleratore': 'bg-sky-100 text-sky-700'
+  };
+  el.innerHTML = `
+    <div class="max-w-6xl mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800 mb-1">Investitori</h1>
+          <p class="text-slate-500 text-sm">Anagrafica fondi e co-investitori potenziali</p>
+        </div>
+        <button onclick="openInvestorModal(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nuovo Investitore
+        </button>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        ${[
+          { label: 'Totale', val: list.length, color: 'text-indigo-600' },
+          { label: 'Warm', val: list.filter(i=>i.status==='Warm').length, color: 'text-green-600' },
+          { label: 'In valutazione', val: list.filter(i=>i.status==='In valutazione').length, color: 'text-yellow-600' },
+          { label: 'Partner', val: list.filter(i=>i.status==='Partner').length, color: 'text-indigo-600' }
+        ].map(c=>`<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200"><div class="text-2xl font-bold ${c.color}">${c.val}</div><div class="text-sm text-slate-500">${c.label}</div></div>`).join('')}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+        ${list.length === 0 ? '<p class="text-slate-400 col-span-3">Nessun investitore. Aggiungine uno.</p>' :
+          list.map(inv => `
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
+            <div class="p-5 border-b border-slate-100">
+              <div class="flex items-start justify-between gap-2 mb-3">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-bold text-slate-800 text-base leading-tight">${esc(inv.name)}</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">${esc(inv.manager)} · ${esc(inv.country)}</p>
+                </div>
+                <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[inv.type]||'bg-slate-100 text-slate-600'}">${esc(inv.type)}</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[inv.status]||'bg-slate-100'}">${esc(inv.status)}</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
+                <div><span class="text-slate-400">AUM</span> ${esc(inv.aum||'—')}</div>
+                <div><span class="text-slate-400">Ticket</span> ${inv.ticketMin ? '€'+Number(inv.ticketMin).toLocaleString('it-IT')+' – €'+Number(inv.ticketMax).toLocaleString('it-IT') : '—'}</div>
+                <div><span class="text-slate-400">TRL</span> ${inv.trlMin}–${inv.trlMax}</div>
+                <div><span class="text-slate-400">Portfolio</span> ${inv.portfolioCount||0} aziende</div>
+              </div>
+            </div>
+            <div class="p-5 flex-1 space-y-2 text-xs">
+              <div class="flex flex-wrap gap-1">${(inv.sectors||[]).map(s=>`<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">${esc(s)}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1">${(inv.stages||[]).map(s=>`<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">${esc(s)}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1">${(inv.geographies||[]).map(g=>`<span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">${esc(g)}</span>`).join('')}</div>
+              ${inv.contactName ? `<div class="text-slate-600 pt-1">👤 ${esc(inv.contactName)}${inv.contactEmail?' · <a href="mailto:'+esc(inv.contactEmail)+'" class="text-indigo-600 hover:underline">'+esc(inv.contactEmail)+'</a>':''}</div>` : ''}
+              ${inv.relationship ? `<div class="text-slate-500 italic">${esc(inv.relationship)}</div>` : ''}
+              <div class="flex gap-3 pt-1">
+                ${inv.leadInvestor?'<span class="text-green-700">✓ Lead</span>':''}
+                ${inv.coInvestmentInterest?'<span class="text-blue-700">✓ Co-inv</span>':''}
+                ${inv.boardSeat?'<span class="text-purple-700">✓ Board</span>':''}
+              </div>
+            </div>
+            <div class="px-5 pb-4 flex gap-2">
+              <button onclick="openInvestorModal('${inv.id}')" class="flex-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
+              <button onclick="deleteInvestor('${inv.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium">Elimina</button>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function openInvestorModal(id) {
+  const list = loadInvestors();
+  const inv = id ? list.find(x => x.id === id) : null;
+  const v = (f) => esc(inv ? (inv[f]||'') : '');
+  const chk = (f) => inv && inv[f] ? 'checked' : '';
+  const stagesAll = ['Pre-seed','Seed','Series A','Series B','Series C','Growth'];
+  const sectorsAll = ['Medtech','Cleantech','Deep Tech','Biotech','AI','Robotica','Spazio','Altro'];
+  const geosAll = ['Italia','Europa','USA','Asia','Africa','Globale'];
+  const instAll = ['equity','convertible','SAFE','grant'];
+  const selArr = (field, opts) => opts.map(o => `
+    <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+      <input type="checkbox" name="${field}" value="${o}" ${inv&&(inv[field]||[]).includes(o)?'checked':''} class="rounded border-slate-300 text-indigo-600">
+      <span>${o}</span>
+    </label>`).join('');
+
+  document.getElementById('investor-modal-body').innerHTML = `
+    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-lg font-bold text-slate-800">${inv ? 'Modifica Investitore' : 'Nuovo Investitore'}</h2>
+      <button onclick="closeInvestorModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form onsubmit="saveInvestor(event,'${id||''}')" class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+
+      <!-- Identità -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Identità del Fondo</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-600 mb-1">Nome fondo *</label>
+            <input name="name" type="text" required value="${v('name')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Gestore (GP / SGR)</label>
+            <input name="manager" type="text" value="${v('manager')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Tipologia</label>
+            <select name="type" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              ${['VC','CVC','Public Fund','Family Office','Angel Network','Acceleratore'].map(t=>`<option value="${t}" ${inv&&inv.type===t?'selected':''}>${t}</option>`).join('')}
+            </select></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Paese sede</label>
+            <input name="country" type="text" value="${v('country')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Sito web</label>
+            <input name="website" type="text" value="${v('website')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">AUM (es. 200 M€)</label>
+            <input name="aum" type="text" value="${v('aum')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Status relazione</label>
+            <select name="status" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              ${['Warm','Cold','In valutazione','Partner'].map(s=>`<option value="${s}" ${inv&&inv.status===s?'selected':''}>${s}</option>`).join('')}
+            </select></div>
+        </div>
+      </div>
+
+      <!-- Contatto -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Contatto di Riferimento</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Nome e cognome</label>
+            <input name="contactName" type="text" value="${v('contactName')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Email</label>
+            <input name="contactEmail" type="email" value="${v('contactEmail')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">LinkedIn</label>
+            <input name="contactLinkedin" type="text" value="${v('contactLinkedin')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+        </div>
+        <div class="mt-3"><label class="block text-xs font-medium text-slate-600 mb-1">Storico relazione</label>
+          <textarea name="relationship" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${v('relationship')}</textarea></div>
+      </div>
+
+      <!-- Criteri investimento -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Criteri di Investimento</h3>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Ticket minimo (€)</label>
+            <input name="ticketMin" type="number" min="0" value="${inv?inv.ticketMin||'':''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Ticket massimo (€)</label>
+            <input name="ticketMax" type="number" min="0" value="${inv?inv.ticketMax||'':''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">TRL minimo</label>
+            <input name="trlMin" type="number" min="1" max="9" value="${inv?inv.trlMin||'':''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">TRL massimo</label>
+            <input name="trlMax" type="number" min="1" max="9" value="${inv?inv.trlMax||'':''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Aziende in portfolio</label>
+            <input name="portfolioCount" type="number" min="0" value="${inv?inv.portfolioCount||'':''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div><label class="block text-xs font-medium text-slate-600 mb-2">Stage preferiti</label><div class="space-y-1">${selArr('stages',stagesAll)}</div></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-2">Settori</label><div class="space-y-1">${selArr('sectors',sectorsAll)}</div></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-2">Geografie</label><div class="space-y-1">${selArr('geographies',geosAll)}</div></div>
+        </div>
+        <div class="mt-3"><label class="block text-xs font-medium text-slate-600 mb-2">Strumenti preferiti</label>
+          <div class="flex flex-wrap gap-3">${selArr('instruments',instAll)}</div></div>
+        <div class="flex flex-wrap gap-4 mt-3 text-sm">
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="leadInvestor" value="1" ${chk('leadInvestor')} class="rounded border-slate-300 text-indigo-600"> Lead investor</label>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="coInvestmentInterest" value="1" ${chk('coInvestmentInterest')} class="rounded border-slate-300 text-indigo-600"> Aperto al co-investimento</label>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="boardSeat" value="1" ${chk('boardSeat')} class="rounded border-slate-300 text-indigo-600"> Richiede board seat</label>
+        </div>
+      </div>
+
+      <!-- Portfolio e note -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Portfolio & Note</h3>
+        <div class="space-y-3">
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Portfolio (aziende rilevanti)</label>
+            <textarea name="portfolioNotes" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${v('portfolioNotes')}</textarea></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Note e osservazioni</label>
+            <textarea name="notes" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${v('notes')}</textarea></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closeInvestorModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annulla</button>
+        <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Salva</button>
+      </div>
+    </form>`;
+  document.getElementById('investor-modal-overlay').classList.remove('hidden');
+}
+
+function closeInvestorModal() { document.getElementById('investor-modal-overlay').classList.add('hidden'); }
+
+function saveInvestor(e, id) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const g = n => fd.get(n)||'';
+  const gi = n => parseInt(fd.get(n))||0;
+  const inv = {
+    id: id || 'inv-'+Date.now(),
+    name: g('name'), manager: g('manager'), type: g('type'),
+    country: g('country'), website: g('website'), aum: g('aum'), status: g('status'),
+    contactName: g('contactName'), contactEmail: g('contactEmail'), contactLinkedin: g('contactLinkedin'),
+    relationship: g('relationship'),
+    ticketMin: parseFloat(fd.get('ticketMin'))||0,
+    ticketMax: parseFloat(fd.get('ticketMax'))||0,
+    trlMin: gi('trlMin')||1, trlMax: gi('trlMax')||9,
+    portfolioCount: gi('portfolioCount'),
+    stages: fd.getAll('stages'), sectors: fd.getAll('sectors'),
+    geographies: fd.getAll('geographies'), instruments: fd.getAll('instruments'),
+    leadInvestor: fd.get('leadInvestor')==='1',
+    coInvestmentInterest: fd.get('coInvestmentInterest')==='1',
+    boardSeat: fd.get('boardSeat')==='1',
+    portfolioNotes: g('portfolioNotes'), notes: g('notes')
+  };
+  const list = loadInvestors();
+  const idx = list.findIndex(x => x.id === id);
+  if (idx >= 0) list[idx] = inv; else list.push(inv);
+  saveInvestors(list);
+  closeInvestorModal();
+  renderInvestors();
+}
+
+function deleteInvestor(id) {
+  const list = loadInvestors();
+  const inv = list.find(x => x.id === id);
+  if (!inv) return;
+  if (confirm(`Eliminare "${inv.name}"?`)) {
+    saveInvestors(list.filter(x => x.id !== id));
+    renderInvestors();
   }
 }
 
