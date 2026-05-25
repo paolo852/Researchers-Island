@@ -649,21 +649,24 @@ function renderDashboard() {
 
       <!-- KPI Cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <div onclick="navigateToPipelineStage('')" class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all group">
           <div class="text-3xl font-bold text-indigo-600 mb-1">${total}</div>
           <div class="text-sm text-slate-500 font-medium">Deal Totali</div>
+          <div class="text-xs text-indigo-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Vedi tutti →</div>
         </div>
         <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
           <div class="text-3xl font-bold text-indigo-600 mb-1">${avgScore}</div>
           <div class="text-sm text-slate-500 font-medium">Score Medio</div>
         </div>
-        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <div onclick="navigateToPipelineStage('Due Diligence')" class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 cursor-pointer hover:border-yellow-300 hover:shadow-md transition-all group">
           <div class="text-3xl font-bold text-indigo-600 mb-1">${byStage['Due Diligence'] || 0}</div>
           <div class="text-sm text-slate-500 font-medium">In Due Diligence</div>
+          <div class="text-xs text-indigo-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Vedi deal →</div>
         </div>
-        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <div onclick="navigateToPipelineStage('Investimento')" class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 cursor-pointer hover:border-green-300 hover:shadow-md transition-all group">
           <div class="text-3xl font-bold text-indigo-600 mb-1">${byStage['Investimento'] || 0}</div>
           <div class="text-sm text-slate-500 font-medium">Investimenti</div>
+          <div class="text-xs text-indigo-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Vedi deal →</div>
         </div>
       </div>
 
@@ -687,13 +690,13 @@ function renderDashboard() {
               const count = byStage[s] || 0;
               const pct = total ? Math.round(count/total*100) : 0;
               return `
-              <div>
+              <div onclick="navigateToPipelineStage('${s}')" class="cursor-pointer group rounded-lg px-2 py-1.5 hover:bg-slate-50 transition-colors -mx-2">
                 <div class="flex justify-between text-sm mb-1">
-                  <span class="text-slate-600">${s}</span>
-                  <span class="font-medium text-slate-700">${count}</span>
+                  <span class="text-slate-600 group-hover:text-slate-900 transition-colors">${s}</span>
+                  <span class="font-semibold text-slate-700">${count} <span class="font-normal text-slate-400 text-xs group-hover:text-indigo-500">→</span></span>
                 </div>
                 <div class="w-full bg-slate-100 rounded-full h-2">
-                  <div class="${stageColors[s] || 'bg-slate-400'} h-2 rounded-full" style="width:${pct}%"></div>
+                  <div class="${stageColors[s] || 'bg-slate-400'} h-2 rounded-full transition-all" style="width:${pct}%"></div>
                 </div>
               </div>`;
             }).join('')}
@@ -804,6 +807,12 @@ function saveYearlyTarget(year, phase, field, value) {
 // ============================================================
 let pipelineSort = { col: 'score', dir: 'desc' };
 let pipelineFilter = '';
+let pipelineStageFilter = '';
+
+function navigateToPipelineStage(stage) {
+  pipelineStageFilter = stage;
+  navigate('pipeline');
+}
 
 function renderPipeline() {
   const el = document.getElementById('page-pipeline');
@@ -826,13 +835,13 @@ function renderPipeline() {
         <input id="pipeline-search" type="text" placeholder="Cerca azienda o settore..."
           class="flex-1 min-w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
           oninput="pipelineFilter=this.value; renderPipelineTable()" value="${pipelineFilter}">
-        <select id="pipeline-stage-filter" onchange="renderPipelineTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        <select id="pipeline-stage-filter" onchange="pipelineStageFilter=this.value; renderPipelineTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
           <option value="">Tutti gli stage</option>
-          <option value="Development">Development</option>
-          <option value="Pre Due Diligence">Pre Due Diligence</option>
-          <option value="Due Diligence">Due Diligence</option>
-          <option value="Investimento">Investimento</option>
-          <option value="Rejected">Rejected</option>
+          <option value="Development" ${pipelineStageFilter==='Development'?'selected':''}>Development</option>
+          <option value="Pre Due Diligence" ${pipelineStageFilter==='Pre Due Diligence'?'selected':''}>Pre Due Diligence</option>
+          <option value="Due Diligence" ${pipelineStageFilter==='Due Diligence'?'selected':''}>Due Diligence</option>
+          <option value="Investimento" ${pipelineStageFilter==='Investimento'?'selected':''}>Investimento</option>
+          <option value="Rejected" ${pipelineStageFilter==='Rejected'?'selected':''}>Rejected</option>
         </select>
       </div>
 
@@ -878,7 +887,7 @@ function sortPipeline(col) {
 function renderPipelineTable() {
   deals = loadDeals();
   const search = (document.getElementById('pipeline-search')?.value || pipelineFilter).toLowerCase();
-  const stageF = document.getElementById('pipeline-stage-filter')?.value || '';
+  const stageF = pipelineStageFilter;
 
   let filtered = deals.filter(d => {
     const matchSearch = !search || d.company.toLowerCase().includes(search) || d.sector.toLowerCase().includes(search);
