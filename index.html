@@ -4388,58 +4388,61 @@ function saveTeam(t) { localStorage.setItem(TEAM_KEY, JSON.stringify(t)); _sbSyn
 function renderTeam() {
   const el = document.getElementById('page-team');
   const team = loadTeam();
-  const statusBadge = (s) => {
-    const map = { 'Active':'bg-green-100 text-green-800', 'Invited':'bg-yellow-100 text-yellow-800', 'Inactive':'bg-slate-100 text-slate-600' };
-    return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${map[s]||'bg-slate-100'}">${s}</span>`;
-  };
+
+  const roleBg = { 'Partner':'bg-indigo-100 text-indigo-700', 'Analyst':'bg-sky-100 text-sky-700', 'Associate':'bg-teal-100 text-teal-700' };
+  const statusBg = { 'Active':'bg-emerald-100 text-emerald-700', 'Invited':'bg-amber-100 text-amber-700', 'Inactive':'bg-slate-100 text-slate-500' };
+  const statusLabel = { 'Active':'Attivo', 'Invited':'Invitato', 'Inactive':'Inattivo' };
+
   el.innerHTML = `
-    <div class="max-w-5xl mx-auto">
+    <div class="max-w-4xl mx-auto">
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold text-slate-800 mb-1">Team</h1>
           <p class="text-slate-500 text-sm">Membri del team e gestione utenze</p>
         </div>
-        <button onclick="openTeamModal(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-md">
+        <button onclick="openTeamModal(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Nuovo Membro
         </button>
       </div>
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-slate-50 border-b border-slate-200">
-              <tr class="text-left text-slate-600">
-                <th class="px-4 py-3 font-medium">Nome</th>
-                <th class="px-4 py-3 font-medium">Email</th>
-                <th class="px-4 py-3 font-medium">Ruolo</th>
-                <th class="px-4 py-3 font-medium">Username</th>
-                <th class="px-4 py-3 font-medium">Accesso</th>
-                <th class="px-4 py-3 font-medium">Stato</th>
-                <th class="px-4 py-3 font-medium">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${team.length === 0 ? '<tr><td colspan="7" class="text-center py-12 text-slate-400">Nessun membro nel team</td></tr>' :
-                team.map(m => `
-                <tr class="border-b border-slate-100 hover:bg-slate-50">
-                  <td class="px-4 py-3 font-medium text-slate-800">${esc(m.name)}</td>
-                  <td class="px-4 py-3 text-slate-600">${esc(m.email)}</td>
-                  <td class="px-4 py-3 text-slate-600">${esc(m.role)}</td>
-                  <td class="px-4 py-3 text-slate-600 font-mono text-xs">${esc(m.username||'—')}</td>
-                  <td class="px-4 py-3">${m.canLogin ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">✓ Autorizzato</span>' : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Non autorizzato</span>'}</td>
-                  <td class="px-4 py-3">${statusBadge(m.status)}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex gap-2 flex-wrap">
-                      ${m.status !== 'Inactive' ? `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2 py-1 rounded font-medium">${m.status==='Active'?'Disattiva utenza':'Attiva utenza'}</button>` : `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Riattiva</button>`}
-                      <button onclick="openTeamModal('${m.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded font-medium">Modifica</button>
-                      <button onclick="deleteTeamMember('${m.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-2 py-1 rounded font-medium">Elimina</button>
-                    </div>
-                  </td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
+      ${team.length === 0
+        ? '<div class="text-center py-16 text-slate-400">Nessun membro nel team</div>'
+        : `<div class="space-y-3">
+          ${team.map(m => {
+            const initials = (m.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+            const accessBadge = m.canLogin
+              ? '<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Accesso attivo</span>'
+              : '<span class="inline-flex items-center gap-1 text-xs font-medium text-slate-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>Nessun accesso</span>';
+            const toggleBtn = m.status !== 'Inactive'
+              ? `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium ${m.status==='Active' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'}">${m.status==='Active'?'Disattiva':'Attiva'}</button>`
+              : `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700">Riattiva</button>`;
+            return `
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 flex items-center gap-4">
+              <!-- Avatar -->
+              <div class="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">${initials}</div>
+
+              <!-- Name + email + username -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <span class="font-semibold text-slate-800">${esc(m.name)}</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full font-medium ${roleBg[m.role]||'bg-slate-100 text-slate-600'}">${esc(m.role)}</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full font-medium ${statusBg[m.status]||'bg-slate-100 text-slate-500'}">${statusLabel[m.status]||m.status}</span>
+                </div>
+                <div class="text-sm text-slate-500 truncate">${esc(m.email||'—')}</div>
+                <div class="mt-1">${accessBadge}</div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex items-center gap-2 flex-shrink-0">
+                ${toggleBtn}
+                <button onclick="openTeamModal('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700">Modifica</button>
+                <button onclick="deleteTeamMember('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 hover:bg-red-100 text-red-600">Elimina</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`
+      }
     </div>
   `;
 }
