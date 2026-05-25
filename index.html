@@ -405,17 +405,22 @@ function coInvestorScore(coInvestors) {
   return Math.min(10, avg);
 }
 
+function evalScore(deal, key) {
+  return (deal.evaluation && deal.evaluation.scores && deal.evaluation.scores[key]) || 5;
+}
 function computeScore(deal) {
   const ci = coInvestorScore(deal.coInvestors);
   const score =
-    (deal.industrialNeed      || 0) * 0.25 +
-    (deal.devPerformance      || 0) * 0.25 +
-    (deal.team                || 0) * 0.15 +
-    (deal.market              || 0) * 0.10 +
-    (deal.competitiveAdvantage|| 0) * 0.10 +
-    (deal.ip                  || 0) * 0.05 +
-    (deal.risks               || 0) * 0.05 +
-    ci                              * 0.05;
+    evalScore(deal, 'marketValidation')    * 0.25 +
+    evalScore(deal, 'prototypePerformance')* 0.25 +
+    evalScore(deal, 'ip')                  * 0.10 +
+    evalScore(deal, 'team')                * 0.10 +
+    evalScore(deal, 'investmentTarget')    * 0.05 +
+    evalScore(deal, 'timeToMarket')        * 0.05 +
+    evalScore(deal, 'coInvestorInterest')  * 0.05 +
+    evalScore(deal, 'financialNeeds')      * 0.05 +
+    evalScore(deal, 'risksImpact')         * 0.05 +
+    ci                                     * 0.05;
   return Math.round(score * 10) / 10;
 }
 
@@ -1183,26 +1188,16 @@ function renderForm(dealId) {
           <h2 class="text-base font-semibold text-slate-700 mb-1 pb-2 border-b border-slate-100">Valutazione Investimento</h2>
           <p class="text-xs text-slate-400 mb-4">Criteri primari e secondari per la valutazione del deal</p>
 
-          <!-- Hidden fields to keep computeScore() working -->
-          <input type="hidden" name="team" value="${d.team||5}">
-          <input type="hidden" name="market" value="${d.market||5}">
-          <input type="hidden" name="competitiveAdvantage" value="${d.competitiveAdvantage||5}">
-          <input type="hidden" name="risks" value="${d.risks||5}">
-
-          <!-- devPerformance slider (kept for scoring) -->
-          <div class="mb-5 pb-4 border-b border-slate-100">
-            <label class="block text-sm font-medium text-slate-600 mb-1">
-              Livello Sviluppo &amp; Performance <span class="text-xs text-slate-400">(25% score)</span>: <span id="devPerformance-val" class="text-indigo-600 font-bold">${d.devPerformance||5}</span>/10
-            </label>
-            <input type="range" name="devPerformance" min="0" max="10" value="${d.devPerformance||5}" class="w-full mb-2" oninput="document.getElementById('devPerformance-val').textContent=this.value; updateLiveScore()">
-          </div>
-
           <h3 class="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Criteri Primari</h3>
 
           <!-- B1: Market Validation -->
           <div class="mb-5 pb-4 border-b border-slate-100">
-            <div class="flex items-center gap-2 mb-2">
+            <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-medium text-slate-700">B1 — Validazione di mercato e replicabilità</span>
+            </div>
+            <div class="mb-3">
+              <label class="block text-xs font-medium text-slate-500 mb-1">Valutazione: <span id="evalScore-marketValidation-val" class="text-indigo-600 font-bold">${(d.evaluation&&d.evaluation.scores&&d.evaluation.scores.marketValidation)||5}</span>/10</label>
+              <input type="range" name="evalScore_marketValidation" min="1" max="10" value="${(d.evaluation&&d.evaluation.scores&&d.evaluation.scores.marketValidation)||5}" class="w-full" oninput="document.getElementById('evalScore-marketValidation-val').textContent=this.value; updateLiveScore()">
             </div>
             <div class="flex gap-2 mb-3">
               <button type="button" id="mval-btn-no" onclick="setMarketValidation(false)"
@@ -1225,10 +1220,14 @@ function renderForm(dealId) {
 
           <!-- B2: Prototype Performance -->
           <div class="mb-5 pb-4 border-b border-slate-100">
-            <div class="flex items-center gap-2 mb-2">
+            <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-medium text-slate-700">B2 — Prestazioni del prototipo in relazione al vantaggio competitivo</span>
             </div>
-            <textarea id="eval-prototypePerformance" rows="3" placeholder="Descrizione dettagliata delle prestazioni del prototipo..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-2">${esc((d.evaluation&&d.evaluation.prototypePerformanceText)||'')}</textarea>
+            <div class="mb-3">
+              <label class="block text-xs font-medium text-slate-500 mb-1">Valutazione: <span id="evalScore-prototypePerformance-val" class="text-indigo-600 font-bold">${(d.evaluation&&d.evaluation.scores&&d.evaluation.scores.prototypePerformance)||5}</span>/10</label>
+              <input type="range" name="evalScore_prototypePerformance" min="1" max="10" value="${(d.evaluation&&d.evaluation.scores&&d.evaluation.scores.prototypePerformance)||5}" class="w-full" oninput="document.getElementById('evalScore-prototypePerformance-val').textContent=this.value; updateLiveScore()">
+            </div>
+            <textarea id="eval-prototypePerformance" rows="2" placeholder="Descrizione dettagliata delle prestazioni del prototipo..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-2">${esc((d.evaluation&&d.evaluation.prototypePerformanceText)||'')}</textarea>
             ${evalCommentsBlock('prototypePerformance', d)}
             ${evalTasksBlock('prototypePerformance', d)}
           </div>
@@ -1249,7 +1248,7 @@ function renderForm(dealId) {
               <span class="text-sm font-medium text-indigo-700">Score Preliminare (senza co-investitori)</span>
               <span id="live-score" class="text-xl font-bold text-indigo-600">–</span>
             </div>
-            <p class="text-xs text-slate-400 mt-1">Basato su: validazione mercato (25%) + dev performance (25%) + altri criteri fissi (50%)</p>
+            <p class="text-xs text-slate-400 mt-1">B1 25% · B2 25% · IP 10% · Team 10% · Target 5% · TTM 5% · Co-inv 5% · Finanza 5% · Rischi 5% · Co-investitori 5%</p>
           </div>
         </div>
 
@@ -1578,13 +1577,18 @@ function evalTasksBlock(key, d) {
 
 function evalSecondaryBlock(key, label, subtitle, d) {
   const val = (d.evaluation && d.evaluation.secondary && d.evaluation.secondary[key]) || '';
+  const score = (d.evaluation && d.evaluation.scores && d.evaluation.scores[key]) || 5;
   return `
   <div class="mb-5 pb-4 border-b border-slate-100 last:border-b-0">
     <div class="mb-2">
       <span class="text-sm font-medium text-slate-700">${label}</span>
       <p class="text-xs text-slate-400 mt-0.5">${subtitle}</p>
     </div>
-    <textarea id="eval-secondary-${key}" rows="3" placeholder="${subtitle}..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-2">${esc(val)}</textarea>
+    <div class="mb-3">
+      <label class="block text-xs font-medium text-slate-500 mb-1">Valutazione: <span id="evalScore-${key}-val" class="text-indigo-600 font-bold">${score}</span>/10</label>
+      <input type="range" name="evalScore_${key}" min="1" max="10" value="${score}" class="w-full" oninput="document.getElementById('evalScore-${key}-val').textContent=this.value; updateLiveScore()">
+    </div>
+    <textarea id="eval-secondary-${key}" rows="2" placeholder="${subtitle}..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-2">${esc(val)}</textarea>
     ${evalCommentsBlock(key, d)}
     ${evalTasksBlock(key, d)}
   </div>`;
@@ -1694,15 +1698,17 @@ function setupLiveScore() {
 function updateLiveScore() {
   const form = document.getElementById('deal-form');
   if (!form) return;
-  const g = name => parseFloat(form.querySelector(`[name="${name}"]`)?.value || 0);
+  const g = name => parseFloat(form.querySelector(`[name="${name}"]`)?.value || 5);
   const score =
-    g('industrialNeed')       * 0.25 +
-    g('devPerformance')       * 0.25 +
-    g('team')                 * 0.15 +
-    g('market')               * 0.10 +
-    g('competitiveAdvantage') * 0.10 +
-    g('ip')                   * 0.05 +
-    g('risks')                * 0.05;
+    g('evalScore_marketValidation')    * 0.25 +
+    g('evalScore_prototypePerformance')* 0.25 +
+    g('evalScore_ip')                  * 0.10 +
+    g('evalScore_team')                * 0.10 +
+    g('evalScore_investmentTarget')    * 0.05 +
+    g('evalScore_timeToMarket')        * 0.05 +
+    g('evalScore_coInvestorInterest')  * 0.05 +
+    g('evalScore_financialNeeds')      * 0.05 +
+    g('evalScore_risksImpact')         * 0.05;
   const el = document.getElementById('live-score');
   if (el) el.textContent = score.toFixed(1) + '/10';
 }
@@ -1854,15 +1860,27 @@ function saveDeal(e) {
   // Save concept data (from _conceptData in-memory cache)
   deal.concept = JSON.parse(JSON.stringify(_conceptData));
 
+  // Collect evaluation scores from sliders
+  const evalScoreKeys = ['marketValidation','prototypePerformance','ip','team','investmentTarget','timeToMarket','coInvestorInterest','financialNeeds','risksImpact'];
+  const evalScores = {};
+  evalScoreKeys.forEach(k => {
+    const el = form.querySelector(`[name="evalScore_${k}"]`);
+    evalScores[k] = el ? parseInt(el.value) || 5 : 5;
+  });
+
   // Save evaluation data
   const priorEval = (editingDeal && editingDeal.evaluation) || {};
   deal.evaluation = {
     marketValidated,
     marketValidationHow,
     prototypePerformanceText,
+    scores: evalScores,
     secondary: Object.assign({}, (priorEval.secondary || {}), evalSecondary),
     comments: priorEval.comments || {}
   };
+  // Keep legacy fields in sync for backward compat
+  deal.industrialNeed = evalScores.marketValidation;
+  deal.devPerformance = evalScores.prototypePerformance;
 
   let stageChanged = false;
   let prevStage = '';
