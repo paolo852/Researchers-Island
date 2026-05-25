@@ -53,9 +53,9 @@
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
       Dashboard
     </button>
-    <button onclick="navigate('priority')" id="nav-priority" class="sidebar-link w-full text-left">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-      Priorità
+    <button onclick="navigate('portfolio')" id="nav-portfolio" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      Portfolio
     </button>
     <button onclick="navigate('team')" id="nav-team" class="sidebar-link w-full text-left">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-2a4 4 0 100-8 4 4 0 000 8zm6 4a4 4 0 10-3-7.75"/></svg>
@@ -64,6 +64,10 @@
     <button onclick="navigate('investors')" id="nav-investors" class="sidebar-link w-full text-left">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
       Investitori
+    </button>
+    <button onclick="navigate('industries')" id="nav-industries" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16M3 21h18M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+      Industrie
     </button>
     <button onclick="navigate('settings')" id="nav-settings" class="sidebar-link w-full text-left">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -82,10 +86,12 @@
   <div id="page-dashboard" class="p-6 fade-in hidden"></div>
   <div id="page-pipeline" class="p-6 fade-in"></div>
   <div id="page-new" class="p-6 fade-in hidden"></div>
-  <div id="page-priority" class="p-6 fade-in hidden"></div>
+  <div id="page-portfolio" class="p-6 fade-in hidden"></div>
+  <div id="page-portfolio-detail" class="p-6 fade-in hidden"></div>
   <div id="page-team" class="p-6 fade-in hidden"></div>
   <div id="page-settings" class="p-6 fade-in hidden"></div>
   <div id="page-investors" class="p-6 fade-in hidden"></div>
+  <div id="page-industries" class="p-6 fade-in hidden"></div>
 </main>
 
 <!-- NOTIFICATIONS PANEL -->
@@ -144,6 +150,13 @@
 <div id="suggestions-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
   <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
     <div id="suggestions-modal-body"></div>
+  </div>
+</div>
+
+<!-- INDUSTRY MODAL -->
+<div id="industry-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
+    <div id="industry-modal-body"></div>
   </div>
 </div>
 
@@ -323,7 +336,7 @@ function stageBadge(stage) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const pages = ['dashboard', 'pipeline', 'new', 'priority', 'team', 'investors', 'settings'];
+const pages = ['dashboard', 'pipeline', 'new', 'portfolio', 'portfolio-detail', 'team', 'investors', 'industries', 'settings'];
 
 function navigate(page, dealId) {
   pages.forEach(p => {
@@ -336,19 +349,23 @@ function navigate(page, dealId) {
   if (nav) nav.classList.add('active');
 
   switch(page) {
-    case 'dashboard': renderDashboard(); break;
-    case 'pipeline':  renderPipeline(); break;
-    case 'new':       renderForm(null); break;
-    case 'priority':  renderPriority(); break;
-    case 'team':      renderTeam(); break;
-    case 'investors': renderInvestors(); break;
-    case 'settings':  renderSettings(); break;
+    case 'dashboard':        renderDashboard(); break;
+    case 'pipeline':         renderPipeline(); break;
+    case 'new':              renderForm(null); break;
+    case 'portfolio':        renderPortfolio(); break;
+    case 'portfolio-detail': renderPortfolioDetail(dealId); break;
+    case 'team':             renderTeam(); break;
+    case 'investors':        renderInvestors(); break;
+    case 'industries':       renderIndustries(); break;
+    case 'settings':         renderSettings(); break;
   }
 }
 
 // ============================================================
 // DASHBOARD
 // ============================================================
+let dashboardYearTab = null;
+
 function renderDashboard() {
   const el = document.getElementById('page-dashboard');
   deals = loadDeals();
@@ -367,6 +384,82 @@ function renderDashboard() {
     'Closed': 'bg-green-500',
     'Rejected': 'bg-red-400'
   };
+
+  // --- Yearly analysis ---
+  const curYear = new Date().getFullYear();
+  const allYears = [...new Set(deals.map(d => {
+    const y = d.createdAt ? new Date(d.createdAt).getFullYear() : curYear;
+    return isNaN(y) ? curYear : y;
+  }))].sort((a,b) => b-a);
+  if (!allYears.includes(curYear)) allYears.unshift(curYear);
+  if (!dashboardYearTab || !allYears.includes(dashboardYearTab)) dashboardYearTab = allYears[0];
+
+  const PHASES = [
+    { key: 'nursery', label: 'Nursery', sub: 'In sviluppo' },
+    { key: 'predd', label: 'Pre-Due Diligence', sub: 'Un criterio chiave' },
+    { key: 'dd', label: 'Due Diligence', sub: 'In valutazione' },
+    { key: 'investimento', label: 'Investimento', sub: 'Term Sheet / Closed' }
+  ];
+
+  function getPhase(d) {
+    const ind = d.industrialNeed || 0;
+    const dev = d.devPerformance || 0;
+    if (d.stage === 'Term Sheet' || d.stage === 'Closed') return 'investimento';
+    if (d.stage === 'Due Diligence') return 'dd';
+    if (ind >= 6 || dev >= 6) return 'predd';
+    return 'nursery';
+  }
+
+  const targets = loadYearlyTargets();
+
+  function yearlyBoardHTML(year) {
+    const yearDeals = deals.filter(d => {
+      const y = d.createdAt ? new Date(d.createdAt).getFullYear() : curYear;
+      return (isNaN(y) ? curYear : y) === year;
+    });
+    const phaseDeals = {};
+    PHASES.forEach(p => { phaseDeals[p.key] = []; });
+    yearDeals.forEach(d => {
+      const ph = getPhase(d);
+      if (phaseDeals[ph]) phaseDeals[ph].push(d);
+    });
+    const totalForYear = yearDeals.length;
+
+    return `
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      ${PHASES.map(ph => {
+        const dlist = phaseDeals[ph.key] || [];
+        const tk = targets[year + '_' + ph.key] || {};
+        return `
+        <div class="bg-slate-50 rounded-xl border border-slate-200 p-4 flex flex-col gap-2">
+          <div class="font-semibold text-slate-700 text-sm">${ph.label}</div>
+          <div class="text-xs text-slate-400">${ph.sub}</div>
+          <div class="text-2xl font-bold text-indigo-600">${dlist.length}</div>
+          <div class="space-y-1 flex-1">
+            ${dlist.map(d => {
+              const s = computeScore(d);
+              const cls = s >= 7 ? 'bg-green-100 text-green-800' : s >= 5 ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800';
+              return `<div class="flex items-center gap-1.5 text-xs"><span class="truncate text-slate-700 flex-1">${esc(d.company)}</span><span class="px-1.5 py-0.5 rounded-full text-xs font-semibold ${cls}">${s.toFixed(1)}</span></div>`;
+            }).join('')}
+          </div>
+          <div class="border-t border-slate-200 pt-2 space-y-1">
+            <div class="flex items-center gap-1 text-xs text-slate-500">
+              <span>Target:</span>
+              <input type="number" min="0" value="${tk.target||''}" placeholder="—" onchange="saveYearlyTarget(${year},'${ph.key}','target',this.value)" class="w-14 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300">
+            </div>
+            <div class="flex items-center gap-1 text-xs text-slate-500">
+              <span>Scadenza:</span>
+              <input type="date" value="${tk.deadline||''}" onchange="saveYearlyTarget(${year},'${ph.key}','deadline',this.value)" class="border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300">
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="mt-3 text-xs text-slate-500 text-right">Totale deal ${year}: <strong>${totalForYear}</strong></div>`;
+  }
+
+  // --- Priority section ---
+  const sorted = [...deals].sort((a,b) => computeScore(b) - computeScore(a));
 
   el.innerHTML = `
     <div class="max-w-5xl mx-auto">
@@ -390,6 +483,17 @@ function renderDashboard() {
         <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
           <div class="text-3xl font-bold text-indigo-600 mb-1">${byStage['Term Sheet'] || 0}</div>
           <div class="text-sm text-slate-500 font-medium">Term Sheet Attivi</div>
+        </div>
+      </div>
+
+      <!-- Analisi per Anno -->
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 mb-8">
+        <h2 class="text-base font-semibold text-slate-700 mb-4">Analisi per Anno</h2>
+        <div class="flex gap-2 mb-4 flex-wrap">
+          ${allYears.map(y => `<button onclick="dashboardYearTab=${y}; renderDashboard()" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${dashboardYearTab===y ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${y}</button>`).join('')}
+        </div>
+        <div id="yearly-board">
+          ${yearlyBoardHTML(dashboardYearTab)}
         </div>
       </div>
 
@@ -437,7 +541,7 @@ function renderDashboard() {
       </div>
 
       <!-- Recent Activity -->
-      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 mb-8">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-base font-semibold text-slate-700">Tutti i Deal</h2>
           <button onclick="navigate('pipeline')" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Vedi pipeline →</button>
@@ -466,8 +570,51 @@ function renderDashboard() {
           </table>
         </div>
       </div>
+
+      <!-- Priorità investimenti -->
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <h2 class="text-base font-semibold text-slate-700 mb-4">Priorità investimenti</h2>
+        <div class="space-y-3">
+          ${sorted.map((d,i) => {
+            const score = computeScore(d);
+            const scoreBar = Math.round(score / 10 * 100);
+            const barColor = score >= 7 ? 'bg-green-500' : score >= 5 ? 'bg-orange-400' : 'bg-red-400';
+            return `
+            <div class="flex items-center gap-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div class="text-lg font-bold text-slate-300 w-7 text-center">#${i+1}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span class="font-semibold text-slate-800">${esc(d.company)}</span>
+                  ${scoreBadge(score)}
+                  ${stageBadge(d.stage)}
+                  <span class="text-xs text-slate-500">${d.sector}</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                  <div class="${barColor} h-1.5 rounded-full" style="width:${scoreBar}%"></div>
+                </div>
+              </div>
+              <button onclick="quickStage('${d.id}'); renderDashboard();" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2 py-1.5 rounded-lg font-medium whitespace-nowrap">Avanza Stage</button>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
     </div>
   `;
+}
+
+// ============================================================
+// YEARLY TARGETS
+// ============================================================
+const YEARLY_TARGETS_KEY = 'dealflow_yearly_targets';
+function loadYearlyTargets() {
+  try { return JSON.parse(localStorage.getItem(YEARLY_TARGETS_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveYearlyTarget(year, phase, field, value) {
+  const t = loadYearlyTargets();
+  const k = year + '_' + phase;
+  if (!t[k]) t[k] = {};
+  t[k][field] = value;
+  localStorage.setItem(YEARLY_TARGETS_KEY, JSON.stringify(t));
 }
 
 // ============================================================
@@ -664,7 +811,6 @@ function quickStage(id) {
   if (idx >= 0 && idx < order.length - 1) {
     d.stage = order[idx + 1];
     saveDeals(deals);
-    renderPriority();
   }
 }
 
@@ -1473,7 +1619,8 @@ function quickAddSave(e) {
     instrument: 'equity',
     stage: fd.get('stage') || 'Sourcing',
     notes: '',
-    researchers: [], tasks: [], files: [], comments: [], dealTeam: [], dealLead: ''
+    researchers: [], tasks: [], files: [], comments: [], dealTeam: [], dealLead: '',
+    createdAt: new Date().toISOString()
   };
   deals.push(newDeal);
   saveDeals(deals);
@@ -2192,6 +2339,19 @@ function persistFilesOnDeal() {
 
 // ============================================================
 // ============================================================
+// PORTFOLIO (stub — full implementation pending)
+// ============================================================
+function renderPortfolio() {
+  const el = document.getElementById('page-portfolio');
+  if (el) el.innerHTML = '<div class="max-w-4xl mx-auto p-8 text-center text-slate-400">Sezione Portfolio in caricamento...</div>';
+}
+// INDUSTRIES (stub — full implementation pending)
+function renderIndustries() {
+  const el = document.getElementById('page-industries');
+  if (el) el.innerHTML = '<div class="max-w-4xl mx-auto p-8 text-center text-slate-400">Sezione Industrie in caricamento...</div>';
+}
+
+// ============================================================
 // INVESTORS
 // ============================================================
 const INVESTORS_KEY = 'dealflow_investors';
@@ -2888,6 +3048,7 @@ deals.forEach(d => {
   if (!d.files) { d.files = []; _migrated = true; }
   if (!d.researchers) { d.researchers = []; _migrated = true; }
   if (!d.comments) { d.comments = []; _migrated = true; }
+  if (!d.createdAt) { d.createdAt = new Date().toISOString(); _migrated = true; }
   // Migrate legacy tasks without criterion key
   (d.tasks || []).forEach(t => {
     if (!t.criterion) { t.criterion = 'industrialNeed'; _migrated = true; }
