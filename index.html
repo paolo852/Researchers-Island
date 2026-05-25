@@ -211,6 +211,23 @@
 // ============================================================
 const SUPABASE_URL = 'https://drvlvjyciuuslwytkdbg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_x4uSMKo_6PrDkXbR4_uOxw_kGsLkNkt';
+
+// ============================================================
+// BREVO EMAIL CONFIG  (key stored in app settings, not source)
+// ============================================================
+const BREVO_SENDER_EMAIL = 'paolo@day-one.biz';
+const BREVO_SENDER_NAME = 'DealFlow · Day One';
+function getBrevoKey() {
+  try { return JSON.parse(localStorage.getItem('dealflow_app_config') || '{}').brevoKey || ''; } catch(e) { return ''; }
+}
+function saveBrevoKey(key) {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('dealflow_app_config') || '{}');
+    cfg.brevoKey = key;
+    localStorage.setItem('dealflow_app_config', JSON.stringify(cfg));
+    _sbSync('dealflow_app_config', cfg);
+  } catch(e) {}
+}
 let _sb = null;
 try {
   if (window.supabase && window.supabase.createClient) {
@@ -2048,15 +2065,26 @@ function saveDeal(e) {
     deals.push(deal);
   }
   saveDeals(deals);
+  const me = currentUser();
   if (stageChanged) {
     const recipients = new Set([...(deal.dealTeam||[]), deal.dealLead].filter(Boolean));
-    const me = currentUser();
     recipients.forEach(uid => {
       if (me && uid === me.id) return;
       addNotification({
         userId: uid, type: 'deal_stage_change',
-        title: 'Cambio stage deal',
-        body: `${deal.company}: ${prevStage} → ${deal.stage}.`,
+        title: `${deal.company}: cambio stage`,
+        body: `Il deal <strong>${deal.company}</strong> è passato da <em>${prevStage}</em> a <em>${deal.stage}</em>.`,
+        dealId: deal.id
+      });
+    });
+  } else if (!editingDeal) {
+    // New deal: notify all Partners except creator
+    const team = loadTeam();
+    team.filter(m => m.role === 'Partner' && (!me || m.id !== me.id)).forEach(m => {
+      addNotification({
+        userId: m.id, type: 'new_deal',
+        title: `Nuovo deal: ${deal.company}`,
+        body: `<strong>${deal.company}</strong> (${deal.sector || '—'}) è stato aggiunto alla pipeline nello stage <em>${deal.stage}</em>.`,
         dealId: deal.id
       });
     });
@@ -2804,7 +2832,7 @@ function loadNotifications() {
 }
 function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); _sbSync(NOTIF_KEY, list); }
 function userSettings(userId) {
-  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true };
+  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, emailNotifs:true };
   try {
     const raw = localStorage.getItem('dealflow_settings_' + userId);
     if (!raw) return def;
@@ -2838,7 +2866,76 @@ function addNotification(n) {
   if (list.length > 200) list.length = 200;
   saveNotifications(list);
   refreshNotifBadge();
+  emailNotify(list[0]);
 }
+function testBrevoEmail() {
+  const u = currentUser();
+  if (!u || !u.email) { alert('Nessun indirizzo email associato al tuo profilo.'); return; }
+  if (!getBrevoKey()) { alert('Inserisci prima la API Key Brevo e salvala.'); return; }
+  sendBrevoEmail(u.email, u.name, 'DealFlow – Test notifiche email',
+    _emailHtml('Email di test', 'Le notifiche email sono configurate correttamente. Da questo momento riceverai gli avvisi all\'indirizzo ' + u.email + '.', null, null, u.name.split(' ')[0])
+  ).then(() => alert('Email di test inviata a ' + u.email));
+}
+
+async function sendBrevoEmail(toEmail, toName, subject, htmlContent) {
+  const apiKey = getBrevoKey();
+  if (!toEmail || !apiKey) return;
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sender: { email: BREVO_SENDER_EMAIL, name: BREVO_SENDER_NAME },
+        to: [{ email: toEmail, name: toName || toEmail }],
+        subject,
+        htmlContent
+      })
+    });
+    if (!res.ok) console.warn('Brevo email failed:', res.status, await res.text());
+  } catch(e) { console.warn('Brevo email error:', e); }
+}
+
+function _emailHtml(title, bodyText, ctaLabel, ctaUrl, firstName) {
+  const cta = ctaUrl
+    ? `<a href="${ctaUrl}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;margin-top:4px;">${ctaLabel || 'Apri app'}</a>`
+    : '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="font-family:Inter,Arial,sans-serif;background:#f1f5f9;margin:0;padding:32px 16px;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+    <div style="background:#4f46e5;padding:18px 28px;display:flex;align-items:center;gap:10px;">
+      <span style="color:#ffffff;font-size:16px;font-weight:700;letter-spacing:-.3px;">DealFlow&nbsp;·&nbsp;Day One</span>
+    </div>
+    <div style="padding:28px 28px 20px;">
+      <p style="font-size:14px;color:#64748b;margin:0 0 6px;">Ciao${firstName ? ` ${firstName}` : ''},</p>
+      <h2 style="font-size:18px;font-weight:700;color:#1e293b;margin:0 0 12px;line-height:1.3;">${title}</h2>
+      <p style="font-size:14px;color:#475569;line-height:1.65;margin:0 0 22px;">${bodyText}</p>
+      ${cta}
+    </div>
+    <div style="padding:14px 28px;border-top:1px solid #f1f5f9;background:#f8fafc;">
+      <p style="font-size:11px;color:#94a3b8;margin:0;">Notifica automatica da DealFlow. Per disattivarle: Impostazioni → Notifiche via email.</p>
+    </div>
+  </div>
+</body></html>`;
+}
+
+function emailNotify(notif) {
+  if (!notif.userId) return;
+  const s = userSettings(notif.userId);
+  if (s.emailNotifs === false) return;
+  const team = loadTeam();
+  const member = team.find(m => m.id === notif.userId);
+  if (!member || !member.email) return;
+  const appBase = window.location.origin + window.location.pathname;
+  const ctaUrl = notif.dealId ? appBase + '?deal=' + notif.dealId : appBase;
+  const firstName = (member.name || '').split(' ')[0];
+  sendBrevoEmail(
+    member.email,
+    member.name,
+    'DealFlow: ' + notif.title,
+    _emailHtml(notif.title, notif.body, 'Apri deal', ctaUrl, firstName)
+  );
+}
+
 function refreshNotifBadge() {
   const u = currentUser();
   const badge = document.getElementById('notif-bell-badge');
@@ -3047,12 +3144,33 @@ function renderSettings() {
       <p class="text-slate-500 text-sm mb-6">Preferenze per ${esc(u.name)}</p>
       ${userMgmtHtml}
       <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3">
-        <h2 class="text-base font-semibold text-slate-700 mb-2">Notifiche</h2>
-        ${row('mentions','Notifiche @menzioni','Ricevi una notifica quando un membro ti menziona in un commento')}
-        ${row('tasksAssigned','Notifiche task assegnati','Ricevi una notifica quando ti viene assegnato un task')}
-        ${row('tasksDueSoon','Notifiche task in scadenza','Avvisi per i task con scadenza nei prossimi 3 giorni')}
-        ${row('stageChange','Notifiche cambio stage deal','Avvisi quando cambia lo stage di un deal a cui partecipi')}
-        ${row('newDeal','Notifiche nuovi deal','Avvisi quando viene creato un nuovo deal')}
+        <h2 class="text-base font-semibold text-slate-700 mb-2">Notifiche in-app</h2>
+        ${row('mentions','@menzioni','Ricevi una notifica quando un membro ti menziona in un commento')}
+        ${row('tasksAssigned','Task assegnati','Ricevi una notifica quando ti viene assegnato un task')}
+        ${row('tasksDueSoon','Task in scadenza','Avvisi per i task con scadenza nei prossimi 3 giorni')}
+        ${row('stageChange','Cambio stage deal','Avvisi quando cambia lo stage di un deal a cui partecipi')}
+        ${row('newDeal','Nuovi deal','Avvisi quando viene creato un nuovo deal')}
+      </div>
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3 mt-4">
+        <div class="flex items-center gap-2 mb-2">
+          <h2 class="text-base font-semibold text-slate-700">Notifiche via email</h2>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">Brevo</span>
+        </div>
+        ${row('emailNotifs','Ricevi notifiche via email',`Le notifiche abilitate sopra vengono inviate anche all'indirizzo ${esc(u.email||'—')}`)}
+        ${isPartner ? `
+        <div class="p-4 border border-slate-200 rounded-lg bg-slate-50">
+          <div class="text-sm font-medium text-slate-700 mb-1">Brevo API Key <span class="text-xs text-slate-400 font-normal">(visibile solo ai Partner)</span></div>
+          <div class="text-xs text-slate-500 mb-2">Incolla qui la chiave da Brevo → SMTP &amp; API → API Keys. Viene salvata in modo sicuro e non compare nel codice sorgente.</div>
+          <div class="flex gap-2">
+            <input id="brevo-key-input" type="password" placeholder="xkeysib-..." value="${esc(getBrevoKey())}"
+              class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+            <button type="button" onclick="saveBrevoKey(document.getElementById('brevo-key-input').value.trim()); this.textContent='✓ Salvata'; setTimeout(()=>this.textContent='Salva',2000);"
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium whitespace-nowrap">Salva</button>
+          </div>
+          <div class="mt-2">
+            <button type="button" onclick="testBrevoEmail()" class="text-xs text-indigo-600 hover:text-indigo-800 underline">Invia email di test a ${esc(u.email||'—')}</button>
+          </div>
+        </div>` : ''}
       </div>
     </div>
   `;
