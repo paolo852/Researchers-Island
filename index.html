@@ -2489,9 +2489,9 @@ function renderTasksList() {
     return `
     <div class="flex flex-wrap items-center gap-2 p-3 border border-slate-200 rounded-lg">
       <input type="checkbox" ${done?'checked':''} onchange="toggleTaskDone(${i})" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
-      <input type="text" value="${esc(t.title||'')}" placeholder="Titolo task" oninput="formTasks[${i}].title=this.value; persistTasksOnDeal()" class="flex-1 min-w-40 border border-slate-200 rounded px-2 py-1 text-sm ${done?'line-through text-slate-400':''} focus:outline-none focus:ring-1 focus:ring-indigo-300">
-      <select onchange="formTasks[${i}].assignee=this.value; persistTasksOnDeal()" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300">
-        <option value="">— Assegnatario —</option>
+      <input type="text" value="${esc(t.title||'')}" placeholder="Titolo task…" onblur="formTasks[${i}].title=this.value; persistTasksOnDeal(); this.classList.add('border-emerald-300'); setTimeout(()=>this.classList.remove('border-emerald-300'),800)" oninput="formTasks[${i}].title=this.value" class="flex-1 min-w-40 border border-slate-200 rounded px-2 py-1 text-sm transition-colors ${done?'line-through text-slate-400':''} focus:outline-none focus:ring-1 focus:ring-indigo-300">
+      <select onchange="assignFormTask(${i}, this.value)" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300" title="Assegna a un membro del team">
+        <option value="">👤 Assegna a…</option>
         ${team.map(m => `<option value="${esc(m.id)}" ${t.assignee===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}
       </select>
       <input type="date" value="${esc(t.dueDate||'')}" onchange="formTasks[${i}].dueDate=this.value; persistTasksOnDeal()" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300">
@@ -2523,6 +2523,20 @@ function persistTasksOnDeal() {
   deals = loadDeals();
   const idx = deals.findIndex(d => d.id === editingDeal.id);
   if (idx >= 0) { deals[idx].tasks = JSON.parse(JSON.stringify(formTasks)); saveDeals(deals); editingDeal = deals[idx]; }
+}
+function assignFormTask(i, newAssigneeId) {
+  const prevAssigneeId = formTasks[i].assignee;
+  formTasks[i].assignee = newAssigneeId;
+  persistTasksOnDeal();
+  if (newAssigneeId && newAssigneeId !== prevAssigneeId && editingDeal) {
+    addNotification({
+      userId: newAssigneeId,
+      type: 'task_assigned',
+      title: 'Nuovo task assegnato',
+      body: `Ti è stato assegnato il task "<strong>${formTasks[i].title || '(senza titolo)'}</strong>" sul deal <em>${editingDeal.company}</em>.`,
+      dealId: editingDeal.id
+    });
+  }
 }
 
 // ============================================================
