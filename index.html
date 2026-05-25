@@ -14,10 +14,10 @@
     .score-green { @apply bg-green-100 text-green-800 border border-green-300; }
     .score-orange { @apply bg-orange-100 text-orange-800 border border-orange-300; }
     .score-red { @apply bg-red-100 text-red-800 border border-red-300; }
-    .stage-sourcing { @apply bg-sky-100 text-sky-800; }
+    .stage-development { @apply bg-sky-100 text-sky-800; }
+    .stage-predd { @apply bg-orange-100 text-orange-800; }
     .stage-dd { @apply bg-yellow-100 text-yellow-800; }
-    .stage-ts { @apply bg-purple-100 text-purple-800; }
-    .stage-closed { @apply bg-green-100 text-green-800; }
+    .stage-investimento { @apply bg-green-100 text-green-800; }
     .stage-rejected { @apply bg-red-100 text-red-800; }
     .fade-in { animation: fadeIn 0.2s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -127,8 +127,8 @@
     </div>
     <form onsubmit="doLogin(event)" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nome utente</label>
-        <input id="login-username" type="text" required autofocus class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        <label class="block text-sm font-medium text-slate-600 mb-1">Email</label>
+        <input id="login-username" type="email" required autofocus autocomplete="username" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Password</label>
@@ -136,7 +136,36 @@
       </div>
       <div id="login-error" class="text-sm text-red-600 hidden">Credenziali non valide o utente non autorizzato.</div>
       <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium">Accedi</button>
-      <p class="text-xs text-slate-400 text-center pt-2">Demo: utente <code class="bg-slate-100 px-1 rounded">admin</code> / password <code class="bg-slate-100 px-1 rounded">admin</code></p>
+    </form>
+  </div>
+</div>
+
+<!-- INVITE / SET PASSWORD OVERLAY -->
+<div id="invite-overlay" class="fixed inset-0 z-[100] bg-gradient-to-br from-teal-900 via-slate-900 to-slate-800 flex items-center justify-center hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 bg-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-3">DT</div>
+      <h1 class="text-xl font-bold text-slate-800">Crea il tuo accesso</h1>
+      <p class="text-sm text-slate-500 mt-1">Benvenuto/a su DeepTech Deal Flow Manager</p>
+    </div>
+    <div class="mb-4 p-3 bg-teal-50 rounded-lg border border-teal-200">
+      <p class="text-sm text-teal-800" id="invite-welcome-text">Stai creando il tuo accesso personale.</p>
+    </div>
+    <form onsubmit="doSetPassword(event)" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Email (username)</label>
+        <input id="invite-email" type="email" readonly class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-500 cursor-not-allowed">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Scegli una password</label>
+        <input id="invite-password" type="password" required minlength="8" autocomplete="new-password" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Conferma password</label>
+        <input id="invite-password2" type="password" required minlength="8" autocomplete="new-password" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">
+      </div>
+      <div id="invite-error" class="text-sm text-red-600 hidden"></div>
+      <button type="submit" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold transition-colors">Crea accesso e accedi</button>
     </form>
   </div>
 </div>
@@ -313,7 +342,7 @@ const DEMO_DEALS = [
       { name: 'Dr. Giulia Ferrara', institution: 'IIT – Istituto Italiano di Tecnologia', role: 'Chief Scientist', expertise: 'Machine learning, bioprocessi', contact: 'g.ferrara@iit.it', notes: 'Premio ERC Starting Grant 2023.' }
     ],
     investmentAmount: 2000000, valuation: 10000000, instrument: 'convertible',
-    stage: 'Term Sheet', tasks: [], files: [], dealTeam: [], dealLead: '',
+    stage: 'Investimento', tasks: [], files: [], dealTeam: [], dealLead: '',
     concept: {
       fields: {
         projectName: 'BioReactor.AI — Digital Twin Platform',
@@ -376,7 +405,7 @@ const DEMO_DEALS = [
       { name: 'Dr. Sara Lombardi', institution: 'Università di Bologna', role: 'PhD Researcher', expertise: 'Materiali per celle a combustibile', contact: 'sara.lombardi@unibo.it', notes: 'Tesi su degrado catalizzatori, dati originali della startup.' }
     ],
     investmentAmount: 1200000, valuation: 5000000, instrument: 'SAFE',
-    stage: 'Sourcing', tasks: [], files: [], dealTeam: [], dealLead: '',
+    stage: 'Development', tasks: [], files: [], dealTeam: [], dealLead: '',
     concept: {
       fields: {
         projectName: 'HydroCrack — Fotocatalizzatore ad Alta Efficienza',
@@ -469,10 +498,10 @@ function scoreBadge(score) {
 
 function stageBadge(stage) {
   const map = {
-    'Sourcing': 'stage-sourcing',
+    'Development': 'stage-development',
+    'Pre Due Diligence': 'stage-predd',
     'Due Diligence': 'stage-dd',
-    'Term Sheet': 'stage-ts',
-    'Closed': 'stage-closed',
+    'Investimento': 'stage-investimento',
     'Rejected': 'stage-rejected'
   };
   const cls = map[stage] || 'bg-slate-100 text-slate-600';
@@ -530,12 +559,12 @@ function renderDashboard() {
   const avgScore = scores.length ? (scores.reduce((a,b) => a+b,0) / scores.length).toFixed(1) : '–';
   const top3 = [...deals].sort((a,b) => computeScore(b) - computeScore(a)).slice(0,3);
 
-  const stageOrder = ['Sourcing','Due Diligence','Term Sheet','Closed','Rejected'];
+  const stageOrder = ['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'];
   const stageColors = {
-    'Sourcing': 'bg-sky-500',
+    'Development': 'bg-sky-500',
+    'Pre Due Diligence': 'bg-orange-500',
     'Due Diligence': 'bg-yellow-500',
-    'Term Sheet': 'bg-purple-500',
-    'Closed': 'bg-green-500',
+    'Investimento': 'bg-green-500',
     'Rejected': 'bg-red-400'
   };
 
@@ -549,18 +578,16 @@ function renderDashboard() {
   if (!dashboardYearTab || !allYears.includes(dashboardYearTab)) dashboardYearTab = allYears[0];
 
   const PHASES = [
-    { key: 'nursery', label: 'Nursery', sub: 'In sviluppo' },
-    { key: 'predd', label: 'Pre-Due Diligence', sub: 'Un criterio chiave' },
+    { key: 'nursery', label: 'Development', sub: 'In sviluppo' },
+    { key: 'predd', label: 'Pre Due Diligence', sub: 'Criteri iniziali validati' },
     { key: 'dd', label: 'Due Diligence', sub: 'In valutazione' },
-    { key: 'investimento', label: 'Investimento', sub: 'Term Sheet / Closed' }
+    { key: 'investimento', label: 'Investimento', sub: 'Operazione conclusa' }
   ];
 
   function getPhase(d) {
-    const ind = d.industrialNeed || 0;
-    const dev = d.devPerformance || 0;
-    if (d.stage === 'Term Sheet' || d.stage === 'Closed') return 'investimento';
+    if (d.stage === 'Investimento') return 'investimento';
     if (d.stage === 'Due Diligence') return 'dd';
-    if (ind >= 6 || dev >= 6) return 'predd';
+    if (d.stage === 'Pre Due Diligence') return 'predd';
     return 'nursery';
   }
 
@@ -635,8 +662,8 @@ function renderDashboard() {
           <div class="text-sm text-slate-500 font-medium">In Due Diligence</div>
         </div>
         <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
-          <div class="text-3xl font-bold text-indigo-600 mb-1">${byStage['Term Sheet'] || 0}</div>
-          <div class="text-sm text-slate-500 font-medium">Term Sheet Attivi</div>
+          <div class="text-3xl font-bold text-indigo-600 mb-1">${byStage['Investimento'] || 0}</div>
+          <div class="text-sm text-slate-500 font-medium">Investimenti</div>
         </div>
       </div>
 
@@ -801,10 +828,10 @@ function renderPipeline() {
           oninput="pipelineFilter=this.value; renderPipelineTable()" value="${pipelineFilter}">
         <select id="pipeline-stage-filter" onchange="renderPipelineTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
           <option value="">Tutti gli stage</option>
-          <option value="Sourcing">Sourcing</option>
+          <option value="Development">Development</option>
+          <option value="Pre Due Diligence">Pre Due Diligence</option>
           <option value="Due Diligence">Due Diligence</option>
-          <option value="Term Sheet">Term Sheet</option>
-          <option value="Closed">Closed</option>
+          <option value="Investimento">Investimento</option>
           <option value="Rejected">Rejected</option>
         </select>
       </div>
@@ -961,7 +988,7 @@ function quickStage(id) {
   deals = loadDeals();
   const d = deals.find(x => x.id === id);
   if (!d) return;
-  const order = ['Sourcing','Due Diligence','Term Sheet','Closed'];
+  const order = ['Development','Pre Due Diligence','Due Diligence','Investimento'];
   const idx = order.indexOf(d.stage);
   if (idx >= 0 && idx < order.length - 1) {
     d.stage = order[idx + 1];
@@ -1066,7 +1093,7 @@ function renderForm(dealId) {
             <div>
               <label class="block text-sm font-medium text-slate-600 mb-1">Stage</label>
               <select name="stage" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                ${['Sourcing','Due Diligence','Term Sheet','Closed','Rejected'].map(s => `<option value="${s}" ${d.stage===s?'selected':''}>${s}</option>`).join('')}
+                ${['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'].map(s => `<option value="${s}" ${d.stage===s?'selected':''}>${s}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -2292,7 +2319,7 @@ function openQuickAdd() {
         <div>
           <label class="block text-sm font-medium text-slate-600 mb-1">Stage</label>
           <select name="stage" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-            ${['Sourcing','Due Diligence','Term Sheet','Closed','Rejected'].map(s => `<option value="${s}" ${s==='Sourcing'?'selected':''}>${s}</option>`).join('')}
+            ${['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'].map(s => `<option value="${s}" ${s==='Development'?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -2331,7 +2358,7 @@ function quickAddSave(e) {
     coInvestors: [], capTable: [],
     investmentAmount: 0, valuation: 0,
     instrument: 'equity',
-    stage: fd.get('stage') || 'Sourcing',
+    stage: fd.get('stage') || 'Development',
     notes: '',
     researchers: [], tasks: [], files: [], comments: [], dealTeam: [], dealLead: '',
     createdAt: new Date().toISOString()
@@ -2937,6 +2964,8 @@ function renderSettings() {
   const u = currentUser();
   if (!u) { el.innerHTML = ''; return; }
   const s = userSettings(u.id);
+  const isPartner = u.role === 'Partner';
+
   const row = (key, label, desc) => `
     <label class="flex items-start justify-between gap-4 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
       <div class="flex-1">
@@ -2946,10 +2975,55 @@ function renderSettings() {
       <input type="checkbox" data-setting="${key}" ${s[key]?'checked':''} onchange="updateSetting('${key}', this.checked)" class="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-300 w-5 h-5">
     </label>
   `;
+
+  const team = loadTeam();
+  const userMgmtHtml = isPartner ? `
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 mb-6">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+        <div>
+          <h2 class="text-base font-semibold text-slate-700">Gestione Utenti</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Invita nuovi utenti e gestisci i loro accessi all'applicazione</p>
+        </div>
+        <button onclick="navigate('team')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi membro</button>
+      </div>
+      <div class="space-y-2">
+        ${team.map(m => {
+          const hasActiveInvite = m.inviteToken && m.inviteExpiry && new Date(m.inviteExpiry) > new Date();
+          const statusBadge = m.canLogin
+            ? '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">✓ Accesso attivo</span>'
+            : hasActiveInvite
+              ? '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">⏳ Invito inviato</span>'
+              : '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Nessun accesso</span>';
+          const actions = m.id !== u.id ? `
+            <button onclick="sendInvite('${m.id}')" class="text-xs ${m.canLogin ? 'bg-slate-50 hover:bg-slate-100 text-slate-600' : 'bg-teal-50 hover:bg-teal-100 text-teal-700'} px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
+              ${hasActiveInvite ? 'Reinvia invito' : m.canLogin ? 'Reinvia invito' : 'Invia invito'}
+            </button>
+            ${m.canLogin ? `<button onclick="revokeAccess('${m.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-medium">Revoca</button>` : ''}
+          ` : '<span class="text-xs text-slate-400 italic">Tu</span>';
+          return `
+            <div class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg">
+              <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">
+                ${esc((m.name||'?').charAt(0).toUpperCase())}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-slate-700 truncate">${esc(m.name)}</div>
+                <div class="text-xs text-slate-400 truncate">${esc(m.email||'—')} · ${esc(m.role)}</div>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                ${statusBadge}
+                ${actions}
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
+
   el.innerHTML = `
     <div class="max-w-2xl mx-auto">
       <h1 class="text-2xl font-bold text-slate-800 mb-1">Impostazioni</h1>
-      <p class="text-slate-500 text-sm mb-6">Preferenze notifiche per ${esc(u.name)}</p>
+      <p class="text-slate-500 text-sm mb-6">Preferenze per ${esc(u.name)}</p>
+      ${userMgmtHtml}
       <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3">
         <h2 class="text-base font-semibold text-slate-700 mb-2">Notifiche</h2>
         ${row('mentions','Notifiche @menzioni','Ricevi una notifica quando un membro ti menziona in un commento')}
@@ -2961,12 +3035,85 @@ function renderSettings() {
     </div>
   `;
 }
+
 function updateSetting(key, val) {
   const u = currentUser();
   if (!u) return;
   const s = userSettings(u.id);
   s[key] = !!val;
   saveUserSettings(u.id, s);
+}
+
+function sendInvite(memberId) {
+  const team = loadTeam();
+  const idx = team.findIndex(m => m.id === memberId);
+  if (idx < 0) return;
+  const member = team[idx];
+  if (!member.email) { alert('Membro senza indirizzo email — aggiungilo prima dalla sezione Team.'); return; }
+
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2,'0')).join('');
+  team[idx].inviteToken = token;
+  team[idx].inviteExpiry = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+  saveTeam(team);
+
+  const appUrl = window.location.origin + window.location.pathname;
+  const inviteUrl = appUrl + '?invite=' + token;
+  const subject = encodeURIComponent('Accesso DeepTech Deal Flow Manager — Day One');
+  const body = encodeURIComponent(
+    'Ciao ' + member.name + ',\n\n' +
+    'Sei stato/a invitato/a ad accedere al DeepTech Deal Flow Manager di Day One.\n\n' +
+    'Clicca il link qui sotto per creare il tuo accesso personale:\n' +
+    inviteUrl + '\n\n' +
+    'Il link è valido per 72 ore.\n\n' +
+    'Se non hai richiesto questo accesso, ignora questa email.\n\n' +
+    'Day One Team'
+  );
+  window.open('mailto:' + member.email + '?subject=' + subject + '&body=' + body);
+  renderSettings();
+}
+
+function revokeAccess(memberId) {
+  if (!confirm('Revocare l\'accesso a questo utente? Dovrà essere reinvitato per rientrare.')) return;
+  const team = loadTeam();
+  const idx = team.findIndex(m => m.id === memberId);
+  if (idx < 0) return;
+  team[idx].canLogin = false;
+  team[idx].username = '';
+  team[idx].password = '';
+  team[idx].inviteToken = null;
+  team[idx].inviteExpiry = null;
+  saveTeam(team);
+  renderSettings();
+}
+
+let _inviteMemberId = null;
+
+function doSetPassword(e) {
+  e.preventDefault();
+  const p1 = document.getElementById('invite-password').value;
+  const p2 = document.getElementById('invite-password2').value;
+  const errEl = document.getElementById('invite-error');
+  errEl.classList.add('hidden');
+  if (p1 !== p2) { errEl.textContent = 'Le password non corrispondono.'; errEl.classList.remove('hidden'); return; }
+  if (p1.length < 8) { errEl.textContent = 'La password deve essere di almeno 8 caratteri.'; errEl.classList.remove('hidden'); return; }
+
+  const team = loadTeam();
+  const idx = team.findIndex(m => m.id === _inviteMemberId);
+  if (idx < 0) { errEl.textContent = 'Errore: utente non trovato.'; errEl.classList.remove('hidden'); return; }
+
+  team[idx].username = team[idx].email;
+  team[idx].password = p1;
+  team[idx].canLogin = true;
+  team[idx].status = 'Active';
+  team[idx].inviteToken = null;
+  team[idx].inviteExpiry = null;
+  saveTeam(team);
+
+  window.history.replaceState({}, '', window.location.pathname);
+  document.getElementById('invite-overlay').classList.add('hidden');
+  showLogin();
+  const usernameEl = document.getElementById('login-username');
+  if (usernameEl) usernameEl.value = team[idx].email;
 }
 
 
@@ -3409,7 +3556,7 @@ function computeInvestorMatch(deal, inv) {
   else          {              details.push({ ok: false, label: 'TRL', note: `TRL ${trl} fuori dal range ${trlMin}–${trlMax}` }); }
 
   // Stage (20 pt) — mappa deal stage → termini usati dagli investitori
-  const stageMap = { 'Sourcing': 'Seed', 'Due Diligence': 'Seed', 'Term Sheet': 'Series A', 'Closed': 'Series A', 'Rejected': null };
+  const stageMap = { 'Development': 'Seed', 'Pre Due Diligence': 'Seed', 'Due Diligence': 'Series A', 'Investimento': 'Series A', 'Rejected': null };
   const dealStageKey = stageMap[deal.stage] || deal.stage;
   const stageMatch = (inv.stages || []).some(s => s === dealStageKey || s.toLowerCase().includes(dealStageKey.toLowerCase()));
   if (stageMatch) { score += 20; details.push({ ok: true,  label: 'Stage', note: `${deal.stage} compatibile con ${(inv.stages||[]).join(', ')}` }); }
@@ -4225,7 +4372,7 @@ document.getElementById('industry-modal-overlay').addEventListener('click', func
 // ============================================================
 const TEAM_KEY = 'dealflow_team';
 const DEMO_TEAM = [
-  { id: 'tm-admin', name: 'Admin Demo', email: 'admin@fondo.it', role: 'Partner', status: 'Active', username: 'admin', password: 'admin', canLogin: true },
+  { id: 'tm-admin', name: 'Francesca Petrucci', email: 'francesca.petrucci@day-one.biz', role: 'Partner', status: 'Active', username: 'francesca.petrucci@day-one.biz', password: 'Horizon2020', canLogin: true },
   { id: 'tm-001', name: 'Marco Bianchi', email: 'marco.bianchi@fondo.it', role: 'Partner', status: 'Active', username: 'mbianchi', password: 'demo123', canLogin: true },
   { id: 'tm-002', name: 'Giulia Rossi', email: 'giulia.rossi@fondo.it', role: 'Analyst', status: 'Active', username: 'grossi', password: 'demo123', canLogin: true },
   { id: 'tm-003', name: 'Luca Verdi', email: 'luca.verdi@fondo.it', role: 'Associate', status: 'Invited', username: '', password: '', canLogin: false }
@@ -4491,9 +4638,19 @@ function showApp() {
     if (m.password === undefined) { m.password = ''; _teamMigrated = true; }
     if (m.canLogin === undefined) { m.canLogin = false; _teamMigrated = true; }
   });
-  if (!team.some(m => m.username === 'admin')) {
-    team.unshift({ id: 'tm-admin', name: 'Admin Demo', email: 'admin@fondo.it', role: 'Partner', status: 'Active', username: 'admin', password: 'admin', canLogin: true });
+  if (!team.some(m => m.id === 'tm-admin')) {
+    team.unshift({ id: 'tm-admin', name: 'Francesca Petrucci', email: 'francesca.petrucci@day-one.biz', role: 'Partner', status: 'Active', username: 'francesca.petrucci@day-one.biz', password: 'Horizon2020', canLogin: true });
     _teamMigrated = true;
+  } else {
+    // Migrate old admin credentials to new ones
+    const adminIdx = team.findIndex(m => m.id === 'tm-admin');
+    if (adminIdx >= 0 && team[adminIdx].username === 'admin') {
+      team[adminIdx].username = 'francesca.petrucci@day-one.biz';
+      team[adminIdx].password = 'Horizon2020';
+      team[adminIdx].email = 'francesca.petrucci@day-one.biz';
+      team[adminIdx].name = 'Francesca Petrucci';
+      _teamMigrated = true;
+    }
   }
   if (_teamMigrated) saveTeam(team);
 
@@ -4521,8 +4678,26 @@ function showApp() {
     }
   }
 
-  // Hide loading overlay and show the app
+  // Hide loading overlay
   if (overlay) overlay.style.display = 'none';
+
+  // Check for invite token in URL
+  const _urlParams = new URLSearchParams(window.location.search);
+  const _inviteToken = _urlParams.get('invite');
+  if (_inviteToken) {
+    const _teamNow = loadTeam();
+    const _invitedMember = _teamNow.find(m => m.inviteToken === _inviteToken && m.inviteExpiry && new Date(m.inviteExpiry) > new Date());
+    if (_invitedMember) {
+      _inviteMemberId = _invitedMember.id;
+      document.getElementById('invite-welcome-text').textContent = 'Ciao ' + _invitedMember.name + ', stai creando il tuo accesso personale.';
+      document.getElementById('invite-email').value = _invitedMember.email;
+      document.getElementById('invite-overlay').classList.remove('hidden');
+      return;
+    }
+    // Token not found or expired — clean URL and proceed normally
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
   if (currentUser()) showApp(); else showLogin();
 })();
 </script>
