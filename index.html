@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeepTech Deal Flow</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style type="text/tailwindcss">
     [x-cloak] { display: none; }
@@ -23,6 +24,14 @@
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex">
+<!-- Loading overlay shown during Supabase init -->
+<div id="loading-overlay" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900">
+  <div class="text-center text-white">
+    <div class="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-5"></div>
+    <p class="text-xl font-semibold mb-1">DeepTech Deal Flow</p>
+    <p class="text-sm text-slate-400" id="loading-status">Connessione al cloud…</p>
+  </div>
+</div>
 
 <!-- SIDEBAR -->
 <aside id="sidebar" class="w-64 bg-slate-800 min-h-screen flex flex-col flex-shrink-0">
@@ -168,6 +177,34 @@
 </div>
 
 <script>
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+const SUPABASE_URL = 'https://drvlvjyciuuslwytkdbg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_x4uSMKo_6PrDkXbR4_uOxw_kGsLkNkt';
+let _sb = null;
+try {
+  if (window.supabase && window.supabase.createClient) {
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+} catch(e) { console.warn('Supabase init failed:', e); }
+
+async function _sbSync(key, value) {
+  if (!_sb) return;
+  try {
+    await _sb.from('app_data').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  } catch(e) { console.warn('Supabase sync error [' + key + ']:', e.message); }
+}
+
+async function _sbLoadAll() {
+  if (!_sb) return;
+  const { data, error } = await _sb.from('app_data').select('key, value');
+  if (error) throw error;
+  (data || []).forEach(row => {
+    localStorage.setItem(row.key, JSON.stringify(row.value));
+  });
+}
+
 // ============================================================
 // DATA MODEL & STORAGE
 // ============================================================
@@ -390,6 +427,7 @@ function loadDeals() {
 
 function saveDeals(deals) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
+  _sbSync(STORAGE_KEY, deals);
 }
 
 let deals = loadDeals();
@@ -731,6 +769,7 @@ function saveYearlyTarget(year, phase, field, value) {
   if (!t[k]) t[k] = {};
   t[k][field] = value;
   localStorage.setItem(YEARLY_TARGETS_KEY, JSON.stringify(t));
+  _sbSync(YEARLY_TARGETS_KEY, t);
 }
 
 // ============================================================
@@ -2722,7 +2761,7 @@ const NOTIF_TYPE_TO_SETTING = {
 function loadNotifications() {
   try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch(e) { return []; }
 }
-function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); }
+function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); _sbSync(NOTIF_KEY, list); }
 function userSettings(userId) {
   const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true };
   try {
@@ -2733,6 +2772,7 @@ function userSettings(userId) {
 }
 function saveUserSettings(userId, s) {
   localStorage.setItem('dealflow_settings_' + userId, JSON.stringify(s));
+  _sbSync('dealflow_settings_' + userId, s);
 }
 function addNotification(n) {
   if (!n.userId) return;
@@ -3117,7 +3157,7 @@ function loadInvestors() {
   localStorage.setItem(INVESTORS_KEY, JSON.stringify(DEMO_INVESTORS));
   return JSON.parse(JSON.stringify(DEMO_INVESTORS));
 }
-function saveInvestors(list) { localStorage.setItem(INVESTORS_KEY, JSON.stringify(list)); }
+function saveInvestors(list) { localStorage.setItem(INVESTORS_KEY, JSON.stringify(list)); _sbSync(INVESTORS_KEY, list); }
 
 function renderInvestors() {
   const el = document.getElementById('page-investors');
@@ -3551,7 +3591,7 @@ function loadPortfolio() {
   localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(DEMO_PORTFOLIO));
   return JSON.parse(JSON.stringify(DEMO_PORTFOLIO));
 }
-function savePortfolio(list) { localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(list)); }
+function savePortfolio(list) { localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(list)); _sbSync(PORTFOLIO_KEY, list); }
 
 let editingPortfolio = null;
 let portfolioMilestones = [];
@@ -3943,7 +3983,7 @@ function loadIndustries() {
   localStorage.setItem(INDUSTRIES_KEY, JSON.stringify(DEMO_INDUSTRIES));
   return JSON.parse(JSON.stringify(DEMO_INDUSTRIES));
 }
-function saveIndustries(list) { localStorage.setItem(INDUSTRIES_KEY, JSON.stringify(list)); }
+function saveIndustries(list) { localStorage.setItem(INDUSTRIES_KEY, JSON.stringify(list)); _sbSync(INDUSTRIES_KEY, list); }
 
 let industryValidations = [];
 let industryNeeds = [];
@@ -4204,7 +4244,7 @@ function loadTeam() {
   localStorage.setItem(TEAM_KEY, JSON.stringify(DEMO_TEAM));
   return JSON.parse(JSON.stringify(DEMO_TEAM));
 }
-function saveTeam(t) { localStorage.setItem(TEAM_KEY, JSON.stringify(t)); }
+function saveTeam(t) { localStorage.setItem(TEAM_KEY, JSON.stringify(t)); _sbSync(TEAM_KEY, t); }
 
 function renderTeam() {
   const el = document.getElementById('page-team');
@@ -4416,64 +4456,83 @@ function showApp() {
 // ============================================================
 // INIT
 // ============================================================
-// Ensure tasks/files arrays exist on existing deals
-deals = loadDeals();
-let _migrated = false;
-deals.forEach(d => {
-  if (!d.tasks) { d.tasks = []; _migrated = true; }
-  if (!d.files) { d.files = []; _migrated = true; }
-  if (!d.researchers) { d.researchers = []; _migrated = true; }
-  if (!d.comments) { d.comments = []; _migrated = true; }
-  if (!d.createdAt) { d.createdAt = new Date().toISOString(); _migrated = true; }
-  if (!d.concept) { d.concept = { fields:{}, approvals:{}, comments:{}, validationStatus:{} }; _migrated = true; }
-  if (!d.evaluation) { d.evaluation = { marketValidated: false, marketValidationHow:'', prototypePerformanceText:'', secondary:{}, comments:{} }; _migrated = true; }
-  // Migrate legacy tasks without criterion key
-  (d.tasks || []).forEach(t => {
-    if (!t.criterion) { t.criterion = 'industrialNeed'; _migrated = true; }
-  });
-});
-if (_migrated) saveDeals(deals);
-// Seed team & migrate existing team members to include auth fields
-let team = loadTeam();
-let _teamMigrated = false;
-team.forEach(m => {
-  if (m.username === undefined) { m.username = ''; _teamMigrated = true; }
-  if (m.password === undefined) { m.password = ''; _teamMigrated = true; }
-  if (m.canLogin === undefined) { m.canLogin = false; _teamMigrated = true; }
-});
-// Ensure admin demo user exists for first-time login on existing installs
-if (!team.some(m => m.username === 'admin')) {
-  team.unshift({ id: 'tm-admin', name: 'Admin Demo', email: 'admin@fondo.it', role: 'Partner', status: 'Active', username: 'admin', password: 'admin', canLogin: true });
-  _teamMigrated = true;
-}
-if (_teamMigrated) saveTeam(team);
+(async function startApp() {
+  const overlay = document.getElementById('loading-overlay');
+  const status  = document.getElementById('loading-status');
 
-// Seed demo notifications for admin on first load
-(function seedDemoNotifications() {
-  if (localStorage.getItem(NOTIF_KEY)) return;
-  const admin = team.find(m => m.username === 'admin');
-  if (!admin) return;
-  const firstDeal = (loadDeals()[0] || {});
-  const demo = [
-    {
-      id: 'n-demo-1', userId: admin.id, type: 'mention',
-      title: 'Sei stato menzionato',
-      body: `Marco Bianchi ti ha menzionato in un commento su ${firstDeal.company||'un deal'} (Bisogno Industriale): "@admin puoi confermare il piano industriale?"`,
-      dealId: firstDeal.id || null, criterion: 'industrialNeed',
-      read: false, timestamp: new Date(Date.now() - 60*60*1000).toISOString()
-    },
-    {
-      id: 'n-demo-2', userId: admin.id, type: 'task_assigned',
-      title: 'Nuovo task assegnato',
-      body: `Ti è stato assegnato un task "Verificare brevetti depositati" su ${firstDeal.company||'un deal'}.`,
-      dealId: firstDeal.id || null, criterion: 'ip',
-      read: false, timestamp: new Date(Date.now() - 30*60*1000).toISOString()
+  // Load all data from Supabase into localStorage cache
+  if (_sb) {
+    try {
+      if (status) status.textContent = 'Caricamento dati dal cloud…';
+      await _sbLoadAll();
+      if (status) status.textContent = 'Dati caricati ✓';
+    } catch(e) {
+      console.warn('Supabase load failed, using local data:', e.message);
+      if (status) status.textContent = 'Cloud non disponibile — dati locali';
     }
-  ];
-  saveNotifications(demo);
-})();
+  } else {
+    if (status) status.textContent = 'Modalità offline (localStorage)';
+  }
 
-if (currentUser()) showApp(); else showLogin();
+  // Ensure tasks/files arrays exist on existing deals
+  deals = loadDeals();
+  let _migrated = false;
+  deals.forEach(d => {
+    if (!d.tasks) { d.tasks = []; _migrated = true; }
+    if (!d.files) { d.files = []; _migrated = true; }
+    if (!d.researchers) { d.researchers = []; _migrated = true; }
+    if (!d.comments) { d.comments = []; _migrated = true; }
+    if (!d.createdAt) { d.createdAt = new Date().toISOString(); _migrated = true; }
+    if (!d.concept) { d.concept = { fields:{}, approvals:{}, comments:{}, validationStatus:{} }; _migrated = true; }
+    if (!d.evaluation) { d.evaluation = { marketValidated: false, marketValidationHow:'', prototypePerformanceText:'', secondary:{}, comments:{} }; _migrated = true; }
+    (d.tasks || []).forEach(t => {
+      if (!t.criterion) { t.criterion = 'industrialNeed'; _migrated = true; }
+    });
+  });
+  if (_migrated) saveDeals(deals);
+
+  // Seed team & migrate existing team members to include auth fields
+  let team = loadTeam();
+  let _teamMigrated = false;
+  team.forEach(m => {
+    if (m.username === undefined) { m.username = ''; _teamMigrated = true; }
+    if (m.password === undefined) { m.password = ''; _teamMigrated = true; }
+    if (m.canLogin === undefined) { m.canLogin = false; _teamMigrated = true; }
+  });
+  if (!team.some(m => m.username === 'admin')) {
+    team.unshift({ id: 'tm-admin', name: 'Admin Demo', email: 'admin@fondo.it', role: 'Partner', status: 'Active', username: 'admin', password: 'admin', canLogin: true });
+    _teamMigrated = true;
+  }
+  if (_teamMigrated) saveTeam(team);
+
+  // Seed demo notifications for admin on first load
+  if (!localStorage.getItem(NOTIF_KEY)) {
+    const admin = team.find(m => m.username === 'admin');
+    if (admin) {
+      const firstDeal = (loadDeals()[0] || {});
+      saveNotifications([
+        {
+          id: 'n-demo-1', userId: admin.id, type: 'mention',
+          title: 'Sei stato menzionato',
+          body: `Marco Bianchi ti ha menzionato in un commento su ${firstDeal.company||'un deal'} (Bisogno Industriale): "@admin puoi confermare il piano industriale?"`,
+          dealId: firstDeal.id || null, criterion: 'industrialNeed',
+          read: false, timestamp: new Date(Date.now() - 60*60*1000).toISOString()
+        },
+        {
+          id: 'n-demo-2', userId: admin.id, type: 'task_assigned',
+          title: 'Nuovo task assegnato',
+          body: `Ti è stato assegnato un task "Verificare brevetti depositati" su ${firstDeal.company||'un deal'}.`,
+          dealId: firstDeal.id || null, criterion: 'ip',
+          read: false, timestamp: new Date(Date.now() - 30*60*1000).toISOString()
+        }
+      ]);
+    }
+  }
+
+  // Hide loading overlay and show the app
+  if (overlay) overlay.style.display = 'none';
+  if (currentUser()) showApp(); else showLogin();
+})();
 </script>
 </body>
 </html>
