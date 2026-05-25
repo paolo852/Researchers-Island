@@ -4469,7 +4469,7 @@ function renderTeam() {
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <!-- Header -->
               <div class="flex items-center gap-4 px-5 py-4 border-b border-slate-100">
-                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">${initials}</div>
+                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0 overflow-hidden">${m.photo ? `<img src="${m.photo}" class="w-full h-full object-cover">` : initials}</div>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-semibold text-slate-800">${esc(m.name)}</span>
@@ -4507,6 +4507,7 @@ function renderTeam() {
   `;
 }
 function openTeamModal(id) {
+  _teamPhotoData = undefined;
   const team = loadTeam();
   const m = id ? team.find(x => x.id === id) : null;
   const body = document.getElementById('team-modal-body');
@@ -4518,6 +4519,24 @@ function openTeamModal(id) {
       </button>
     </div>
     <form onsubmit="saveTeamMember(event, '${m?m.id:''}')" class="p-6 space-y-4">
+      <!-- Avatar picker -->
+      <div class="flex items-center gap-4">
+        <div class="relative flex-shrink-0">
+          <div id="avatar-preview" class="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xl overflow-hidden">
+            ${m&&m.photo ? `<img src="${m.photo}" class="w-full h-full object-cover">` : `<span>${(m?m.name:'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?'}</span>`}
+          </div>
+          <button type="button" onclick="document.getElementById('avatar-file-input').click()"
+            class="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center shadow transition-colors">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536M9 13l6-6 3 3-6 6H9v-3z"/></svg>
+          </button>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-medium text-slate-600 mb-1">Foto profilo</div>
+          <div class="text-xs text-slate-400">JPG o PNG, max 1 MB</div>
+          ${m&&m.photo ? `<button type="button" onclick="removeTeamPhoto()" class="mt-1 text-xs text-red-500 hover:text-red-700 underline">Rimuovi foto</button>` : ''}
+        </div>
+        <input id="avatar-file-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="previewTeamPhoto(event)">
+      </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Nome *</label>
         <input name="name" type="text" required value="${esc(m?m.name:'')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
@@ -4568,10 +4587,57 @@ function openTeamModal(id) {
   document.getElementById('team-modal-overlay').classList.remove('hidden');
 }
 function closeTeamModal() { document.getElementById('team-modal-overlay').classList.add('hidden'); }
+
+let _teamPhotoData = undefined; // holds base64 data URL during modal editing
+
+function previewTeamPhoto(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (file.size > 1.2 * 1024 * 1024) { alert('La foto deve essere inferiore a 1 MB.'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    _teamPhotoData = e.target.result;
+    const preview = document.getElementById('avatar-preview');
+    if (preview) preview.innerHTML = `<img src="${_teamPhotoData}" class="w-full h-full object-cover">`;
+    const removeBtn = document.getElementById('avatar-remove-btn');
+    if (!removeBtn) {
+      const container = preview && preview.closest('.flex.items-center.gap-4');
+      const textCol = container && container.querySelector('.flex-1');
+      if (textCol) {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.id = 'avatar-remove-btn';
+        btn.onclick = removeTeamPhoto;
+        btn.className = 'mt-1 text-xs text-red-500 hover:text-red-700 underline';
+        btn.textContent = 'Rimuovi foto';
+        textCol.appendChild(btn);
+      }
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeTeamPhoto() {
+  _teamPhotoData = null;
+  const preview = document.getElementById('avatar-preview');
+  if (preview) {
+    const nameInput = document.querySelector('#team-modal-body input[name="name"]');
+    const initials = nameInput && nameInput.value
+      ? nameInput.value.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()
+      : '?';
+    preview.innerHTML = `<span>${initials}</span>`;
+  }
+  const removeBtn = document.getElementById('avatar-remove-btn');
+  if (removeBtn) removeBtn.remove();
+  const fileInput = document.getElementById('avatar-file-input');
+  if (fileInput) fileInput.value = '';
+}
+
 function saveTeamMember(e, id) {
   e.preventDefault();
   const fd = new FormData(e.target);
   const team = loadTeam();
+  const existing = id ? team.find(x => x.id === id) : null;
+  const photoValue = _teamPhotoData !== undefined ? _teamPhotoData : (existing ? existing.photo : undefined);
   const fields = {
     name: fd.get('name'),
     email: fd.get('email'),
@@ -4579,7 +4645,8 @@ function saveTeamMember(e, id) {
     status: fd.get('status'),
     username: (fd.get('username')||'').trim(),
     password: fd.get('password')||'',
-    canLogin: fd.get('canLogin') === '1'
+    canLogin: fd.get('canLogin') === '1',
+    ...(photoValue !== undefined ? { photo: photoValue } : {})
   };
   if (id) {
     const idx = team.findIndex(x => x.id === id);
