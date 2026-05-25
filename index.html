@@ -4410,17 +4410,18 @@ function saveTeam(t) { localStorage.setItem(TEAM_KEY, JSON.stringify(t)); _sbSyn
 function renderTeam() {
   const el = document.getElementById('page-team');
   const team = loadTeam();
+  const allDeals = loadDeals();
 
   const roleBg = { 'Partner':'bg-indigo-100 text-indigo-700', 'Analyst':'bg-sky-100 text-sky-700', 'Associate':'bg-teal-100 text-teal-700' };
-  const statusBg = { 'Active':'bg-emerald-100 text-emerald-700', 'Invited':'bg-amber-100 text-amber-700', 'Inactive':'bg-slate-100 text-slate-500' };
-  const statusLabel = { 'Active':'Attivo', 'Invited':'Invitato', 'Inactive':'Inattivo' };
+  const taskStatusCls = { 'To do':'bg-slate-100 text-slate-600', 'In progress':'bg-blue-100 text-blue-700', 'Done':'bg-emerald-100 text-emerald-700', 'Blocked':'bg-red-100 text-red-600' };
+  const priorityCls = { 'High':'text-red-500', 'Med':'text-amber-500', 'Low':'text-slate-400' };
 
   el.innerHTML = `
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-5xl mx-auto">
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold text-slate-800 mb-1">Team</h1>
-          <p class="text-slate-500 text-sm">Membri del team e gestione utenze</p>
+          <p class="text-slate-500 text-sm">Progetti e task attivi per ogni membro</p>
         </div>
         <button onclick="openTeamModal(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -4430,36 +4431,73 @@ function renderTeam() {
 
       ${team.length === 0
         ? '<div class="text-center py-16 text-slate-400">Nessun membro nel team</div>'
-        : `<div class="space-y-3">
+        : `<div class="space-y-4">
           ${team.map(m => {
             const initials = (m.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-            const accessBadge = m.canLogin
-              ? '<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Accesso attivo</span>'
-              : '<span class="inline-flex items-center gap-1 text-xs font-medium text-slate-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>Nessun accesso</span>';
-            const toggleBtn = m.status !== 'Inactive'
-              ? `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium ${m.status==='Active' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'}">${m.status==='Active'?'Disattiva':'Attiva'}</button>`
-              : `<button onclick="toggleTeamStatus('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700">Riattiva</button>`;
+
+            // Deals assigned to this member
+            const memberDeals = allDeals.filter(d => d.dealLead === m.id || (d.dealTeam||[]).includes(m.id));
+
+            // Active tasks across all deals (not Done)
+            const activeTasks = allDeals.flatMap(d =>
+              [...(d.tasks||[]), ...(d.evaluation ? Object.values(CRITERION_KEYS||[]).flatMap(()=>[]) : [])]
+                .filter(t => t.assignee === m.id && t.status !== 'Done')
+                .map(t => ({ ...t, dealName: d.company, dealId: d.id }))
+            );
+
+            const dealsHtml = memberDeals.length === 0
+              ? '<span class="text-xs text-slate-400 italic">Nessun progetto assegnato</span>'
+              : memberDeals.map(d => `
+                <span onclick="navigate('new','${d.id}')" class="inline-flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 transition-colors group">
+                  <span class="text-xs font-medium text-slate-700 group-hover:text-indigo-700">${esc(d.company)}</span>
+                  ${stageBadge(d.stage)}
+                  ${d.dealLead === m.id ? '<span class="text-xs text-indigo-500 font-semibold">Lead</span>' : ''}
+                </span>`).join('');
+
+            const tasksHtml = activeTasks.length === 0
+              ? '<span class="text-xs text-slate-400 italic">Nessun task attivo</span>'
+              : activeTasks.map(t => `
+                <div onclick="navigate('new','${t.dealId}')" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-200 cursor-pointer transition-colors group">
+                  <span class="${priorityCls[t.priority]||'text-slate-400'} flex-shrink-0">●</span>
+                  <span class="text-xs text-slate-700 flex-1 min-w-0 truncate group-hover:text-amber-800">${esc(t.title||'Task senza titolo')}</span>
+                  <span class="text-xs text-slate-400 flex-shrink-0 truncate max-w-24">${esc(t.dealName)}</span>
+                  <span class="text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${taskStatusCls[t.status]||'bg-slate-100 text-slate-600'}">${t.status}</span>
+                  ${t.dueDate ? `<span class="text-xs text-slate-400 flex-shrink-0">${new Date(t.dueDate).toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</span>` : ''}
+                </div>`).join('');
+
             return `
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 flex items-center gap-4">
-              <!-- Avatar -->
-              <div class="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">${initials}</div>
-
-              <!-- Name + email + username -->
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-0.5">
-                  <span class="font-semibold text-slate-800">${esc(m.name)}</span>
-                  <span class="text-xs px-2 py-0.5 rounded-full font-medium ${roleBg[m.role]||'bg-slate-100 text-slate-600'}">${esc(m.role)}</span>
-                  <span class="text-xs px-2 py-0.5 rounded-full font-medium ${statusBg[m.status]||'bg-slate-100 text-slate-500'}">${statusLabel[m.status]||m.status}</span>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <!-- Header -->
+              <div class="flex items-center gap-4 px-5 py-4 border-b border-slate-100">
+                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">${initials}</div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-semibold text-slate-800">${esc(m.name)}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium ${roleBg[m.role]||'bg-slate-100 text-slate-600'}">${esc(m.role)}</span>
+                  </div>
+                  <div class="text-xs text-slate-400 mt-0.5">${esc(m.email||'—')}</div>
                 </div>
-                <div class="text-sm text-slate-500 truncate">${esc(m.email||'—')}</div>
-                <div class="mt-1">${accessBadge}</div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <button onclick="openTeamModal('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-50 hover:bg-slate-100 text-slate-600">Modifica</button>
+                  <button onclick="deleteTeamMember('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 hover:bg-red-100 text-red-600">Elimina</button>
+                </div>
               </div>
-
-              <!-- Actions -->
-              <div class="flex items-center gap-2 flex-shrink-0">
-                ${toggleBtn}
-                <button onclick="openTeamModal('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700">Modifica</button>
-                <button onclick="deleteTeamMember('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 hover:bg-red-100 text-red-600">Elimina</button>
+              <!-- Body: 2 columns -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+                <div class="px-5 py-4">
+                  <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                    Progetti
+                    <span class="ml-1 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-normal normal-case">${memberDeals.length}</span>
+                  </div>
+                  <div class="flex flex-wrap gap-2">${dealsHtml}</div>
+                </div>
+                <div class="px-5 py-4">
+                  <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                    Task attivi
+                    <span class="ml-1 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-normal normal-case">${activeTasks.length}</span>
+                  </div>
+                  <div class="space-y-1.5">${tasksHtml}</div>
+                </div>
               </div>
             </div>`;
           }).join('')}
