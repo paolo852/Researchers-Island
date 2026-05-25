@@ -446,6 +446,14 @@ function stageBadge(stage) {
 // ============================================================
 const pages = ['dashboard', 'pipeline', 'new', 'portfolio', 'portfolio-detail', 'team', 'investors', 'industries', 'settings'];
 
+function toggleBlock(blockId, chevronId) {
+  const block = document.getElementById(blockId);
+  const chevron = document.getElementById(chevronId);
+  if (!block) return;
+  const collapsed = block.classList.toggle('hidden');
+  if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
+}
+
 function navigate(page, dealId) {
   pages.forEach(p => {
     document.getElementById('page-' + p).classList.add('hidden');
@@ -965,16 +973,17 @@ function renderForm(dealId) {
              BLOCCO 1 — PRODUCT MANAGEMENT
              ════════════════════════════════════════════════════════ -->
         <div class="rounded-2xl border-2 border-blue-200 bg-blue-50/30 p-1">
-          <div class="flex items-center gap-3 px-5 pt-4 pb-3 mb-2">
+          <button type="button" onclick="toggleBlock('pm-block','pm-chevron')" class="w-full flex items-center gap-3 px-5 pt-4 pb-3 mb-2 text-left">
             <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
             </div>
-            <div>
+            <div class="flex-1">
               <h2 class="text-lg font-bold text-blue-900">Product Management</h2>
               <p class="text-xs text-blue-600">Informazioni sul progetto, tecnologia e concept development</p>
             </div>
-          </div>
-          <div class="space-y-4 px-1 pb-1">
+            <svg id="pm-chevron" class="w-5 h-5 text-blue-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="pm-block" class="space-y-4 px-1 pb-1">
 
         <!-- SEZIONE 1: Info Base -->
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -1205,16 +1214,17 @@ function renderForm(dealId) {
              BLOCCO 2 — VENTURE BUILDING
              ════════════════════════════════════════════════════════ -->
         <div class="rounded-2xl border-2 border-violet-200 bg-violet-50/30 p-1">
-          <div class="flex items-center gap-3 px-5 pt-4 pb-3 mb-2">
+          <button type="button" onclick="toggleBlock('vb-block','vb-chevron')" class="w-full flex items-center gap-3 px-5 pt-4 pb-3 mb-2 text-left">
             <div class="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center flex-shrink-0">
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
             </div>
-            <div>
+            <div class="flex-1">
               <h2 class="text-lg font-bold text-violet-900">Venture Building</h2>
               <p class="text-xs text-violet-600">Criteri di valutazione dell'investimento, co-investitori e cap table</p>
             </div>
-          </div>
-          <div class="space-y-4 px-1 pb-1">
+            <svg id="vb-chevron" class="w-5 h-5 text-violet-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="vb-block" class="space-y-4 px-1 pb-1">
 
         <!-- SEZIONE B: Valutazione Investimento -->
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
