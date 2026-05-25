@@ -206,7 +206,44 @@ const DEMO_DEALS = [
       { name: 'Dr. Marco Esposito', institution: 'Politecnico di Milano', role: 'Co-PI', expertise: 'Imaging biomedico', contact: 'linkedin.com/in/mesposito', notes: 'Ex GE Healthcare, 8 anni industria.' }
     ],
     investmentAmount: 1500000, valuation: 7500000, instrument: 'equity',
-    stage: 'Due Diligence', tasks: [], files: [], dealTeam: [], dealLead: ''
+    stage: 'Due Diligence', tasks: [], files: [], dealTeam: [], dealLead: '',
+    concept: {
+      fields: {
+        projectName: 'QuantumSense NV-Sensor',
+        leadOrg: 'Politecnico di Milano – TTO',
+        technology: 'Centro NV (azoto-vacanza) in diamante sintetico CVD. Il difetto NV genera uno spin elettronico sensibile a campi magnetici locali a temperatura ambiente. Eccitazione ottica (532 nm laser) + lettura in fluorescenza. Innovazione: controllo coerente del singolo spin con microonde, permette magnetometria sub-nanotesla senza criostato.',
+        product: 'Sensore magnetico miniaturizzato per imaging biomedicale. Si integra con sistemi MRI come sonda addizionale per imaging funzionale ad alta risoluzione spaziale (<100 µm). Benefici: risoluzione 10x superiore agli attuali sensori SQUID, nessun raffreddamento a -269°C, form factor compatibile con sala diagnostica standard.',
+        trlJustification: 'TRL 4: prototipo funzionante in laboratorio, sensibilità di 10 pT/√Hz dimostrata in ambiente controllato. Non ancora testato in ambiente rilevante (sala MRI ospedaliera).',
+        keyEvidence: 'Pubblicazione su Nature Physics (2024), prototipo benchtop, dati di sensibilità confrontati con SQUID di riferimento (Magnicon). Accordo di test con IRCCS San Raffaele firmato.',
+        maturityGaps: 'Miniaturizzazione da cm a mm. Schermatura interferenze RF in sala MRI. Integrazione con software DICOM esistente. Validazione su fantoccio anatomico (TRL 5).',
+        nextTrlMilestone: 'TRL 5 entro Q2 2025: primo test su fantoccio in sala MRI del San Raffaele con protocollo clinico approvato.',
+        intellectualProperty: 'Brevetto EP concesso (EP3921234, "NV-center magnetic sensor for medical imaging"). PCT in corso (WO2024/xxxxxx). Know-how esclusivo su processo di crescita CVD e controllo MW.',
+        problemStatement: 'I neurologi e radiologi non possono rilevare attività elettrica neuronale in tempo reale con risoluzione sub-millimetrica. L\'EEG ha risoluzione spaziale ~cm, la fMRI risoluzione temporale di secondi. Mercato dei soli sistemi MEG (magnetoencefalografia): >$400M/anno, in crescita del 9%. I SQUID richiedono elio liquido ($30k/anno manutenzione), limitando la diffusione a centri ad alto budget.',
+        valueProposition: 'Con QuantumSense il neurologo ottiene mappe di attività neuronale con risoluzione spaziale <1 mm e temporale <1 ms, a temperatura ambiente, installabile in qualsiasi sala diagnostica esistente. Riduzione costi operativi >80% rispetto a MEG tradizionale.',
+        tam: '>$7 miliardi (mercato globale sistemi MRI e diagnostica avanzata, 2024). Segmento neuroimaging funzionale ~$1.2B.',
+        sam: 'Europa e USA, centri di ricerca clinica e ospedali universitari con budget neuroimaging >$500k/anno. Stima: 800 centri qualificati, spesa media upgrade $500k = $400M.',
+        som: 'Nei primi 4 anni: 15 installazioni pilota in 3 paesi (IT, DE, US) a €200k cad. = €3M ricavi. Royalty da licensing OEM (GE, Siemens) a partire da anno 3.',
+        roadmap: 'Q1 2025: chiusura round Seed (€1.5M). Q2 2025: TRL 5 (test San Raffaele). Q4 2025: TRL 6 (prototipo dimostrativo in ambiente semi-clinico). 2026: clinical trial pilota (510k/CE). 2027: prima vendita commerciale.',
+        riskiestAssumptions: '1. Schermatura RF sufficiente in sala MRI reale [esperimento: test blind in sala MRI schermata, kill: S/N < 3 dB]. 2. Il clinico accetta integrazione nel flusso di lavoro DICOM [esperimento: prototipo mock-up con 3 neuroradiologi, kill: <50% willing to pay]. 3. Miniaturizzazione non degrada sensibilità di 1 ordine [esperimento: prototipo 10mm³ entro Q3 2025, kill: sensibilità < 100 pT/√Hz].'
+      },
+      approvals: {}, comments: {},
+      validationStatus: { problemStatement: 'Validato', valueProposition: 'Ipotesi' }
+    },
+    evaluation: {
+      marketValidated: true,
+      marketValidationHow: 'LOI con IRCCS San Raffaele per pilota clinico. Survey su 12 neuroradiologi europei: 9/12 disposti a pagare upgrade sensor.',
+      prototypePerformanceText: 'Sensibilità 10x superiore ai sensori SQUID di riferimento (Magnicon) in test benchtop. Linearità eccellente. Sfida: miniaturizzazione senza perdita >3 dB.',
+      secondary: {
+        ip: 'Brevetto EP concesso. PCT in corso con priorità europea. Accordo esclusiva con PoliMi su tecnologia CVD.',
+        team: 'Team fortemente tecnico. Fondatori PhD in fisica quantistica con pubblicazioni top-tier. Manca figura CEO/commerciale senior — da reclutare con round.',
+        investmentTarget: '€1.5M per raggiungere TRL 5 (test clinico San Raffaele) e deposito PCT internazionale completo. €500k già impegnati da angel round.',
+        timeToMarket: 'Il round permette di comprimere il timeline da TRL 4 a primo prototipo commerciale di 12 mesi (da 36 a 24 mesi totali).',
+        coInvestorInterest: 'CDP Venture Capital: term sheet ricevuto. Sofinnova Partners: interesse espresso, in DD.',
+        financialNeeds: 'Fabbisogno totale per arrivare al mercato: €8M (seed €1.5M + Series A €6.5M). Break-even previsto anno 5 con 20 installazioni/anno.',
+        risksImpact: 'Rischio principale: FDA 510k >18 mesi. Piano B: lancio in EU via CE Class IIb. Rischio dipendenza da unico supplier diamante CVD: accordo framework con Element Six.'
+      },
+      comments: {}
+    }
   },
   {
     id: 'deal-002',
@@ -239,7 +276,37 @@ const DEMO_DEALS = [
       { name: 'Dr. Giulia Ferrara', institution: 'IIT – Istituto Italiano di Tecnologia', role: 'Chief Scientist', expertise: 'Machine learning, bioprocessi', contact: 'g.ferrara@iit.it', notes: 'Premio ERC Starting Grant 2023.' }
     ],
     investmentAmount: 2000000, valuation: 10000000, instrument: 'convertible',
-    stage: 'Term Sheet', tasks: [], files: [], dealTeam: [], dealLead: ''
+    stage: 'Term Sheet', tasks: [], files: [], dealTeam: [], dealLead: '',
+    concept: {
+      fields: {
+        projectName: 'BioReactor.AI — Digital Twin Platform',
+        leadOrg: 'IIT – Istituto Italiano di Tecnologia',
+        technology: 'Architettura AI multi-modale che combina modelli fisici (ODE per cinetica fermentativa) con reti neurali LSTM addestrate su dati storici di processo. Il digital twin simula in tempo reale pH, DO, viscosità, resa cellulare con latenza <2s target 200ms.',
+        product: 'SaaS B2B per ottimizzazione di bioreattori industriali. Dashboard real-time con suggerimenti automatici di aggiustamento parametri (temperatura, feed, agitazione). Integrazione nativa con sistemi MES Siemens e Rockwell. Beneficio principale: riduzione batch failure dal 40% al 5%, con risparmio stimato €2M/anno per impianto medio.',
+        problemStatement: 'Il 60% dei batch farmaceutici fallisce per variabilità di processo non controllata. Un batch fallito in un impianto da 1000L costa €200k-500k in materiali + downtime. I sistemi PAT esistenti monitorano ma non predicono. Le pharma pagano già per soluzioni parziali (Sartorious SIMCA, Cytovance), ma senza AI predittiva integrata.',
+        valueProposition: 'BioReactor.AI trasforma il bioreattore in un sistema auto-ottimizzante: l\'operatore passa da reattivo a proattivo. Con 2 LOI firmati (pharma >€500M fatturato) che stimano ROI 8x nel primo anno di utilizzo.',
+        tam: '$4 miliardi (mercato ottimizzazione processi biofarmaceutici 2025). Crescita CAGR 18% spinta da ADC e terapie cellulari.',
+        sam: 'Europa e USA, impianti pharma Tier 1 con >5 bioreattori da >500L. 340 impianti qualificati. Spesa media SaaS €180k/anno.',
+        roadmap: 'Q3 2024: 3 pilota a pagamento (€60k/anno cad.). Q1 2025: chiusura Series A €2M. 2025: 10 clienti, €900k ARR. 2026: integrazione con Siemens PCS 7, mercato USA.',
+        riskiestAssumptions: '1. Latenza reducibile a <200ms senza perdita accuracy [esperimento: ottimizzazione pipeline inferenza Q2 2024, kill: latenza >500ms]. 2. Integrazione MES accettata dal reparto IT pharma [esperimento: pilota IT-manager survey, kill: >3 mesi di integrazione]. 3. Il dataset storico di 200 processi generalizza su nuovi substrati [esperimento: test su 2 processi mai visti prima, kill: RMSE >15%].'
+      },
+      approvals: {}, comments: {},
+      validationStatus: { problemStatement: 'Validato', valueProposition: 'Validato' }
+    },
+    evaluation: {
+      marketValidated: true,
+      marketValidationHow: '2 LOI firmati con pharma Tier 1. Dataset di 200 processi acquisito in esclusiva da 3 CRO. 60% batch failure rate documentato da letteratura peer-reviewed.',
+      prototypePerformanceText: 'Simulazione accurata al 92% su dati storici hold-out (RMSE <8%). Latenza attuale 2s — target prodotto 200ms. Beta con 1 cliente in corso su bioreattore 50L.',
+      secondary: {
+        ip: 'Solo copyright sul codice. Nessun brevetto. Rischio cloning elevato. Piano: accelerare dati proprietari come moat principale.',
+        team: 'Fondatori complementari: bioingegneria + ML. Buona cultura. Accettano board seat. Manca figura commercial lead — allocato in hiring plan round.',
+        investmentTarget: '€2M per: MVP production-ready (€600k), 3 pilota a pagamento (€300k), hiring 2 ML engineer + 1 commercial (€900k), legal/compliance (€200k).',
+        coInvestorInterest: 'Bayer Leaps: co-lead confermato. Indaco Venture Partners: in term sheet.',
+        financialNeeds: 'Runway 24 mesi con round €2M. ARR target anno 2: €900k. Series A (€8M) prevista per espansione USA anno 3.',
+        risksImpact: 'Rischio adozione (integrazione MES). Rischio competizione (Sartorius, Cytovance con R&D budget 100x). Rischio regolatorio: dati processo sono GxP, audit trail richiesto.'
+      },
+      comments: {}
+    }
   },
   {
     id: 'deal-003',
@@ -272,7 +339,43 @@ const DEMO_DEALS = [
       { name: 'Dr. Sara Lombardi', institution: 'Università di Bologna', role: 'PhD Researcher', expertise: 'Materiali per celle a combustibile', contact: 'sara.lombardi@unibo.it', notes: 'Tesi su degrado catalizzatori, dati originali della startup.' }
     ],
     investmentAmount: 1200000, valuation: 5000000, instrument: 'SAFE',
-    stage: 'Sourcing', tasks: [], files: [], dealTeam: [], dealLead: ''
+    stage: 'Sourcing', tasks: [], files: [], dealTeam: [], dealLead: '',
+    concept: {
+      fields: {
+        projectName: 'HydroCrack — Fotocatalizzatore ad Alta Efficienza',
+        leadOrg: 'Università di Bologna – Spin-off',
+        technology: 'Fotocatalisi solare assistita per elettrolisi dell\'acqua. Fotocatalizzatore a base di eterodi semiconduttori (BiVO4/WO3) con co-catalizzatore IrO2 nanostrutturato. Meccanismo: eccitazione fotonica genera portatori che riducono protoni (H⁺→H₂) e ossidano acqua (H₂O→O₂+4H⁺) senza input elettrico esterno oltre alla luce solare. Efficienza Faradaica 85% in condizioni di laboratorio.',
+        product: 'Modulo elettrolizzatore fotocatalitico da 1kW (scalabile a 50kW) per produzione idrogeno verde <2€/kg. Target mercato primario: industrie chimiche e raffinerie per de-carbonizzazione processi interni.',
+        trlJustification: 'TRL 3: proof of concept sperimentale dimostrato in laboratorio su scala 100ml. Efficienza Faradaica e tasso di produzione H₂ misurati e pubblicati. Da validare su scala rilevante (1kW).',
+        keyEvidence: 'Paper su ACS Energy Letters (2024, IF 19.3). Dati originali di produzione H₂: 450 µmol/h/g cat su reattore batch 100ml. Accordo MoU con Eni Refining per test pilota 1MW.',
+        maturityGaps: 'Degrado a lungo termine del fotocatalizzatore (obiettivo: >1000h stabilità). Scale-up da batch a flusso continuo. Gestione termica su scala kW. Disponibilità iridio a lungo termine (metallo critico).',
+        nextTrlMilestone: 'TRL 4: modulo 1kW in reattore a flusso continuo con 100h test di durata continuativo entro Q4 2024.',
+        intellectualProperty: 'Domanda brevettuale PCT (WO2024/xxxxxx) in corso. Accordo esclusiva mondiale con Università di Bologna come spin-off. Know-how su processo di sintesi del fotocatalizzatore BiVO4/WO3.',
+        problemStatement: 'L\'idrogeno da fonti fossili (grey hydrogen) è ancora il 95% della produzione mondiale (<$1.5/kg). L\'elettrolisi tradizionale con energia rinnovabile costa >$3/kg per via degli alti CAPEX degli elettrolizzatori PEM e del costo dell\'energia. La REPowerEU chiede 10 Mt/anno di H₂ verde entro 2030 — attualmente produzione UE <0.1 Mt/anno.',
+        valueProposition: 'Con HydroCrack la produzione di H₂ avviene direttamente dalla luce solare senza necessità di separare la generazione di elettricità dall\'elettrolisi, eliminando il 40% delle perdite di conversione. Costo target <2€/kg H₂, competitivo con SMR a partire da $4/MMBTU gas naturale.',
+        tam: '>$300 miliardi (mercato idrogeno pulito al 2030, BloombergNEF). Segmento elettrolizzatori: $85B al 2030.',
+        sam: 'Industrie chimiche e raffinerie europee con target di decarbonizzazione Scope 1. 120 siti industriali qualificati, spesa prevista upgrade energetico €500M-2B.',
+        roadmap: 'Q4 2024: TRL 4 (1kW, 100h). Q2 2025: round Seed €1.2M. Q4 2025: TRL 5 (10kW, ambiente Eni Ravenna). 2026: scale-up 50kW + test durata 1000h. 2028: primo impianto commerciale 1MW.',
+        riskiestAssumptions: '1. Degrado fotocatalizzatore < 20% efficienza a 1000h [esperimento: test accelerato UV, kill: >30% degrado a 200h]. 2. Scale-up non introduce perdite convettive critiche [esperimento: simulazione CFD + prototipo 10kW, kill: efficienza <70%]. 3. Prezzo iridio non supera $200k/kg nei prossimi 5 anni [monitoring mercato, kill: >50% aumento COGS]. 4. Eni firma contratto pilota dopo MoU [milestone negoziale Q1 2025, kill: nessun contratto vincolante].'
+      },
+      approvals: {}, comments: {},
+      validationStatus: { problemStatement: 'Validato', valueProposition: 'Ipotesi' }
+    },
+    evaluation: {
+      marketValidated: false,
+      marketValidationHow: '',
+      prototypePerformanceText: 'Performance di laboratorio eccellenti: efficienza Faradaica 85%, produzione 450 µmol/h/g. Degrado a lungo termine ancora da caratterizzare (solo 24h di test). MoU firmato con Eni per test su scala reale.',
+      secondary: {
+        ip: 'Domanda PCT in corso. Accordo esclusiva con Unibo. Rischio principale: domanda non ancora concessa, aree rivendicazioni da rafforzare.',
+        team: 'Team tecnico forte (Prof. Greco 50+ pub, Sara Lombardi dati originali tesi). Manca esperienza industriale e di scaling. Accettano struttura equity proposta.',
+        investmentTarget: '€1.2M per: prototipo 1kW TRL4 (€400k), test durata 100h (€200k), hiring process engineer (€300k), brevetto PCT completamento (€300k).',
+        timeToMarket: 'Il round permette di raggiungere TRL 5 in 18 mesi (ambiente industriale Eni), comprimendo di 12 mesi il percorso verso commercializzazione.',
+        coInvestorInterest: 'EIC Fund: interesse medio, in attesa di TRL 4. Eni Next: interesse medio, valutazione interna.',
+        financialNeeds: 'Fabbisogno totale fino a mercato: €15M (Seed €1.2M + Series A €5M + Series B €9M). Break-even stimato a 8 anni per impianto 10MW. Sussidi pubblici (EIC, IPCEI) coprono 30-40% CAPEX.',
+        risksImpact: 'Rischio scaling elevato (tecnologia mai dimostrata >kW). Dipendenza da iridio (metallo critico, supply chain fragile). Competitori capitalizzati (Nel ASA, ITM Power, H2Pro) con 3-5 anni di vantaggio commerciale.'
+      },
+      comments: {}
+    }
   }
 ];
 
@@ -834,6 +937,7 @@ function renderForm(dealId) {
   formTasks = JSON.parse(JSON.stringify(d.tasks || []));
   formFiles = JSON.parse(JSON.stringify(d.files || []));
   formResearchers = JSON.parse(JSON.stringify(d.researchers || []));
+  conceptInitFromDeal(d);
 
   const useOptions = ['R&D','MVP','Hiring','IP Protection','Industrialization trials'];
 
@@ -977,17 +1081,167 @@ function renderForm(dealId) {
           </div>
         </div>
 
-        <!-- SEZIONE 3: Criteri di Valutazione -->
+        <!-- SEZIONE A: Concept Development -->
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-          <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Criteri di Valutazione</h2>
+          <h2 class="text-base font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Concept Development</h2>
 
-          ${criterionBlock('industrialNeed','Bisogno Industriale Validato','25%',d.industrialNeed||5,'industrialNeedJustification','Giustificazione bisogno industriale',d.industrialNeedJustification,d)}
-          ${criterionBlock('devPerformance','Livello Sviluppo & Performance','25%',d.devPerformance||5,'devPerformanceJustification','Giustificazione sviluppo e performance',d.devPerformanceJustification,d)}
-          ${criterionBlock('team','Team','15%',d.team||5,'teamJustification','Commento sul team',d.teamJustification,d)}
-          ${criterionBlock('market','Dimensione Mercato','10%',d.market||5,'marketJustification','Commento sul mercato',d.marketJustification,d)}
-          ${criterionBlock('competitiveAdvantage','Vantaggio Competitivo','10%',d.competitiveAdvantage||5,'competitiveAdvantageJustification','Descrivi il vantaggio competitivo',d.competitiveAdvantageJustification,d)}
-          ${criterionBlock('ip','IP / Brevetti','5%',d.ip||5,'ipJustification','Commento su IP e brevetti',d.ipJustification,d)}
-          ${criterionBlock('risks','Rischi (10 = rischio basso)','5%',d.risks||5,'risksJustification','Descrivi i principali rischi',d.risksJustification,d)}
+          <!-- Copertina (always open) -->
+          <div class="mb-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <h3 class="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide">Copertina</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">PROJECT / TECHNOLOGY NAME</label>
+                <input type="text" id="concept-field-projectName" value="${esc((d.concept&&d.concept.fields&&d.concept.fields.projectName)||d.company||'')}"
+                  oninput="conceptSetField('projectName',this.value)"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                ${conceptApprovalBar('projectName', d)}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">LEAD ORGANISATION</label>
+                <input type="text" id="concept-field-leadOrg" value="${esc((d.concept&&d.concept.fields&&d.concept.fields.leadOrg)||'')}"
+                  oninput="conceptSetField('leadOrg',this.value)"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                ${conceptApprovalBar('leadOrg', d)}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">CURRENT TRL</label>
+                <div class="text-sm text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                  TRL ${d.trl||4} — ${TRL_LABELS[d.trl||4]||''}
+                  <span class="text-xs text-slate-400 ml-2">(Modifica nel pannello Investimento &amp; Tecnologia)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 1. Product Snapshot -->
+          <details open class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>1. Product Snapshot</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-4">
+              ${conceptField('technology','1.1 TECHNOLOGY','Principio scientifico, meccanismo e novità (max 10–15 righe)', d)}
+              ${conceptField('product','1.2 PRODUCT','Descrivi il prodotto previsto: cosa è, come funziona, i benefici ad alto livello', d)}
+              ${conceptField('trlJustification','1.3 TRL JUSTIFICATION','Giustificazione del TRL corrente', d)}
+              ${conceptField('keyEvidence','1.3 KEY EVIDENCE','Pubblicazioni, prototipi, dati lab, validazioni terze', d)}
+              ${conceptField('maturityGaps','1.3 MATURITY GAPS','Cosa resta ancora da dimostrare', d)}
+              ${conceptField('nextTrlMilestone','1.3 NEXT TRL MILESTONE','Prossimo milestone TRL', d)}
+              ${conceptField('intellectualProperty','1.4 INTELLECTUAL PROPERTY','Brevetti, applicazioni, know-how, segreti commerciali', d)}
+            </div>
+          </details>
+
+          <!-- 2. Problem and Value Proposition -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>2. Problem and Value Proposition</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-4">
+              ${conceptField('problemStatement','2.1 APPLICATION SCENARIO — PROBLEM STATEMENT','Chi, contesto, quantificazione del pain. Perché le soluzioni esistenti non bastano.', d, true)}
+              ${conceptField('valueProposition','2.2 APPLICATION SCENARIO — VALUE PROPOSITION','Come cambierebbe lo scenario applicativo con il prodotto.', d, true)}
+            </div>
+          </details>
+
+          <!-- 3. Market and Competition -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>3. Market and Competition</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-4">
+              ${conceptField('tam','TAM — TOTAL ADDRESSABLE MARKET','Domanda globale per la categoria di soluzione', d)}
+              ${conceptField('sam','SAM — SERVICEABLE AVAILABLE MARKET','Segmento geografico/settoriale raggiungibile', d)}
+              ${conceptField('som','SOM — SERVICEABLE OBTAINABLE MARKET','Quota ottenibile nei primi 3–5 anni', d)}
+            </div>
+          </details>
+
+          <!-- 4. Development Roadmap -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>4. Development Roadmap</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-4">
+              ${conceptField('roadmap','4.1 FROM CURRENT TRL TO MARKET','Fasi, milestone tecnici, decision gate, timeline indicativa', d)}
+            </div>
+          </details>
+
+          <!-- 5. Risks and Critical Assumptions -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>5. Risks and Critical Assumptions</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-4">
+              ${conceptField('riskiestAssumptions','RISKIEST ASSUMPTIONS TO VALIDATE','Le 3–5 ipotesi più rischiose con esperimento associato e kill-criterion', d)}
+            </div>
+          </details>
+        </div>
+
+        <!-- SEZIONE B: Valutazione Investimento -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 class="text-base font-semibold text-slate-700 mb-1 pb-2 border-b border-slate-100">Valutazione Investimento</h2>
+          <p class="text-xs text-slate-400 mb-4">Criteri primari e secondari per la valutazione del deal</p>
+
+          <!-- Hidden fields to keep computeScore() working -->
+          <input type="hidden" name="team" value="${d.team||5}">
+          <input type="hidden" name="market" value="${d.market||5}">
+          <input type="hidden" name="competitiveAdvantage" value="${d.competitiveAdvantage||5}">
+          <input type="hidden" name="risks" value="${d.risks||5}">
+
+          <!-- devPerformance slider (kept for scoring) -->
+          <div class="mb-5 pb-4 border-b border-slate-100">
+            <label class="block text-sm font-medium text-slate-600 mb-1">
+              Livello Sviluppo &amp; Performance <span class="text-xs text-slate-400">(25% score)</span>: <span id="devPerformance-val" class="text-indigo-600 font-bold">${d.devPerformance||5}</span>/10
+            </label>
+            <input type="range" name="devPerformance" min="0" max="10" value="${d.devPerformance||5}" class="w-full mb-2" oninput="document.getElementById('devPerformance-val').textContent=this.value; updateLiveScore()">
+          </div>
+
+          <h3 class="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Criteri Primari</h3>
+
+          <!-- B1: Market Validation -->
+          <div class="mb-5 pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm font-medium text-slate-700">B1 — Validazione di mercato e replicabilità</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+              <button type="button" id="mval-btn-no" onclick="setMarketValidation(false)"
+                class="px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${(d.evaluation&&d.evaluation.marketValidated)?'border-slate-200 bg-slate-50 text-slate-500':'border-red-300 bg-red-50 text-red-700'}">
+                Non validato
+              </button>
+              <button type="button" id="mval-btn-yes" onclick="setMarketValidation(true)"
+                class="px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${(d.evaluation&&d.evaluation.marketValidated)?'border-green-300 bg-green-50 text-green-700':'border-slate-200 bg-slate-50 text-slate-500'}">
+                Validato
+              </button>
+            </div>
+            <input type="hidden" id="mval-hidden" name="industrialNeed" value="${(d.evaluation&&d.evaluation.marketValidated)?9:3}">
+            <div id="mval-how-wrap" class="${(d.evaluation&&d.evaluation.marketValidated)?'':'hidden'} mb-3">
+              <label class="block text-xs font-medium text-slate-500 mb-1">Come è stata effettuata la validazione?</label>
+              <textarea id="mval-how-text" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc((d.evaluation&&d.evaluation.marketValidationHow)||'')}</textarea>
+            </div>
+            ${evalCommentsBlock('marketValidation', d)}
+            ${evalTasksBlock('marketValidation', d)}
+          </div>
+
+          <!-- B2: Prototype Performance -->
+          <div class="mb-5 pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm font-medium text-slate-700">B2 — Prestazioni del prototipo in relazione al vantaggio competitivo</span>
+            </div>
+            <textarea id="eval-prototypePerformance" rows="3" placeholder="Descrizione dettagliata delle prestazioni del prototipo..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-2">${esc((d.evaluation&&d.evaluation.prototypePerformanceText)||'')}</textarea>
+            ${evalCommentsBlock('prototypePerformance', d)}
+            ${evalTasksBlock('prototypePerformance', d)}
+          </div>
+
+          <h3 class="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Criteri Secondari</h3>
+
+          ${evalSecondaryBlock('ip','IP','Solidità della IP e condizioni di accesso', d)}
+          ${evalSecondaryBlock('team','Team','Compatibilità con i fondatori, accettazione dei termini delle quote e della filosofia generale dell\'impresa', d)}
+          ${evalSecondaryBlock('investmentTarget','Target primo investimento','Target da raggiungere con il primo investimento', d)}
+          ${evalSecondaryBlock('timeToMarket','Impatto Time to Market','Impatto del primo investimento sul Time to market', d)}
+          ${evalSecondaryBlock('coInvestorInterest','Coinvolgimento investitori','Coinvolgimento/interesse di altri investitori', d)}
+          ${evalSecondaryBlock('financialNeeds','Fabbisogno finanziario','Fabbisogno finanziario per arrivare al mercato e previsioni eco-fin', d)}
+          ${evalSecondaryBlock('risksImpact','Rischi e impatto','Rischi e impatto', d)}
 
           <!-- Live Score Preview -->
           <div class="mt-5 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
@@ -995,6 +1249,7 @@ function renderForm(dealId) {
               <span class="text-sm font-medium text-indigo-700">Score Preliminare (senza co-investitori)</span>
               <span id="live-score" class="text-xl font-bold text-indigo-600">–</span>
             </div>
+            <p class="text-xs text-slate-400 mt-1">Basato su: validazione mercato (25%) + dev performance (25%) + altri criteri fissi (50%)</p>
           </div>
         </div>
 
@@ -1068,6 +1323,9 @@ function renderForm(dealId) {
   renderCapTableList();
   renderResearchersList();
   CRITERION_KEYS.forEach(k => { renderCriterionTasks(k); renderCriterionComments(k); });
+  EVAL_CRITERION_KEYS.forEach(k => { renderEvalCriterionTasks(k); renderEvalCriterionComments(k); });
+  // Render concept inline comment threads
+  CONCEPT_FIELD_KEYS.forEach(k => renderConceptComments(k));
   renderFilesList();
   setupLiveScore();
 }
@@ -1091,6 +1349,314 @@ function simpleSlider(name, label, weight, value) {
     </label>
     <input type="range" name="${name}" min="0" max="10" value="${value}" class="w-full" oninput="document.getElementById('${name}-val').textContent=this.value; updateLiveScore()">
   </div>`;
+}
+
+// ============================================================
+// CONCEPT DEVELOPMENT HELPERS
+// ============================================================
+const CONCEPT_FIELD_KEYS = ['projectName','leadOrg','technology','product','trlJustification','keyEvidence','maturityGaps','nextTrlMilestone','intellectualProperty','problemStatement','valueProposition','tam','sam','som','roadmap','riskiestAssumptions'];
+const CONCEPT_VALIDATION_FIELDS = ['problemStatement','valueProposition'];
+
+// In-memory cache for concept data while form is open
+let _conceptData = {};
+
+function conceptInitFromDeal(d) {
+  _conceptData = {
+    fields: JSON.parse(JSON.stringify((d.concept&&d.concept.fields)||{})),
+    approvals: JSON.parse(JSON.stringify((d.concept&&d.concept.approvals)||{})),
+    comments: JSON.parse(JSON.stringify((d.concept&&d.concept.comments)||{})),
+    validationStatus: JSON.parse(JSON.stringify((d.concept&&d.concept.validationStatus)||{}))
+  };
+}
+
+function conceptSetField(key, val) {
+  if (!_conceptData.fields) _conceptData.fields = {};
+  _conceptData.fields[key] = val;
+  // persist immediately if editing
+  persistConceptOnDeal();
+}
+
+function persistConceptOnDeal() {
+  if (!editingDeal) return;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  deals[idx].concept = JSON.parse(JSON.stringify(_conceptData));
+  saveDeals(deals);
+  editingDeal = deals[idx];
+}
+
+function conceptApprove(key) {
+  if (!_conceptData.approvals) _conceptData.approvals = {};
+  const u = currentUser();
+  if (!u) return;
+  _conceptData.approvals[key] = { by: u.name, at: new Date().toISOString() };
+  persistConceptOnDeal();
+  renderConceptApprovalBar(key);
+}
+
+function conceptRevoke(key) {
+  if (!_conceptData.approvals) _conceptData.approvals = {};
+  delete _conceptData.approvals[key];
+  persistConceptOnDeal();
+  renderConceptApprovalBar(key);
+}
+
+function renderConceptApprovalBar(key) {
+  const el = document.getElementById('concept-approval-' + key);
+  if (!el) return;
+  el.innerHTML = conceptApprovalBarInner(key);
+}
+
+function conceptApprovalBarInner(key) {
+  const appr = _conceptData.approvals && _conceptData.approvals[key];
+  if (appr) {
+    const dt = new Date(appr.at);
+    const dtStr = dt.toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) + ' ' + dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="flex items-center gap-2 mt-1">
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Approvato da ${esc(appr.by)} · ${dtStr}
+      </span>
+      <button type="button" onclick="conceptRevoke('${key}')" class="text-xs text-slate-400 hover:text-red-500 underline">Revoca</button>
+    </div>`;
+  }
+  return `<button type="button" onclick="conceptApprove('${key}')" class="mt-1 text-xs px-3 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-green-50 hover:border-green-300 hover:text-green-700 text-slate-500 font-medium transition-colors">Approva</button>`;
+}
+
+function conceptApprovalBar(key, d) {
+  // Called at render time from template literal — uses d.concept from deal, but also seeds _conceptData
+  const appr = d.concept && d.concept.approvals && d.concept.approvals[key];
+  if (appr) {
+    const dt = new Date(appr.at);
+    const dtStr = dt.toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) + ' ' + dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    return `<div id="concept-approval-${key}" class="flex items-center gap-2 mt-1">
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Approvato da ${esc(appr.by)} · ${dtStr}
+      </span>
+      <button type="button" onclick="conceptRevoke('${key}')" class="text-xs text-slate-400 hover:text-red-500 underline">Revoca</button>
+    </div>`;
+  }
+  return `<div id="concept-approval-${key}"><button type="button" onclick="conceptApprove('${key}')" class="mt-1 text-xs px-3 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-green-50 hover:border-green-300 hover:text-green-700 text-slate-500 font-medium transition-colors">Approva</button></div>`;
+}
+
+function conceptSetValidation(key, val) {
+  if (!_conceptData.validationStatus) _conceptData.validationStatus = {};
+  _conceptData.validationStatus[key] = val;
+  persistConceptOnDeal();
+  // Update pill buttons
+  const btnIp = document.getElementById('vstat-ipotesi-' + key);
+  const btnVal = document.getElementById('vstat-validato-' + key);
+  if (btnIp) {
+    btnIp.className = val === 'Ipotesi' ? 'px-3 py-1 rounded-full text-xs font-semibold border border-slate-400 bg-slate-200 text-slate-700' : 'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400';
+  }
+  if (btnVal) {
+    btnVal.className = val === 'Validato' ? 'px-3 py-1 rounded-full text-xs font-semibold border border-green-400 bg-green-100 text-green-700' : 'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400';
+  }
+}
+
+function conceptField(key, label, placeholder, d, withValidation) {
+  const val = (d.concept && d.concept.fields && d.concept.fields[key]) || '';
+  const vstat = (d.concept && d.concept.validationStatus && d.concept.validationStatus[key]) || 'Ipotesi';
+  return `
+  <div class="border border-slate-100 rounded-lg p-3 bg-white">
+    <div class="flex items-start justify-between gap-2 mb-2">
+      <label class="text-xs font-bold text-slate-600 uppercase tracking-wide">${label}</label>
+      ${withValidation ? `
+      <div class="flex gap-1 flex-shrink-0">
+        <button type="button" id="vstat-ipotesi-${key}" onclick="conceptSetValidation('${key}','Ipotesi')"
+          class="${vstat==='Ipotesi'?'px-3 py-1 rounded-full text-xs font-semibold border border-slate-400 bg-slate-200 text-slate-700':'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400'}">
+          Ipotesi
+        </button>
+        <button type="button" id="vstat-validato-${key}" onclick="conceptSetValidation('${key}','Validato')"
+          class="${vstat==='Validato'?'px-3 py-1 rounded-full text-xs font-semibold border border-green-400 bg-green-100 text-green-700':'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400'}">
+          Validato
+        </button>
+      </div>` : ''}
+    </div>
+    <textarea id="concept-field-${key}" rows="3" placeholder="${placeholder}..."
+      oninput="conceptSetField('${key}',this.value)"
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(val)}</textarea>
+    ${conceptApprovalBar(key, d)}
+    <details class="mt-2 bg-slate-50 rounded-lg border border-slate-100">
+      <summary class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-500 select-none flex items-center justify-between">
+        <span>Commenti</span>
+        <span class="text-slate-400 font-normal" id="concept-comment-count-${key}">${((d.concept&&d.concept.comments&&d.concept.comments[key])||[]).length} commenti</span>
+      </summary>
+      <div class="p-2 border-t border-slate-100">
+        <div id="concept-comments-${key}" class="space-y-1.5 mb-2"></div>
+        <textarea id="concept-comment-input-${key}" rows="2" placeholder="Scrivi un commento..." class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 resize-none bg-white"></textarea>
+        <div class="flex justify-end mt-1">
+          <button type="button" onclick="postConceptComment('${key}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded font-medium">Pubblica</button>
+        </div>
+      </div>
+    </details>
+  </div>`;
+}
+
+function renderConceptComments(key) {
+  const el = document.getElementById('concept-comments-' + key);
+  if (!el) return;
+  const comments = (_conceptData.comments && _conceptData.comments[key]) || [];
+  const count = document.getElementById('concept-comment-count-' + key);
+  if (count) count.textContent = comments.length + ' commenti';
+  if (comments.length === 0) {
+    el.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun commento ancora.</p>';
+    return;
+  }
+  el.innerHTML = comments.map(c => {
+    const ts = new Date(c.timestamp);
+    const tsStr = ts.toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) + ' ' + ts.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="bg-white border border-slate-200 rounded p-2">
+      <div class="flex items-center justify-between mb-0.5">
+        <span class="text-xs font-semibold text-slate-700">${esc(c.author)}</span>
+        <span class="text-[10px] text-slate-400">${tsStr}</span>
+      </div>
+      <div class="text-xs text-slate-700 whitespace-pre-wrap">${esc(c.text)}</div>
+    </div>`;
+  }).join('');
+}
+
+function postConceptComment(key) {
+  if (!editingDeal) { alert('Salva prima il deal per commentare.'); return; }
+  const ta = document.getElementById('concept-comment-input-' + key);
+  if (!ta) return;
+  const text = (ta.value||'').trim();
+  if (!text) return;
+  const u = currentUser();
+  if (!u) return;
+  if (!_conceptData.comments) _conceptData.comments = {};
+  if (!_conceptData.comments[key]) _conceptData.comments[key] = [];
+  _conceptData.comments[key].push({ author: u.name, text, timestamp: new Date().toISOString() });
+  persistConceptOnDeal();
+  ta.value = '';
+  renderConceptComments(key);
+}
+
+// ============================================================
+// EVALUATION SECTION HELPERS
+// ============================================================
+const EVAL_CRITERION_KEYS = ['marketValidation','prototypePerformance','ip','team','investmentTarget','timeToMarket','coInvestorInterest','financialNeeds','risksImpact'];
+
+function evalCommentsBlock(key, d) {
+  const comments = (d.evaluation && d.evaluation.comments && d.evaluation.comments[key]) || [];
+  return `
+  <details class="mb-2 bg-slate-50 rounded-lg border border-slate-200">
+    <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-600 select-none flex items-center justify-between">
+      <span>Discussione</span>
+      <span class="text-slate-400 font-normal">${comments.length} commenti</span>
+    </summary>
+    <div class="p-3 border-t border-slate-200">
+      <div id="eval-comments-${key}" class="space-y-2 mb-2"></div>
+      <div class="relative">
+        <textarea id="eval-comment-input-${key}" rows="2" placeholder="Scrivi un commento..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white"></textarea>
+        <div class="flex justify-end mt-1">
+          <button type="button" onclick="postEvalComment('${key}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-medium">Pubblica</button>
+        </div>
+      </div>
+    </div>
+  </details>`;
+}
+
+function evalTasksBlock(key, d) {
+  const tasks = ((d.tasks||[]).filter(t => t.criterion === key));
+  return `
+  <details class="mb-2 bg-slate-50 rounded-lg border border-slate-200">
+    <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-600 select-none flex items-center justify-between">
+      <span>Task</span>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400 font-normal">${tasks.length} task</span>
+        <button type="button" onclick="event.preventDefault();event.stopPropagation();addCriterionTask('${key}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">+ Aggiungi</button>
+      </div>
+    </summary>
+    <div class="p-3 border-t border-slate-200">
+      <div id="crit-tasks-${key}" class="space-y-2"></div>
+    </div>
+  </details>`;
+}
+
+function evalSecondaryBlock(key, label, subtitle, d) {
+  const val = (d.evaluation && d.evaluation.secondary && d.evaluation.secondary[key]) || '';
+  return `
+  <div class="mb-5 pb-4 border-b border-slate-100 last:border-b-0">
+    <div class="mb-2">
+      <span class="text-sm font-medium text-slate-700">${label}</span>
+      <p class="text-xs text-slate-400 mt-0.5">${subtitle}</p>
+    </div>
+    <textarea id="eval-secondary-${key}" rows="3" placeholder="${subtitle}..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-2">${esc(val)}</textarea>
+    ${evalCommentsBlock(key, d)}
+    ${evalTasksBlock(key, d)}
+  </div>`;
+}
+
+function renderEvalCriterionComments(key) {
+  const el = document.getElementById('eval-comments-' + key);
+  if (!el) return;
+  const deal = getDealForForm();
+  const comments = deal ? ((deal.evaluation&&deal.evaluation.comments&&deal.evaluation.comments[key])||[]) : [];
+  if (comments.length === 0) {
+    el.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun commento ancora.</p>';
+    return;
+  }
+  el.innerHTML = comments.map(c => {
+    const ts = new Date(c.timestamp);
+    const tsStr = ts.toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) + ' ' + ts.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="bg-white border border-slate-200 rounded-lg p-2.5">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-xs">
+          <span class="font-semibold text-slate-700">${esc(c.authorName||'?')}</span>
+          ${c.authorRole ? `<span class="text-slate-400 ml-1">· ${esc(c.authorRole)}</span>` : ''}
+        </div>
+        <span class="text-[10px] text-slate-400">${tsStr}</span>
+      </div>
+      <div class="text-sm text-slate-700 whitespace-pre-wrap leading-snug">${esc(c.text)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderEvalCriterionTasks(key) {
+  // Re-use the existing renderCriterionTasks — it reads from deal.tasks where criterion === key
+  renderCriterionTasks(key);
+}
+
+function postEvalComment(key) {
+  if (!editingDeal) { alert('Salva prima il deal per commentare.'); return; }
+  const ta = document.getElementById('eval-comment-input-' + key);
+  if (!ta) return;
+  const text = (ta.value||'').trim();
+  if (!text) return;
+  const u = currentUser();
+  if (!u) return;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  if (!deals[idx].evaluation) deals[idx].evaluation = {};
+  if (!deals[idx].evaluation.comments) deals[idx].evaluation.comments = {};
+  if (!deals[idx].evaluation.comments[key]) deals[idx].evaluation.comments[key] = [];
+  deals[idx].evaluation.comments[key].push({
+    authorId: u.id, authorName: u.name, authorRole: u.role,
+    text, timestamp: new Date().toISOString()
+  });
+  saveDeals(deals);
+  editingDeal = deals[idx];
+  ta.value = '';
+  renderEvalCriterionComments(key);
+}
+
+function setMarketValidation(validated) {
+  const btnNo = document.getElementById('mval-btn-no');
+  const btnYes = document.getElementById('mval-btn-yes');
+  const hidden = document.getElementById('mval-hidden');
+  const howWrap = document.getElementById('mval-how-wrap');
+  if (btnNo) {
+    btnNo.className = !validated ? 'px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors border-red-300 bg-red-50 text-red-700' : 'px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors border-slate-200 bg-slate-50 text-slate-500';
+  }
+  if (btnYes) {
+    btnYes.className = validated ? 'px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors border-green-300 bg-green-50 text-green-700' : 'px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors border-slate-200 bg-slate-50 text-slate-500';
+  }
+  if (hidden) { hidden.value = validated ? 9 : 3; updateLiveScore(); }
+  if (howWrap) { howWrap.classList.toggle('hidden', !validated); }
 }
 
 function toggleSourceName() {
@@ -1233,6 +1799,16 @@ function saveDeal(e) {
   const g = name => fd.get(name) || '';
   const gi = name => parseInt(fd.get(name)) || 0;
 
+  // Collect evaluation fields from DOM
+  const marketValidated = document.getElementById('mval-hidden') ? parseInt(document.getElementById('mval-hidden').value) === 9 : false;
+  const marketValidationHow = (document.getElementById('mval-how-text') || {}).value || '';
+  const prototypePerformanceText = (document.getElementById('eval-prototypePerformance') || {}).value || '';
+  const evalSecondary = {};
+  ['ip','team','investmentTarget','timeToMarket','coInvestorInterest','financialNeeds','risksImpact'].forEach(k => {
+    const el = document.getElementById('eval-secondary-' + k);
+    if (el) evalSecondary[k] = el.value;
+  });
+
   const deal = {
     id: editingDeal ? editingDeal.id : 'deal-' + Date.now(),
     company: g('company'),
@@ -1243,20 +1819,21 @@ function saveDeal(e) {
     useOfInvestment: fd.getAll('useOfInvestment'),
     useOfInvestmentNotes: g('useOfInvestmentNotes'),
     trl: gi('trl'),
-    industrialNeed: gi('industrialNeed'),
-    industrialNeedJustification: g('industrialNeedJustification'),
+    // industrialNeed derived from market validation toggle (B1)
+    industrialNeed: marketValidated ? 9 : 3,
+    industrialNeedJustification: marketValidationHow,
     devPerformance: gi('devPerformance'),
-    devPerformanceJustification: g('devPerformanceJustification'),
+    devPerformanceJustification: prototypePerformanceText,
     team: gi('team'),
-    teamJustification: g('teamJustification'),
+    teamJustification: '',
     market: gi('market'),
-    marketJustification: g('marketJustification'),
+    marketJustification: '',
     competitiveAdvantage: gi('competitiveAdvantage'),
-    competitiveAdvantageJustification: g('competitiveAdvantageJustification'),
+    competitiveAdvantageJustification: '',
     ip: gi('ip'),
-    ipJustification: g('ipJustification'),
+    ipJustification: '',
     risks: gi('risks'),
-    risksJustification: g('risksJustification'),
+    risksJustification: '',
     dealLead: g('dealLead'),
     dealTeam: fd.getAll('dealTeam'),
     coInvestors: formCoInvestors,
@@ -1273,6 +1850,19 @@ function saveDeal(e) {
 
   // Preserve comments from prior state
   deal.comments = editingDeal ? (editingDeal.comments || []) : [];
+
+  // Save concept data (from _conceptData in-memory cache)
+  deal.concept = JSON.parse(JSON.stringify(_conceptData));
+
+  // Save evaluation data
+  const priorEval = (editingDeal && editingDeal.evaluation) || {};
+  deal.evaluation = {
+    marketValidated,
+    marketValidationHow,
+    prototypePerformanceText,
+    secondary: Object.assign({}, (priorEval.secondary || {}), evalSecondary),
+    comments: priorEval.comments || {}
+  };
 
   let stageChanged = false;
   let prevStage = '';
@@ -3742,6 +4332,8 @@ deals.forEach(d => {
   if (!d.researchers) { d.researchers = []; _migrated = true; }
   if (!d.comments) { d.comments = []; _migrated = true; }
   if (!d.createdAt) { d.createdAt = new Date().toISOString(); _migrated = true; }
+  if (!d.concept) { d.concept = { fields:{}, approvals:{}, comments:{}, validationStatus:{} }; _migrated = true; }
+  if (!d.evaluation) { d.evaluation = { marketValidated: false, marketValidationHow:'', prototypePerformanceText:'', secondary:{}, comments:{} }; _migrated = true; }
   // Migrate legacy tasks without criterion key
   (d.tasks || []).forEach(t => {
     if (!t.criterion) { t.criterion = 'industrialNeed'; _migrated = true; }
