@@ -1110,7 +1110,7 @@ function renderForm(dealId) {
               </div>
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">CURRENT TRL</label>
-                <div class="text-sm text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                <div id="copertina-trl-display" class="text-sm text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">
                   TRL ${d.trl||4} — ${TRL_LABELS[d.trl||4]||''}
                   <span class="text-xs text-slate-400 ml-2">(Modifica nel pannello Investimento &amp; Tecnologia)</span>
                 </div>
@@ -1686,6 +1686,8 @@ function updateTRL(val) {
   const l = document.getElementById('trl-label');
   if (v) v.textContent = val;
   if (l) l.textContent = TRL_LABELS[val] || '';
+  const c = document.getElementById('copertina-trl-display');
+  if (c) c.innerHTML = `TRL ${val} — ${TRL_LABELS[val]||''} <span class="text-xs text-slate-400 ml-2">(Modifica nel pannello Investimento &amp; Tecnologia)</span>`;
 }
 
 function setupLiveScore() {
