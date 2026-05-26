@@ -623,7 +623,7 @@ function renderDashboard() {
     const y = d.createdAt ? new Date(d.createdAt).getFullYear() : curYear;
     return isNaN(y) ? curYear : y;
   });
-  const allYears = [...new Set([...dealYears, curYear, curYear+1, curYear+2])].sort((a,b) => b-a);
+  const allYears = [...new Set([...dealYears, curYear, curYear+1, curYear+2])].sort((a,b) => a-b);
   if (!dashboardYearTab || !allYears.includes(dashboardYearTab)) dashboardYearTab = allYears[0];
 
   const PHASES = [
@@ -674,11 +674,10 @@ function renderDashboard() {
             ${dlist.length}
             <span class="text-xs font-normal ${arrowCls} transition-colors">→</span>
           </div>
-          <div class="space-y-1 flex-1 min-h-[2.5rem]">
-            ${dlist.length === 0 ? '<span class="text-xs text-slate-400 italic">Nessun deal</span>' : ''}
-            ${cleanCount > 0 ? `<div class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0"></span><span class="text-slate-600">${cleanCount} Cleantech</span></div>` : ''}
-            ${medCount   > 0 ? `<div class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0"></span><span class="text-slate-600">${medCount} Medtech</span></div>` : ''}
-            ${otherCount > 0 ? `<div class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span class="text-slate-600">${otherCount} Altro</span></div>` : ''}
+          <div class="space-y-1 flex-1">
+            <div class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0"></span><span class="${cleanCount > 0 ? 'text-slate-600' : 'text-slate-400'}">${cleanCount} Cleantech</span></div>
+            <div class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0"></span><span class="${medCount   > 0 ? 'text-slate-600' : 'text-slate-400'}">${medCount} Medtech</span></div>
+            <div class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span class="${otherCount > 0 ? 'text-slate-600' : 'text-slate-400'}">${otherCount} Altro</span></div>
           </div>
           <div class="border-t border-slate-200 pt-2 space-y-1">
             <div class="flex items-center gap-1 text-xs text-slate-500">
