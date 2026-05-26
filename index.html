@@ -623,7 +623,7 @@ function renderDashboard() {
     const y = d.createdAt ? new Date(d.createdAt).getFullYear() : curYear;
     return isNaN(y) ? curYear : y;
   });
-  const allYears = [...new Set([...dealYears, curYear, curYear+1, curYear+2])].sort((a,b) => a-b);
+  const allYears = [...new Set([...dealYears, curYear, curYear+1, curYear+2, curYear+3])].sort((a,b) => a-b);
   if (!dashboardYearTab || !allYears.includes(dashboardYearTab)) dashboardYearTab = allYears[0];
 
   const PHASES = [
@@ -776,6 +776,10 @@ function saveYearlyTarget(year, phase, field, value) {
 let pipelineSort = { col: 'score', dir: 'desc' };
 let pipelineFilter = '';
 let pipelineStageFilter = '';
+let pipelineSectorFilter = '';
+let pipelineTrlFilter = '';
+let pipelineScoreFilter = '';
+let pipelineLeadFilter = '';
 
 function navigateToPipelineStage(stage) {
   pipelineStageFilter = stage;
@@ -799,18 +803,47 @@ function renderPipeline() {
       </div>
 
       <!-- Filters -->
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-4 flex flex-wrap gap-3 items-center">
-        <input id="pipeline-search" type="text" placeholder="Cerca azienda o settore..."
-          class="flex-1 min-w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-          oninput="pipelineFilter=this.value; renderPipelineTable()" value="${pipelineFilter}">
-        <select id="pipeline-stage-filter" onchange="pipelineStageFilter=this.value; renderPipelineTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-          <option value="">Tutti gli stage</option>
-          <option value="Development" ${pipelineStageFilter==='Development'?'selected':''}>Development</option>
-          <option value="Pre Due Diligence" ${pipelineStageFilter==='Pre Due Diligence'?'selected':''}>Pre Due Diligence</option>
-          <option value="Due Diligence" ${pipelineStageFilter==='Due Diligence'?'selected':''}>Due Diligence</option>
-          <option value="Investimento" ${pipelineStageFilter==='Investimento'?'selected':''}>Investimento</option>
-          <option value="Rejected" ${pipelineStageFilter==='Rejected'?'selected':''}>Rejected</option>
-        </select>
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-4 space-y-3">
+        <div class="flex flex-wrap gap-3 items-center">
+          <input id="pipeline-search" type="text" placeholder="Cerca azienda, settore, sourcing…"
+            class="flex-1 min-w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            oninput="pipelineFilter=this.value; renderPipelineTable()" value="${pipelineFilter}">
+          <select id="pipeline-stage-filter" onchange="pipelineStageFilter=this.value; renderPipelineTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <option value="">Tutti gli stage</option>
+            ${['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'].map(s=>`<option value="${s}" ${pipelineStageFilter===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+          ${(pipelineFilter||pipelineStageFilter||pipelineSectorFilter||pipelineTrlFilter||pipelineScoreFilter||pipelineLeadFilter)
+            ? `<button onclick="pipelineFilter='';pipelineStageFilter='';pipelineSectorFilter='';pipelineTrlFilter='';pipelineScoreFilter='';pipelineLeadFilter='';renderPipeline()" class="text-xs text-slate-500 hover:text-red-500 underline whitespace-nowrap">✕ Reset filtri</button>`
+            : ''}
+        </div>
+        <div class="flex flex-wrap gap-2 items-center">
+          <!-- Sector toggles -->
+          ${[
+            { key:'',          label:'Tutti i settori', on:'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300',    off:'bg-slate-100 text-slate-600 hover:bg-slate-200' },
+            { key:'cleantech', label:'Cleantech',        on:'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300', off:'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' },
+            { key:'medtech',   label:'Medtech',          on:'bg-rose-100 text-rose-700 ring-2 ring-rose-300',         off:'bg-rose-50 text-rose-600 hover:bg-rose-100' },
+          ].map(f=>`<button onclick="pipelineSectorFilter='${f.key}'; renderPipelineTable()" class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${pipelineSectorFilter===f.key?f.on:f.off}">${f.label}</button>`).join('')}
+          <div class="h-4 w-px bg-slate-200 mx-1"></div>
+          <!-- TRL -->
+          <select onchange="pipelineTrlFilter=this.value; renderPipelineTable()" class="border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <option value="" ${pipelineTrlFilter===''?'selected':''}>Tutti i TRL</option>
+            <option value="1-3" ${pipelineTrlFilter==='1-3'?'selected':''}>TRL 1–3</option>
+            <option value="4-6" ${pipelineTrlFilter==='4-6'?'selected':''}>TRL 4–6</option>
+            <option value="7-9" ${pipelineTrlFilter==='7-9'?'selected':''}>TRL 7–9</option>
+          </select>
+          <!-- Score -->
+          <select onchange="pipelineScoreFilter=this.value; renderPipelineTable()" class="border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <option value="" ${pipelineScoreFilter===''?'selected':''}>Tutti gli score</option>
+            <option value="high" ${pipelineScoreFilter==='high'?'selected':''}>Score ≥ 7</option>
+            <option value="mid"  ${pipelineScoreFilter==='mid'?'selected':''}>Score 5–7</option>
+            <option value="low"  ${pipelineScoreFilter==='low'?'selected':''}>Score &lt; 5</option>
+          </select>
+          <!-- Deal lead -->
+          <select onchange="pipelineLeadFilter=this.value; renderPipelineTable()" class="border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <option value="">Tutti i lead</option>
+            ${loadTeam().map(m=>`<option value="${esc(m.id)}" ${pipelineLeadFilter===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}
+          </select>
+        </div>
       </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -858,9 +891,21 @@ function renderPipelineTable() {
   const stageF = pipelineStageFilter;
 
   let filtered = deals.filter(d => {
-    const matchSearch = !search || d.company.toLowerCase().includes(search) || d.sector.toLowerCase().includes(search);
-    const matchStage = !stageF || d.stage === stageF;
-    return matchSearch && matchStage;
+    const matchSearch = !search || d.company.toLowerCase().includes(search) || (d.sector||'').toLowerCase().includes(search) || (d.sourceName||'').toLowerCase().includes(search);
+    const matchStage  = !stageF || d.stage === stageF;
+    const matchSector = !pipelineSectorFilter || _dealSectorTag(d) === pipelineSectorFilter;
+    const trl = d.trl || 0;
+    const matchTrl = !pipelineTrlFilter
+      || (pipelineTrlFilter === '1-3' && trl >= 1 && trl <= 3)
+      || (pipelineTrlFilter === '4-6' && trl >= 4 && trl <= 6)
+      || (pipelineTrlFilter === '7-9' && trl >= 7 && trl <= 9);
+    const score = computeScore(d);
+    const matchScore = !pipelineScoreFilter
+      || (pipelineScoreFilter === 'high' && score >= 7)
+      || (pipelineScoreFilter === 'mid'  && score >= 5 && score < 7)
+      || (pipelineScoreFilter === 'low'  && score < 5);
+    const matchLead = !pipelineLeadFilter || d.dealLead === pipelineLeadFilter;
+    return matchSearch && matchStage && matchSector && matchTrl && matchScore && matchLead;
   });
 
   const col = pipelineSort.col;
@@ -3855,15 +3900,12 @@ function renderPortfolio() {
   const sectorColors = { 'Medtech':'bg-rose-100 text-rose-700','Cleantech':'bg-emerald-100 text-emerald-700' };
 
   const filterBtns = [
-    { key: '',          label: 'Tutti' },
-    { key: 'medtech',   label: 'Medtech' },
-    { key: 'cleantech', label: 'Cleantech' },
+    { key: '',          label: 'Tutti',     on: 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300',   off: 'bg-slate-100 text-slate-600 hover:bg-slate-200' },
+    { key: 'medtech',   label: 'Medtech',   on: 'bg-rose-100 text-rose-700 ring-2 ring-rose-300',         off: 'bg-rose-50 text-rose-600 hover:bg-rose-100' },
+    { key: 'cleantech', label: 'Cleantech', on: 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300', off: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' },
   ].map(f => {
-    const active = portfolioSectorFilter === f.key;
-    const cls = active
-      ? (f.key === 'medtech' ? 'bg-rose-600 text-white' : f.key === 'cleantech' ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white')
-      : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
-    return `<button onclick="portfolioSectorFilter='${f.key}'; renderPortfolio()" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${cls}">${f.label}</button>`;
+    const cls = portfolioSectorFilter === f.key ? f.on : f.off;
+    return `<button onclick="portfolioSectorFilter='${f.key}'; renderPortfolio()" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${cls}">${f.label}</button>`;
   }).join('');
 
   el.innerHTML = `
