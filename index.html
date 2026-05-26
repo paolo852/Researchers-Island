@@ -3830,9 +3830,17 @@ let portfolioMilestones = [];
 let portfolioCoInvestors = [];
 let portfolioFiles = [];
 
+let portfolioSectorFilter = '';
+
 function renderPortfolio() {
   const el = document.getElementById('page-portfolio');
-  const list = loadPortfolio();
+  const allList = loadPortfolio();
+
+  const filtered = portfolioSectorFilter
+    ? allList.filter(p => _dealSectorTag(p) === portfolioSectorFilter)
+    : allList;
+
+  const list = filtered;
   const active = list.filter(p => p.status === 'Active');
   const totalInvested = list.reduce((s,p) => s + (p.investmentAmount||0), 0);
   const totalVal = list.filter(p=>p.status==='Active').reduce((s,p) => s + (p.currentValuation||0), 0);
@@ -3847,17 +3855,32 @@ function renderPortfolio() {
   const statusColors = { 'Active':'bg-green-100 text-green-800','Exit':'bg-indigo-100 text-indigo-800','Written off':'bg-red-100 text-red-800' };
   const sectorColors = { 'Medtech':'bg-rose-100 text-rose-700','Cleantech':'bg-emerald-100 text-emerald-700' };
 
+  const filterBtns = [
+    { key: '',          label: 'Tutti' },
+    { key: 'medtech',   label: 'Medtech' },
+    { key: 'cleantech', label: 'Cleantech' },
+  ].map(f => {
+    const active = portfolioSectorFilter === f.key;
+    const cls = active
+      ? (f.key === 'medtech' ? 'bg-rose-600 text-white' : f.key === 'cleantech' ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white')
+      : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+    return `<button onclick="portfolioSectorFilter='${f.key}'; renderPortfolio()" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${cls}">${f.label}</button>`;
+  }).join('');
+
   el.innerHTML = `
     <div class="max-w-6xl mx-auto">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 class="text-2xl font-bold text-slate-800 mb-1">Portfolio</h1>
           <p class="text-slate-500 text-sm">Partecipate attive e concluse</p>
         </div>
-        <button onclick="openPortfolioDetail(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Nuova Partecipata
-        </button>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex gap-1.5">${filterBtns}</div>
+          <button onclick="openPortfolioDetail(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Nuova Partecipata
+          </button>
+        </div>
       </div>
 
       <!-- KPI -->
