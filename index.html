@@ -1159,54 +1159,6 @@ function renderForm(dealId) {
         </div>
 
 
-        <!-- SEZIONE 2: Uso Investimento & TRL -->
-        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-l-4 border-l-teal-400">
-          <h2 class="text-base font-semibold text-teal-800 mb-4 pb-2 border-b border-slate-100">Investimento & Tecnologia</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-slate-600 mb-2">Utilizzo dell'investimento iniziale</label>
-              <div class="flex flex-wrap gap-2 mb-2">
-                ${useOptions.map(opt => {
-                  const checked = (d.useOfInvestment||[]).includes(opt);
-                  return `<label class="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" name="useOfInvestment" value="${opt}" ${checked?'checked':''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
-                    <span class="text-sm text-slate-600">${opt}</span>
-                  </label>`;
-                }).join('')}
-              </div>
-              <textarea name="useOfInvestmentNotes" placeholder="Note aggiuntive sull'utilizzo..." rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.useOfInvestmentNotes||'')}</textarea>
-            </div>
-
-            <!-- TRL Slider -->
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-slate-600 mb-2">
-                Livello TRL: <span id="trl-val" class="text-indigo-600 font-bold">${d.trl||4}</span>
-                <span id="trl-label" class="text-xs text-slate-400 ml-2"></span>
-              </label>
-              <input type="range" name="trl" min="1" max="9" value="${d.trl||4}"
-                class="w-full" oninput="updateTRL(this.value)">
-              <div class="flex justify-between text-xs text-slate-400 mt-1">
-                <span>TRL 1</span><span>TRL 5</span><span>TRL 9</span>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-slate-600 mb-1">Investimento richiesto (€)</label>
-              <input name="investmentAmount" type="number" min="0" value="${d.investmentAmount||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-600 mb-1">Valutazione (€)</label>
-              <input name="valuation" type="number" min="0" value="${d.valuation||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-600 mb-1">Strumento</label>
-              <select name="instrument" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                ${['equity','convertible'].map(i => `<option value="${i}" ${d.instrument===i?'selected':''}>${i.charAt(0).toUpperCase()+i.slice(1)}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-        </div>
-
         <!-- SEZIONE A: Concept Development -->
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-l-4 border-l-teal-400">
           <h2 class="text-base font-semibold text-teal-800 mb-4 pb-2 border-b border-slate-100">Concept Development</h2>
@@ -1372,6 +1324,51 @@ function renderForm(dealId) {
             <svg id="vb-chevron" class="w-5 h-5 text-amber-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
           <div id="vb-block" class="space-y-4 px-1 pb-1">
+
+        <!-- Investimento & Tecnologia (moved from Product Management) -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-l-4 border-l-amber-400">
+          <h2 class="text-base font-semibold text-amber-800 mb-4 pb-2 border-b border-slate-100">Investimento & Tecnologia</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-600 mb-2">Utilizzo dell'investimento iniziale</label>
+              <div class="flex flex-wrap gap-2 mb-2">
+                ${useOptions.map(opt => {
+                  const checked = (d.useOfInvestment||[]).includes(opt);
+                  return `<label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" name="useOfInvestment" value="${opt}" ${checked?'checked':''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+                    <span class="text-sm text-slate-600">${opt}</span>
+                  </label>`;
+                }).join('')}
+              </div>
+              <textarea name="useOfInvestmentNotes" placeholder="Note aggiuntive sull'utilizzo..." rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.useOfInvestmentNotes||'')}</textarea>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-600 mb-2">
+                Livello TRL: <span id="trl-val" class="text-indigo-600 font-bold">${d.trl||4}</span>
+                <span id="trl-label" class="text-xs text-slate-400 ml-2"></span>
+              </label>
+              <input type="range" name="trl" min="1" max="9" value="${d.trl||4}"
+                class="w-full" oninput="updateTRL(this.value)">
+              <div class="flex justify-between text-xs text-slate-400 mt-1">
+                <span>TRL 1</span><span>TRL 5</span><span>TRL 9</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Investimento richiesto (€)</label>
+              <input name="investmentAmount" type="number" min="0" value="${d.investmentAmount||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Valutazione (€)</label>
+              <input name="valuation" type="number" min="0" value="${d.valuation||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Strumento</label>
+              <select name="instrument" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                ${['equity','convertible'].map(i => `<option value="${i}" ${d.instrument===i?'selected':''}>${i.charAt(0).toUpperCase()+i.slice(1)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
 
         <!-- Criteri Primari label -->
         <div class="px-2">
