@@ -4919,7 +4919,7 @@ function doLogin(e) {
     document.getElementById('login-error').classList.remove('hidden');
     return;
   }
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: member.id, name: member.name, role: member.role, username: member.username }));
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: member.id, name: member.name, role: member.role, username: member.username, email: member.email || '' }));
   document.getElementById('login-error').classList.add('hidden');
   document.getElementById('login-password').value = '';
   showApp();
