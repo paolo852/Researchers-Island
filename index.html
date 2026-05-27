@@ -1242,15 +1242,18 @@ function renderForm(dealId) {
                   return risks.map(r => `
                     <div class="flex items-start gap-2 p-3 border border-slate-200 rounded-lg bg-white">
                       <div class="flex-1 space-y-2">
-                        <textarea rows="2" placeholder="Descrivi il rischio e le ipotesi critiche da validare..."
-                          oninput="updateConceptRisk('${r.id}','description',this.value)"
+                        <textarea id="risk-desc-${r.id}" rows="2" placeholder="Descrivi il rischio e le ipotesi critiche da validare..."
                           class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(r.description||'')}</textarea>
-                        <div class="flex gap-1.5 flex-wrap">
+                        <div class="flex items-center gap-2 flex-wrap">
                           ${['Business','Tecnici','Organizzativi','Altro'].map(tag => `
                             <button type="button" onclick="updateConceptRisk('${r.id}','tag','${tag}'); renderConceptRisks()"
                               class="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${r.tag===tag ? tagColors[tag] : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}">
                               ${tag}
                             </button>`).join('')}
+                          <button type="button" id="risk-save-btn-${r.id}" onclick="saveConceptRisk('${r.id}')"
+                            class="ml-auto px-3 py-1 rounded-lg text-xs font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-colors">
+                            Salva
+                          </button>
                         </div>
                       </div>
                       <button type="button" onclick="removeConceptRisk('${r.id}')" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0 mt-1">
@@ -1325,9 +1328,9 @@ function renderForm(dealId) {
           </button>
           <div id="vb-block" class="space-y-4 px-1 pb-1">
 
-        <!-- Investimento & Tecnologia (moved from Product Management) -->
+        <!-- Investimento (moved from Product Management) -->
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-l-4 border-l-amber-400">
-          <h2 class="text-base font-semibold text-amber-800 mb-4 pb-2 border-b border-slate-100">Investimento & Tecnologia</h2>
+          <h2 class="text-base font-semibold text-amber-800 mb-4 pb-2 border-b border-slate-100">Investimento</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-slate-600 mb-2">Utilizzo dell'investimento iniziale</label>
@@ -1571,6 +1574,22 @@ function updateConceptRisk(rid, field, value) {
   const r = _conceptData.risks.find(x => x.id === rid);
   if (r) { r[field] = value; persistConceptOnDeal(); }
 }
+function saveConceptRisk(rid) {
+  const ta = document.getElementById('risk-desc-' + rid);
+  if (!ta) return;
+  updateConceptRisk(rid, 'description', ta.value);
+  const btn = document.getElementById('risk-save-btn-' + rid);
+  if (btn) {
+    btn.textContent = '✓ Salvato';
+    btn.classList.add('bg-emerald-100', 'text-emerald-700', 'border-emerald-300');
+    btn.classList.remove('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
+    setTimeout(() => {
+      btn.textContent = 'Salva';
+      btn.classList.remove('bg-emerald-100', 'text-emerald-700', 'border-emerald-300');
+      btn.classList.add('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
+    }, 1500);
+  }
+}
 function renderConceptRisks() {
   const el = document.getElementById('concept-risks-list');
   if (!el) return;
@@ -1588,15 +1607,18 @@ function renderConceptRisks() {
   el.innerHTML = risks.map(r => `
     <div class="flex items-start gap-2 p-3 border border-slate-200 rounded-lg bg-white">
       <div class="flex-1 space-y-2">
-        <textarea rows="2" placeholder="Descrivi il rischio e le ipotesi critiche da validare..."
-          oninput="updateConceptRisk('${r.id}','description',this.value)"
+        <textarea id="risk-desc-${r.id}" rows="2" placeholder="Descrivi il rischio e le ipotesi critiche da validare..."
           class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(r.description||'')}</textarea>
-        <div class="flex gap-1.5 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap">
           ${['Business','Tecnici','Organizzativi','Altro'].map(tag => `
             <button type="button" onclick="updateConceptRisk('${r.id}','tag','${tag}'); renderConceptRisks()"
               class="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${r.tag===tag ? tagColors[tag] : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}">
               ${tag}
             </button>`).join('')}
+          <button type="button" id="risk-save-btn-${r.id}" onclick="saveConceptRisk('${r.id}')"
+            class="ml-auto px-3 py-1 rounded-lg text-xs font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-colors">
+            Salva
+          </button>
         </div>
       </div>
       <button type="button" onclick="removeConceptRisk('${r.id}')" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0 mt-1">
