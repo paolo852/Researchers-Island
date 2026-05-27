@@ -1135,7 +1135,7 @@ function renderForm(dealId) {
             return `
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-600 mb-2">Deal Lead</label>
+                  <label class="block text-sm font-medium text-slate-600 mb-2">Responsabile</label>
                   <select name="dealLead" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
                     <option value="">— Nessuno —</option>
                     ${team.map(m => `<option value="${esc(m.id)}" ${lead===m.id?'selected':''}>${esc(m.name)} (${esc(m.role)})</option>`).join('')}
@@ -1211,33 +1211,6 @@ function renderForm(dealId) {
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-l-4 border-l-teal-400">
           <h2 class="text-base font-semibold text-teal-800 mb-4 pb-2 border-b border-slate-100">Concept Development</h2>
 
-          <!-- Copertina (always open) -->
-          <div class="mb-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <h3 class="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide">Copertina</h3>
-            <div class="space-y-3">
-              <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">PROJECT / TECHNOLOGY NAME</label>
-                <input type="text" id="concept-field-projectName" value="${esc((d.concept&&d.concept.fields&&d.concept.fields.projectName)||d.company||'')}"
-                  oninput="conceptSetField('projectName',this.value)"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                ${conceptApprovalBar('projectName', d)}
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">LEAD ORGANISATION</label>
-                <input type="text" id="concept-field-leadOrg" value="${esc((d.concept&&d.concept.fields&&d.concept.fields.leadOrg)||'')}"
-                  oninput="conceptSetField('leadOrg',this.value)"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                ${conceptApprovalBar('leadOrg', d)}
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">CURRENT TRL</label>
-                <div id="copertina-trl-display" class="text-sm text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">
-                  TRL ${d.trl||4} — ${TRL_LABELS[d.trl||4]||''}
-                  <span class="text-xs text-slate-400 ml-2">(Modifica nel pannello Investimento &amp; Tecnologia)</span>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <!-- 1. Product Snapshot -->
           <details open class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
@@ -1265,6 +1238,7 @@ function renderForm(dealId) {
             <div class="p-4 space-y-4">
               ${conceptField('problemStatement','2.1 APPLICATION SCENARIO — PROBLEM STATEMENT','Chi, contesto, quantificazione del pain. Perché le soluzioni esistenti non bastano.', d, true)}
               ${conceptField('valueProposition','2.2 APPLICATION SCENARIO — VALUE PROPOSITION','Come cambierebbe lo scenario applicativo con il prodotto.', d, true)}
+              ${conceptField('willingnessToPay','2.3 WILLINGNESS TO PAY','Disponibilità a pagare del cliente target: range di prezzo accettabile, benchmark con soluzioni alternative, modello di pricing ipotizzato', d, true)}
             </div>
           </details>
 
@@ -1275,9 +1249,8 @@ function renderForm(dealId) {
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('tam','TAM — TOTAL ADDRESSABLE MARKET','Domanda globale per la categoria di soluzione', d)}
-              ${conceptField('sam','SAM — SERVICEABLE AVAILABLE MARKET','Segmento geografico/settoriale raggiungibile', d)}
-              ${conceptField('som','SOM — SERVICEABLE OBTAINABLE MARKET','Quota ottenibile nei primi 3–5 anni', d)}
+              ${conceptField('marketValue','3.1 VALORE DI MERCATO ATTUALE E PROSPETTICO','Top-down: TAM → SAM → SOM. Bottom-up: volume clienti × ticket medio × frequenza. Trend di crescita e driver principali', d)}
+              ${conceptField('competitorAnalysis','3.2 ANALISI DEI COMPETITOR','Competitor diretti e indiretti, quote di mercato, punti di forza/debolezza, posizionamento differenziante della tecnologia', d)}
             </div>
           </details>
 
@@ -1289,6 +1262,7 @@ function renderForm(dealId) {
             </summary>
             <div class="p-4 space-y-4">
               ${conceptField('roadmap','4.1 FROM CURRENT TRL TO MARKET','Fasi, milestone tecnici, decision gate, timeline indicativa', d)}
+              ${conceptField('scalability','4.2 SCALABILITÀ','Modello di scala: come cresce il business oltre il primo cliente/mercato? Barriere all\'ingresso, effetti di rete, economia di scala nella produzione o distribuzione', d)}
             </div>
           </details>
 
@@ -1298,8 +1272,52 @@ function renderForm(dealId) {
               <span>5. Risks and Critical Assumptions</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-xs text-slate-500">Aggiungi i rischi uno per uno e classificali per categoria.</p>
+                <button type="button" onclick="addConceptRisk()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium">+ Aggiungi rischio</button>
+              </div>
+              <div id="concept-risks-list" class="space-y-2">
+                ${(() => {
+                  const risks = (d.concept && d.concept.risks) || [];
+                  const tagColors = {
+                    'Business':'bg-blue-100 text-blue-700 border-blue-200',
+                    'Tecnici':'bg-orange-100 text-orange-700 border-orange-200',
+                    'Organizzativi':'bg-purple-100 text-purple-700 border-purple-200',
+                    'Altro':'bg-slate-100 text-slate-600 border-slate-300'
+                  };
+                  if (risks.length === 0) return '<p class="text-xs text-slate-400 italic px-1">Nessun rischio aggiunto.</p>';
+                  return risks.map(r => `
+                    <div class="flex items-start gap-2 p-3 border border-slate-200 rounded-lg bg-white">
+                      <div class="flex-1 space-y-2">
+                        <textarea rows="2" placeholder="Descrivi il rischio e le ipotesi critiche da validare..."
+                          oninput="updateConceptRisk('${r.id}','description',this.value)"
+                          class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(r.description||'')}</textarea>
+                        <div class="flex gap-1.5 flex-wrap">
+                          ${['Business','Tecnici','Organizzativi','Altro'].map(tag => `
+                            <button type="button" onclick="updateConceptRisk('${r.id}','tag','${tag}'); renderConceptRisks()"
+                              class="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${r.tag===tag ? tagColors[tag] : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}">
+                              ${tag}
+                            </button>`).join('')}
+                        </div>
+                      </div>
+                      <button type="button" onclick="removeConceptRisk('${r.id}')" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0 mt-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>`).join('');
+                })()}
+              </div>
+            </div>
+          </details>
+
+          <!-- 6. Collaborazioni Attive -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>6. Collaborazioni Attive</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('riskiestAssumptions','RISKIEST ASSUMPTIONS TO VALIDATE','Le 3–5 ipotesi più rischiose con esperimento associato e kill-criterion', d)}
+              ${conceptField('collaborations','6.1 COLLABORAZIONI ATTIVE','Partner industriali, accademici, istituzionali. Per ciascuno: nome, tipo di collaborazione, stato (attiva/in negoziazione), valore strategico', d)}
             </div>
           </details>
         </div>
@@ -1517,7 +1535,8 @@ function conceptInitFromDeal(d) {
     fields: JSON.parse(JSON.stringify((d.concept&&d.concept.fields)||{})),
     approvals: JSON.parse(JSON.stringify((d.concept&&d.concept.approvals)||{})),
     comments: JSON.parse(JSON.stringify((d.concept&&d.concept.comments)||{})),
-    validationStatus: JSON.parse(JSON.stringify((d.concept&&d.concept.validationStatus)||{}))
+    validationStatus: JSON.parse(JSON.stringify((d.concept&&d.concept.validationStatus)||{})),
+    risks: JSON.parse(JSON.stringify((d.concept&&d.concept.risks)||[]))
   };
 }
 
@@ -1536,6 +1555,57 @@ function persistConceptOnDeal() {
   deals[idx].concept = JSON.parse(JSON.stringify(_conceptData));
   saveDeals(deals);
   editingDeal = deals[idx];
+}
+
+function addConceptRisk() {
+  if (!_conceptData.risks) _conceptData.risks = [];
+  _conceptData.risks.push({ id: 'r-'+Date.now()+'-'+Math.random().toString(36).slice(2,5), description: '', tag: 'Business' });
+  persistConceptOnDeal();
+  renderConceptRisks();
+}
+function removeConceptRisk(rid) {
+  if (!_conceptData.risks) return;
+  _conceptData.risks = _conceptData.risks.filter(r => r.id !== rid);
+  persistConceptOnDeal();
+  renderConceptRisks();
+}
+function updateConceptRisk(rid, field, value) {
+  if (!_conceptData.risks) return;
+  const r = _conceptData.risks.find(x => x.id === rid);
+  if (r) { r[field] = value; persistConceptOnDeal(); }
+}
+function renderConceptRisks() {
+  const el = document.getElementById('concept-risks-list');
+  if (!el) return;
+  const risks = _conceptData.risks || [];
+  const tagColors = {
+    'Business':       'bg-blue-100 text-blue-700 border-blue-200',
+    'Tecnici':        'bg-orange-100 text-orange-700 border-orange-200',
+    'Organizzativi':  'bg-purple-100 text-purple-700 border-purple-200',
+    'Altro':          'bg-slate-100 text-slate-600 border-slate-300'
+  };
+  if (risks.length === 0) {
+    el.innerHTML = '<p class="text-xs text-slate-400 italic px-1">Nessun rischio aggiunto.</p>';
+    return;
+  }
+  el.innerHTML = risks.map(r => `
+    <div class="flex items-start gap-2 p-3 border border-slate-200 rounded-lg bg-white">
+      <div class="flex-1 space-y-2">
+        <textarea rows="2" placeholder="Descrivi il rischio e le ipotesi critiche da validare..."
+          oninput="updateConceptRisk('${r.id}','description',this.value)"
+          class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(r.description||'')}</textarea>
+        <div class="flex gap-1.5 flex-wrap">
+          ${['Business','Tecnici','Organizzativi','Altro'].map(tag => `
+            <button type="button" onclick="updateConceptRisk('${r.id}','tag','${tag}'); renderConceptRisks()"
+              class="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${r.tag===tag ? tagColors[tag] : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}">
+              ${tag}
+            </button>`).join('')}
+        </div>
+      </div>
+      <button type="button" onclick="removeConceptRisk('${r.id}')" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0 mt-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join('');
 }
 
 function conceptApprove(key) {
