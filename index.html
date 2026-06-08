@@ -1027,6 +1027,8 @@ let formCapTable = [];
 let formTasks = [];
 let formFiles = [];
 let formResearchers = [];
+let _investorFiles = [];
+let _investorEditingId = null;
 
 function renderForm(dealId) {
   deals = loadDeals();
@@ -3426,6 +3428,56 @@ function persistFilesOnDeal() {
 }
 
 // ============================================================
+// INVESTOR FILE UPLOAD
+// ============================================================
+function renderInvestorFilesList() {
+  const el = document.getElementById('investor-files-list');
+  if (!el) return;
+  if (_investorFiles.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessun documento caricato</p>';
+    return;
+  }
+  el.innerHTML = _investorFiles.map((f, i) => `
+    <div class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg">
+      <svg class="w-5 h-5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-medium text-slate-700 truncate">${esc(f.name)}</div>
+        <div class="text-xs text-slate-400">${fmtBytes(f.size||0)} · ${new Date(f.uploadedAt).toLocaleDateString('it-IT')}</div>
+      </div>
+      <a href="${f.dataUrl}" download="${esc(f.name)}" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">Scarica</a>
+      <button type="button" onclick="removeInvestorFile(${i})" class="text-red-400 hover:text-red-600 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+function removeInvestorFile(i) { _investorFiles.splice(i, 1); renderInvestorFilesList(); }
+function handleInvestorFileDrop(e) {
+  e.preventDefault();
+  if (e.dataTransfer && e.dataTransfer.files) processInvestorFiles(e.dataTransfer.files);
+}
+function handleInvestorFileSelect(e) {
+  processInvestorFiles(e.target.files);
+  e.target.value = '';
+}
+function processInvestorFiles(fileList) {
+  Array.from(fileList).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      _investorFiles.push({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: ev.target.result,
+        uploadedAt: new Date().toISOString()
+      });
+      renderInvestorFilesList();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ============================================================
 // INVESTORS
 // ============================================================
 const INVESTORS_KEY = 'dealflow_investors';
@@ -3598,8 +3650,9 @@ function renderInvestors() {
                 ${inv.boardSeat?'<span class="text-purple-700">✓ Board</span>':''}
               </div>
             </div>
-            <div class="px-5 pb-4 flex gap-2">
+            <div class="px-5 pb-4 flex gap-2 items-center">
               <button onclick="openInvestorModal('${inv.id}')" class="flex-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
+              ${(inv.files||[]).length > 0 ? `<span class="text-xs text-slate-400 flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>${(inv.files||[]).length}</span>` : ''}
               <button onclick="deleteInvestor('${inv.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium">Elimina</button>
             </div>
           </div>`).join('')}
@@ -3610,6 +3663,8 @@ function renderInvestors() {
 function openInvestorModal(id) {
   const list = loadInvestors();
   const inv = id ? list.find(x => x.id === id) : null;
+  _investorEditingId = id || null;
+  _investorFiles = JSON.parse(JSON.stringify(inv && inv.files ? inv.files : []));
   const v = (f) => esc(inv ? (inv[f]||'') : '');
   const chk = (f) => inv && inv[f] ? 'checked' : '';
   const stagesAll = ['Pre-seed','Seed','Series A','Series B','Series C','Growth'];
@@ -3711,12 +3766,29 @@ function openInvestorModal(id) {
         </div>
       </div>
 
+      <!-- Documenti -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Documenti</h3>
+        <div id="investor-file-drop-zone" class="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors mb-3"
+          onclick="document.getElementById('investor-file-input').click()"
+          ondragover="event.preventDefault(); this.classList.add('border-indigo-500','bg-indigo-50');"
+          ondragleave="this.classList.remove('border-indigo-500','bg-indigo-50');"
+          ondrop="handleInvestorFileDrop(event); this.classList.remove('border-indigo-500','bg-indigo-50');">
+          <svg class="w-8 h-8 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <p class="text-sm text-slate-500">Trascina i file qui o <span class="text-indigo-600 font-medium">clicca per selezionare</span></p>
+          <p class="text-xs text-slate-400 mt-1">PDF, Word, Excel, PowerPoint, immagini</p>
+        </div>
+        <input id="investor-file-input" type="file" multiple accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg" onchange="handleInvestorFileSelect(event)" class="hidden">
+        <div id="investor-files-list" class="space-y-2"></div>
+      </div>
+
       <div class="flex justify-end gap-3 pt-2 border-t border-slate-100">
         <button type="button" onclick="closeInvestorModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annulla</button>
         <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Salva</button>
       </div>
     </form>`;
   document.getElementById('investor-modal-overlay').classList.remove('hidden');
+  renderInvestorFilesList();
 }
 
 function closeInvestorModal() { document.getElementById('investor-modal-overlay').classList.add('hidden'); }
@@ -3741,7 +3813,8 @@ function saveInvestor(e, id) {
     leadInvestor: fd.get('leadInvestor')==='1',
     coInvestmentInterest: fd.get('coInvestmentInterest')==='1',
     boardSeat: fd.get('boardSeat')==='1',
-    portfolioNotes: g('portfolioNotes'), notes: g('notes')
+    portfolioNotes: g('portfolioNotes'), notes: g('notes'),
+    files: JSON.parse(JSON.stringify(_investorFiles))
   };
   const list = loadInvestors();
   const idx = list.findIndex(x => x.id === id);
