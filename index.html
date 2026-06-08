@@ -949,8 +949,12 @@ function renderPipelineTable() {
     const teamLine = lead || members.length
       ? `<div class="text-xs text-slate-500 mt-0.5">${lead ? '<span class="font-medium text-indigo-600">★ '+esc(lead)+'</span>' : ''}${lead && members.length ? ' · ' : ''}${members.length ? esc(members.slice(0,3).join(', ')) + (members.length>3?' +'+(members.length-3):'') : ''}</div>`
       : '';
+    const sectorTag = _dealSectorTag(d);
+    const rowClass = sectorTag === 'cleantech' ? 'border-l-4 border-l-emerald-400 bg-emerald-50/30 hover:bg-emerald-50/60'
+                   : sectorTag === 'medtech'   ? 'border-l-4 border-l-blue-400 bg-blue-50/30 hover:bg-blue-50/60'
+                   : 'hover:bg-slate-50';
     return `
-    <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="openDeal('${d.id}')">
+    <tr class="border-b border-slate-100 cursor-pointer ${rowClass}" onclick="openDeal('${d.id}')">
       <td class="px-4 py-3 font-medium text-slate-800">${esc(d.company)}${teamLine}</td>
       <td class="px-4 py-3 text-slate-600">${d.sector}</td>
       <td class="px-4 py-3"><span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded">TRL ${d.trl}</span></td>
