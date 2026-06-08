@@ -177,10 +177,17 @@
   </div>
 </div>
 
-<!-- INVESTOR MODAL -->
+<!-- INVESTOR MODAL (edit) -->
 <div id="investor-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
   <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
     <div id="investor-modal-body"></div>
+  </div>
+</div>
+
+<!-- INVESTOR DETAIL OVERLAY (read-only) -->
+<div id="investor-detail-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div class="bg-white rounded-2xl w-full max-w-3xl mx-4 shadow-2xl">
+    <div id="investor-detail-body"></div>
   </div>
 </div>
 
@@ -2425,6 +2432,9 @@ document.getElementById('team-modal-overlay').addEventListener('click', function
 document.getElementById('investor-modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeInvestorModal();
 });
+document.getElementById('investor-detail-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeInvestorDetail();
+});
 document.getElementById('suggestions-modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeSuggestionsModal();
 });
@@ -3727,23 +3737,40 @@ function loadInvestors() {
 }
 function saveInvestors(list) { localStorage.setItem(INVESTORS_KEY, JSON.stringify(list)); _sbSync(INVESTORS_KEY, list); }
 
+const INV_STATUS_COLORS = {
+  'Warm':          'bg-green-100 text-green-800',
+  'Cold':          'bg-slate-100 text-slate-600',
+  'In valutazione':'bg-yellow-100 text-yellow-800',
+  'Partner':       'bg-indigo-100 text-indigo-800'
+};
+const INV_TYPE_COLORS = {
+  'VC':           'bg-blue-100 text-blue-700',
+  'CVC':          'bg-purple-100 text-purple-700',
+  'Public Fund':  'bg-emerald-100 text-emerald-700',
+  'Family Office':'bg-orange-100 text-orange-700',
+  'Angel Network':'bg-pink-100 text-pink-700',
+  'Acceleratore': 'bg-sky-100 text-sky-700'
+};
+
+function _invLastInteraction(inv) {
+  const dates = (inv.pitches||[]).map(p=>p.date||'').filter(Boolean);
+  return dates.length ? dates.sort().slice(-1)[0] : '';
+}
+
 function renderInvestors() {
   const el = document.getElementById('page-investors');
   const list = loadInvestors();
-  const statusColors = {
-    'Warm': 'bg-green-100 text-green-800',
-    'Cold': 'bg-slate-100 text-slate-600',
-    'In valutazione': 'bg-yellow-100 text-yellow-800',
-    'Partner': 'bg-indigo-100 text-indigo-800'
-  };
-  const typeColors = {
-    'VC': 'bg-blue-100 text-blue-700',
-    'CVC': 'bg-purple-100 text-purple-700',
-    'Public Fund': 'bg-emerald-100 text-emerald-700',
-    'Family Office': 'bg-orange-100 text-orange-700',
-    'Angel Network': 'bg-pink-100 text-pink-700',
-    'Acceleratore': 'bg-sky-100 text-sky-700'
-  };
+  const allDeals = deals;
+
+  // Sort: most recent interaction first, then no-interaction alphabetically
+  const sorted = [...list].sort((a, b) => {
+    const da = _invLastInteraction(a), db = _invLastInteraction(b);
+    if (da && db) return db.localeCompare(da);
+    if (da) return -1;
+    if (db) return 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
   el.innerHTML = `
     <div class="max-w-6xl mx-auto">
       <div class="flex items-center justify-between mb-6">
@@ -3757,86 +3784,184 @@ function renderInvestors() {
         </button>
       </div>
 
-      <!-- Summary cards -->
+      <!-- KPI strip -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         ${[
-          { label: 'Totale', val: list.length, color: 'text-indigo-600' },
-          { label: 'Warm', val: list.filter(i=>i.status==='Warm').length, color: 'text-green-600' },
+          { label: 'Totale',         val: list.length,                                        color: 'text-indigo-600' },
+          { label: 'Warm',           val: list.filter(i=>i.status==='Warm').length,           color: 'text-green-600' },
           { label: 'In valutazione', val: list.filter(i=>i.status==='In valutazione').length, color: 'text-yellow-600' },
-          { label: 'Partner', val: list.filter(i=>i.status==='Partner').length, color: 'text-indigo-600' }
+          { label: 'Partner',        val: list.filter(i=>i.status==='Partner').length,        color: 'text-indigo-600' }
         ].map(c=>`<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200"><div class="text-2xl font-bold ${c.color}">${c.val}</div><div class="text-sm text-slate-500">${c.label}</div></div>`).join('')}
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-        ${list.length === 0 ? '<p class="text-slate-400 col-span-3">Nessun investitore. Aggiungine uno.</p>' :
-          list.map(inv => `
-          <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
-            <!-- Header -->
-            <div class="p-4 border-b border-slate-100">
-              <div class="flex items-start justify-between gap-2 mb-3">
-                <div class="flex-1 min-w-0">
-                  <h3 class="font-bold text-slate-800 text-base leading-tight truncate">${esc(inv.name)}</h3>
-                  <p class="text-xs text-slate-400 mt-0.5 truncate">${[inv.manager, inv.country].filter(Boolean).join(' · ')}</p>
-                </div>
-                <div class="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[inv.type]||'bg-slate-100 text-slate-600'}">${esc(inv.type)}</span>
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[inv.status]||'bg-slate-100'}">${esc(inv.status)}</span>
-                </div>
-              </div>
-              <!-- Key metrics: single row -->
-              <div class="flex items-center gap-4 text-xs text-slate-600">
-                <span><span class="text-slate-400">AUM</span> ${esc(inv.aum||'—')}</span>
-                <span><span class="text-slate-400">Ticket</span> ${inv.ticketMin ? '€'+Number(inv.ticketMin).toLocaleString('it-IT')+'–€'+Number(inv.ticketMax).toLocaleString('it-IT') : '—'}</span>
-                <span><span class="text-slate-400">TRL</span> ${inv.trlMin||1}–${inv.trlMax||9}</span>
-              </div>
-            </div>
-            <!-- Body -->
-            <div class="p-4 flex-1 space-y-3 text-xs">
-              <!-- Sectors + stages on one line -->
-              ${((inv.sectors||[]).length||(inv.stages||[]).length) ? `<div class="flex flex-wrap gap-1">
-                ${(inv.sectors||[]).map(s=>`<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">${esc(s)}</span>`).join('')}
-                ${(inv.stages||[]).map(s=>`<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">${esc(s)}</span>`).join('')}
-              </div>` : ''}
-              <!-- Contact -->
-              ${inv.contactName ? `<div class="flex items-center gap-1.5 text-slate-600 min-w-0">
-                <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                <span class="truncate">${esc(inv.contactName)}${inv.contactEmail ? ` · <a href="mailto:${esc(inv.contactEmail)}" class="text-indigo-600 hover:underline">${esc(inv.contactEmail)}</a>` : ''}</span>
-              </div>` : ''}
-              <!-- Flags -->
-              ${(inv.leadInvestor||inv.coInvestmentInterest||inv.boardSeat) ? `<div class="flex gap-2">
-                ${inv.leadInvestor ? '<span class="bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-medium">Lead</span>' : ''}
-                ${inv.coInvestmentInterest ? '<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">Co-inv</span>' : ''}
-                ${inv.boardSeat ? '<span class="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full font-medium">Board</span>' : ''}
-              </div>` : ''}
-              <!-- Pitch summary -->
-              ${(() => {
-                const pitches = inv.pitches||[];
-                if (!pitches.length) return '';
-                const last = pitches[pitches.length-1];
-                const outcomeColor = {'Interessato':'bg-green-100 text-green-700','In valutazione':'bg-yellow-100 text-yellow-700','Follow-up richiesto':'bg-blue-100 text-blue-700','Non interessato':'bg-red-100 text-red-700','Investito':'bg-emerald-100 text-emerald-700'}[last.outcome]||'bg-slate-100 text-slate-600';
-                const lastDeal = deals.find(d=>d.id===last.dealId);
-                const lastDate = last.date ? new Date(last.date).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}) : '';
-                return `<div class="pt-2 border-t border-slate-100">
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="text-slate-400">${pitches.length} presentazion${pitches.length===1?'e':'i'}</span>
-                    <span class="px-2 py-0.5 rounded-full font-medium ${outcomeColor}">${esc(last.outcome)}</span>
-                  </div>
-                  <div class="flex items-center justify-between text-slate-400">
-                    <span class="truncate">${lastDeal ? esc(lastDeal.company) : '—'}</span>
-                    ${lastDate ? `<span class="flex-shrink-0 ml-2">${lastDate}</span>` : ''}
-                  </div>
-                </div>`;
-              })()}
-            </div>
-            <!-- Footer -->
-            <div class="px-4 pb-4 flex gap-2 items-center border-t border-slate-100 pt-3">
-              <button onclick="openInvestorModal('${inv.id}')" class="flex-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
-              ${(inv.files||[]).length > 0 ? `<span class="text-xs text-slate-400 flex items-center gap-1 px-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>${(inv.files||[]).length}</span>` : ''}
-              <button onclick="deleteInvestor('${inv.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium">Elimina</button>
-            </div>
-          </div>`).join('')}
+      <!-- Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide bg-slate-50 border-b border-slate-200">
+              <th class="px-4 py-3">Investitore</th>
+              <th class="px-4 py-3">Settori · Stage</th>
+              <th class="px-4 py-3">AUM · Ticket</th>
+              <th class="px-4 py-3">Ultima interazione</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="investors-tbody">
+            ${sorted.length === 0 ? `<tr><td colspan="5" class="text-center py-12 text-slate-400">Nessun investitore. Aggiungine uno.</td></tr>` :
+              sorted.map(inv => {
+                const lastDate = _invLastInteraction(inv);
+                const lastPitch = lastDate ? [...(inv.pitches||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0] : null;
+                const lastDeal = lastPitch ? allDeals.find(d=>d.id===lastPitch.dealId) : null;
+                const outcomeColor = lastPitch ? (PITCH_OUTCOME_COLORS[lastPitch.outcome]||'bg-slate-100 text-slate-600') : '';
+                const fmtDate = lastDate ? new Date(lastDate).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}) : '';
+                const sectors = (inv.sectors||[]).slice(0,3).map(s=>`<span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-xs">${esc(s)}</span>`).join(' ');
+                const stages  = (inv.stages||[]).slice(0,3).map(s=>`<span class="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs">${esc(s)}</span>`).join(' ');
+                return `
+                <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="openInvestorDetail('${inv.id}')">
+                  <td class="px-4 py-3">
+                    <div class="font-medium text-slate-800">${esc(inv.name)}</div>
+                    <div class="flex items-center gap-1.5 mt-1">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_TYPE_COLORS[inv.type]||'bg-slate-100 text-slate-600'}">${esc(inv.type)}</span>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_STATUS_COLORS[inv.status]||'bg-slate-100'}">${esc(inv.status)}</span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-1">${sectors}${stages}</div>
+                  </td>
+                  <td class="px-4 py-3 text-xs text-slate-600">
+                    <div>${esc(inv.aum||'—')}</div>
+                    <div class="text-slate-400">${inv.ticketMin ? '€'+Number(inv.ticketMin).toLocaleString('it-IT')+'–€'+Number(inv.ticketMax).toLocaleString('it-IT') : '—'}</div>
+                  </td>
+                  <td class="px-4 py-3 text-xs">
+                    ${lastPitch ? `
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="px-2 py-0.5 rounded-full font-medium ${outcomeColor}">${esc(lastPitch.outcome)}</span>
+                        <span class="text-slate-400">${fmtDate}</span>
+                      </div>
+                      <div class="text-slate-500 truncate max-w-[160px]">${lastDeal ? esc(lastDeal.company) : '—'}</div>
+                    ` : '<span class="text-slate-300 italic">Nessuna</span>'}
+                  </td>
+                  <td class="px-4 py-3" onclick="event.stopPropagation()">
+                    <div class="flex gap-2 justify-end">
+                      <button onclick="openInvestorModal('${inv.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
+                      <button onclick="deleteInvestor('${inv.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium">Elimina</button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+          </tbody>
+        </table>
       </div>
     </div>`;
+}
+
+function openInvestorDetail(id) {
+  const inv = loadInvestors().find(x => x.id === id);
+  if (!inv) return;
+  const allDeals = deals;
+
+  const row = (label, val) => val ? `<div class="flex gap-3 py-1.5 border-b border-slate-50 last:border-0">
+    <span class="text-xs text-slate-400 w-32 flex-shrink-0 pt-0.5">${label}</span>
+    <span class="text-sm text-slate-700">${val}</span>
+  </div>` : '';
+
+  const pitchRows = [...(inv.pitches||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(p => {
+    const color = PITCH_OUTCOME_COLORS[p.outcome]||'bg-slate-100 text-slate-600';
+    const d = allDeals.find(x=>x.id===p.dealId);
+    const fmtDate = p.date ? new Date(p.date).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    return `<div class="p-3 border border-slate-200 rounded-xl bg-slate-50 space-y-1.5">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <span class="font-medium text-slate-800 text-sm">${d ? esc(d.company) : '<span class="italic text-slate-400">Progetto rimosso</span>'}</span>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium ${color}">${esc(p.outcome)}</span>
+          ${fmtDate ? `<span class="text-xs text-slate-400">${fmtDate}</span>` : ''}
+        </div>
+      </div>
+      ${p.feedback ? `<p class="text-sm text-slate-600 italic">"${esc(p.feedback)}"</p>` : ''}
+    </div>`;
+  }).join('');
+
+  const fileRows = (inv.files||[]).map(f => `
+    <div class="flex items-center gap-3 p-2.5 border border-slate-200 rounded-lg">
+      <svg class="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span class="flex-1 text-sm text-slate-700 truncate">${esc(f.name)}</span>
+      <span class="text-xs text-slate-400">${fmtBytes(f.size||0)}</span>
+      <a href="${f.url||f.dataUrl||'#'}" target="_blank" rel="noopener" download="${esc(f.name)}" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">Scarica</a>
+    </div>`).join('');
+
+  document.getElementById('investor-detail-body').innerHTML = `
+    <div class="p-6 border-b border-slate-100 flex items-start justify-between gap-4">
+      <div class="flex-1 min-w-0">
+        <h2 class="text-xl font-bold text-slate-800 leading-tight">${esc(inv.name)}</h2>
+        <p class="text-sm text-slate-400 mt-0.5">${[inv.manager, inv.country].filter(Boolean).join(' · ')}</p>
+        <div class="flex items-center gap-2 mt-2">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_TYPE_COLORS[inv.type]||'bg-slate-100 text-slate-600'}">${esc(inv.type)}</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_STATUS_COLORS[inv.status]||'bg-slate-100'}">${esc(inv.status)}</span>
+          ${inv.leadInvestor ? '<span class="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">Lead</span>' : ''}
+          ${inv.coInvestmentInterest ? '<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">Co-inv</span>' : ''}
+          ${inv.boardSeat ? '<span class="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full text-xs font-medium">Board</span>' : ''}
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button onclick="closeInvestorDetail(); openInvestorModal('${inv.id}')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Modifica</button>
+        <button onclick="closeInvestorDetail()" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="p-6 max-h-[75vh] overflow-y-auto space-y-6">
+      <!-- Dati chiave -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Fondo</h3>
+          ${row('AUM', esc(inv.aum||''))}
+          ${row('Ticket', inv.ticketMin ? '€'+Number(inv.ticketMin).toLocaleString('it-IT')+' – €'+Number(inv.ticketMax).toLocaleString('it-IT') : '')}
+          ${row('TRL', inv.trlMin ? inv.trlMin+'–'+inv.trlMax : '')}
+          ${row('Portfolio', inv.portfolioCount ? inv.portfolioCount+' aziende' : '')}
+          ${row('Sito', inv.website ? `<a href="${esc(inv.website.startsWith('http')?inv.website:'https://'+inv.website)}" target="_blank" class="text-indigo-600 hover:underline">${esc(inv.website)}</a>` : '')}
+        </div>
+        <div>
+          <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contatto</h3>
+          ${row('Referente', esc(inv.contactName||''))}
+          ${row('Email', inv.contactEmail ? `<a href="mailto:${esc(inv.contactEmail)}" class="text-indigo-600 hover:underline">${esc(inv.contactEmail)}</a>` : '')}
+          ${row('LinkedIn', inv.contactLinkedin ? `<a href="${esc(inv.contactLinkedin)}" target="_blank" class="text-indigo-600 hover:underline">Profilo</a>` : '')}
+          ${inv.relationship ? row('Storico', esc(inv.relationship)) : ''}
+        </div>
+      </div>
+
+      <!-- Criteri -->
+      <div>
+        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Criteri di investimento</h3>
+        <div class="flex flex-wrap gap-1.5">
+          ${(inv.sectors||[]).map(s=>`<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs">${esc(s)}</span>`).join('')}
+          ${(inv.stages||[]).map(s=>`<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">${esc(s)}</span>`).join('')}
+          ${(inv.geographies||[]).map(g=>`<span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs">${esc(g)}</span>`).join('')}
+          ${(inv.instruments||[]).map(i=>`<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-xs">${esc(i)}</span>`).join('')}
+        </div>
+        ${inv.notes ? `<p class="text-sm text-slate-600 mt-3 italic">${esc(inv.notes)}</p>` : ''}
+      </div>
+
+      <!-- Presentazioni -->
+      ${(inv.pitches||[]).length ? `
+      <div>
+        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Presentazioni (${(inv.pitches||[]).length})</h3>
+        <div class="space-y-2">${pitchRows}</div>
+      </div>` : ''}
+
+      <!-- Documenti -->
+      ${(inv.files||[]).length ? `
+      <div>
+        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Documenti (${(inv.files||[]).length})</h3>
+        <div class="space-y-2">${fileRows}</div>
+      </div>` : ''}
+    </div>`;
+
+  document.getElementById('investor-detail-overlay').classList.remove('hidden');
+}
+
+function closeInvestorDetail() {
+  document.getElementById('investor-detail-overlay').classList.add('hidden');
 }
 
 function openInvestorModal(id) {
