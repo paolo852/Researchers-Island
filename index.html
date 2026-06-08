@@ -1329,6 +1329,12 @@ function renderForm(dealId) {
           <div id="files-list" class="space-y-2"></div>
         </div>
 
+        <!-- Investitori — sezione read-only, popolata da renderDealInvestorPitches() -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-l-4 border-l-violet-400">
+          <h2 class="text-base font-semibold text-violet-800 mb-1 pb-2 border-b border-slate-100">Investitori</h2>
+          <p class="text-xs text-slate-400 mb-4">Presentazioni effettuate e feedback ricevuti (gestiti dalla scheda Investitori)</p>
+          <div id="deal-investor-pitches"></div>
+        </div>
 
           </div><!-- end space-y-4 Product Management inner -->
         </div><!-- end Product Management wrapper -->
@@ -1518,7 +1524,51 @@ function renderForm(dealId) {
   // Render concept inline comment threads
   CONCEPT_FIELD_KEYS.forEach(k => renderConceptComments(k));
   renderFilesList();
+  renderDealInvestorPitches();
   setupLiveScore();
+}
+
+function renderDealInvestorPitches() {
+  const el = document.getElementById('deal-investor-pitches');
+  if (!el || !editingDeal) return;
+  const OUTCOME_COLOR = {
+    'Interessato':       'bg-green-100 text-green-700',
+    'In valutazione':    'bg-yellow-100 text-yellow-700',
+    'Follow-up richiesto':'bg-blue-100 text-blue-700',
+    'Non interessato':   'bg-red-100 text-red-700',
+    'Investito':         'bg-emerald-100 text-emerald-700'
+  };
+  const investors = loadInvestors();
+  const rows = [];
+  investors.forEach(inv => {
+    (inv.pitches || []).forEach(p => {
+      if (p.dealId === editingDeal.id) rows.push({ inv, pitch: p });
+    });
+  });
+  if (rows.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessuna presentazione registrata per questo progetto.</p>';
+    return;
+  }
+  rows.sort((a, b) => (a.pitch.date || '').localeCompare(b.pitch.date || ''));
+  el.innerHTML = rows.map(({ inv, pitch }) => {
+    const color = OUTCOME_COLOR[pitch.outcome] || 'bg-slate-100 text-slate-600';
+    const date = pitch.date ? new Date(pitch.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    return `
+    <div class="flex gap-4 p-4 border border-slate-200 rounded-xl bg-slate-50 mb-3">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="font-semibold text-slate-800 text-sm">${esc(inv.name)}</span>
+          <span class="text-xs text-slate-400">${esc(inv.type||'')}</span>
+          ${date ? `<span class="text-xs text-slate-400 ml-auto flex-shrink-0">${date}</span>` : ''}
+        </div>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}">${esc(pitch.outcome)}</span>
+          ${inv.contactName ? `<span class="text-xs text-slate-500">Ref: ${esc(inv.contactName)}</span>` : ''}
+        </div>
+        ${pitch.feedback ? `<p class="text-sm text-slate-600 italic">"${esc(pitch.feedback)}"</p>` : '<p class="text-xs text-slate-400 italic">Nessun feedback</p>'}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function criterionSlider(name, label, weight, value, justName, justPlaceholder, justValue) {
