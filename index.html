@@ -1029,6 +1029,7 @@ let formFiles = [];
 let formResearchers = [];
 let _investorFiles = [];
 let _investorEditingId = null;
+let _investorPitches = [];
 
 function renderForm(dealId) {
   deals = loadDeals();
@@ -3478,6 +3479,69 @@ function processInvestorFiles(fileList) {
 }
 
 // ============================================================
+// INVESTOR PITCH LOG
+// ============================================================
+const PITCH_OUTCOMES = ['Interessato','In valutazione','Follow-up richiesto','Non interessato','Investito'];
+const PITCH_OUTCOME_COLORS = {
+  'Interessato': 'bg-green-100 text-green-700',
+  'In valutazione': 'bg-yellow-100 text-yellow-700',
+  'Follow-up richiesto': 'bg-blue-100 text-blue-700',
+  'Non interessato': 'bg-red-100 text-red-700',
+  'Investito': 'bg-emerald-100 text-emerald-700'
+};
+function addInvestorPitch() {
+  _investorPitches.push({ id: 'p-'+Date.now()+'-'+Math.random().toString(36).slice(2), dealId: '', date: new Date().toISOString().slice(0,10), outcome: 'Interessato', feedback: '' });
+  renderInvestorPitches();
+}
+function removeInvestorPitch(idx) {
+  _investorPitches.splice(idx, 1);
+  renderInvestorPitches();
+}
+function renderInvestorPitches() {
+  const el = document.getElementById('investor-pitches-list');
+  if (!el) return;
+  const allDeals = loadDeals();
+  if (_investorPitches.length === 0) {
+    el.innerHTML = '<p class="text-sm text-slate-400 italic">Nessuna presentazione registrata</p>';
+    return;
+  }
+  el.innerHTML = _investorPitches.map((p, i) => {
+    const dealOpts = allDeals.map(d => `<option value="${esc(d.id)}" ${p.dealId===d.id?'selected':''}>${esc(d.company)}</option>`).join('');
+    const outcomeOpts = PITCH_OUTCOMES.map(o => `<option value="${esc(o)}" ${p.outcome===o?'selected':''}>${esc(o)}</option>`).join('');
+    return `
+    <div class="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+      <div class="flex items-start gap-2">
+        <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Progetto</label>
+            <select onchange="_investorPitches[${i}].dealId=this.value" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+              <option value="">— seleziona —</option>${dealOpts}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Data</label>
+            <input type="date" value="${esc(p.date)}" onchange="_investorPitches[${i}].date=this.value" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Esito</label>
+            <select onchange="_investorPitches[${i}].outcome=this.value" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+              ${outcomeOpts}
+            </select>
+          </div>
+        </div>
+        <button type="button" onclick="removeInvestorPitch(${i})" class="text-red-400 hover:text-red-600 p-1 mt-5 flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Feedback / Note</label>
+        <textarea rows="2" placeholder="Commenti dell'investitore, obiezioni, punti di interesse…" oninput="_investorPitches[${i}].feedback=this.value" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white">${esc(p.feedback)}</textarea>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
 // INVESTORS
 // ============================================================
 const INVESTORS_KEY = 'dealflow_investors';
@@ -3649,6 +3713,18 @@ function renderInvestors() {
                 ${inv.coInvestmentInterest?'<span class="text-blue-700">✓ Co-inv</span>':''}
                 ${inv.boardSeat?'<span class="text-purple-700">✓ Board</span>':''}
               </div>
+              ${(inv.pitches||[]).length > 0 ? (() => {
+                const last = (inv.pitches||[]).slice(-1)[0];
+                const outcomeColor = {'Interessato':'bg-green-100 text-green-700','In valutazione':'bg-yellow-100 text-yellow-700','Follow-up richiesto':'bg-blue-100 text-blue-700','Non interessato':'bg-red-100 text-red-700','Investito':'bg-emerald-100 text-emerald-700'}[last.outcome]||'bg-slate-100 text-slate-600';
+                const dealName = loadDeals().find(d=>d.id===last.dealId);
+                return `<div class="pt-2 border-t border-slate-100 mt-2">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-400">${(inv.pitches||[]).length} presentazion${(inv.pitches||[]).length===1?'e':'i'}</span>
+                    <span class="px-2 py-0.5 rounded-full font-medium ${outcomeColor}">${esc(last.outcome)}</span>
+                  </div>
+                  ${dealName ? `<div class="text-xs text-slate-500 mt-0.5 truncate">Ultimo: ${esc(dealName.company)}</div>` : ''}
+                </div>`;
+              })() : ''}
             </div>
             <div class="px-5 pb-4 flex gap-2 items-center">
               <button onclick="openInvestorModal('${inv.id}')" class="flex-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
@@ -3665,6 +3741,7 @@ function openInvestorModal(id) {
   const inv = id ? list.find(x => x.id === id) : null;
   _investorEditingId = id || null;
   _investorFiles = JSON.parse(JSON.stringify(inv && inv.files ? inv.files : []));
+  _investorPitches = JSON.parse(JSON.stringify(inv && inv.pitches ? inv.pitches : []));
   const v = (f) => esc(inv ? (inv[f]||'') : '');
   const chk = (f) => inv && inv[f] ? 'checked' : '';
   const stagesAll = ['Pre-seed','Seed','Series A','Series B','Series C','Growth'];
@@ -3766,6 +3843,18 @@ function openInvestorModal(id) {
         </div>
       </div>
 
+      <!-- Pitch Log -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wide">Presentazioni & Feedback</h3>
+          <button type="button" onclick="addInvestorPitch()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Aggiungi
+          </button>
+        </div>
+        <div id="investor-pitches-list" class="space-y-3"></div>
+      </div>
+
       <!-- Documenti -->
       <div>
         <h3 class="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Documenti</h3>
@@ -3788,6 +3877,7 @@ function openInvestorModal(id) {
       </div>
     </form>`;
   document.getElementById('investor-modal-overlay').classList.remove('hidden');
+  renderInvestorPitches();
   renderInvestorFilesList();
 }
 
@@ -3814,7 +3904,8 @@ function saveInvestor(e, id) {
     coInvestmentInterest: fd.get('coInvestmentInterest')==='1',
     boardSeat: fd.get('boardSeat')==='1',
     portfolioNotes: g('portfolioNotes'), notes: g('notes'),
-    files: JSON.parse(JSON.stringify(_investorFiles))
+    files: JSON.parse(JSON.stringify(_investorFiles)),
+    pitches: JSON.parse(JSON.stringify(_investorPitches))
   };
   const list = loadInvestors();
   const idx = list.findIndex(x => x.id === id);
