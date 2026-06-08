@@ -242,6 +242,24 @@ async function _sbSync(key, value) {
   } catch(e) { console.warn('Supabase sync error [' + key + ']:', e.message); }
 }
 
+const SB_BUCKET = 'dealflow-files';
+
+async function uploadFileToSupabase(file, folder) {
+  if (!_sb) throw new Error('Supabase non disponibile');
+  const ext = file.name.includes('.') ? file.name.split('.').pop() : '';
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${folder}/${Date.now()}-${safeName}`;
+  const { error } = await _sb.storage.from(SB_BUCKET).upload(path, file, { upsert: false });
+  if (error) throw error;
+  const { data: urlData } = _sb.storage.from(SB_BUCKET).getPublicUrl(path);
+  return { path, url: urlData.publicUrl };
+}
+
+async function deleteFileFromSupabase(path) {
+  if (!_sb || !path) return;
+  try { await _sb.storage.from(SB_BUCKET).remove([path]); } catch(e) { console.warn('Storage delete error:', e.message); }
+}
+
 async function _sbLoadAll() {
   if (!_sb) return;
   const { data, error } = await _sb.from('app_data').select('key, value');
@@ -3384,7 +3402,7 @@ function renderFilesList() {
         <div class="text-sm font-medium text-slate-700 truncate">${esc(f.name)}</div>
         <div class="text-xs text-slate-400">${fmtBytes(f.size||0)} · ${new Date(f.uploadedAt).toLocaleDateString('it-IT')}</div>
       </div>
-      <a href="${f.dataUrl}" download="${esc(f.name)}" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">Scarica</a>
+      <a href="${f.url||f.dataUrl||'#'}" target="_blank" rel="noopener" download="${esc(f.name)}" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">Scarica</a>
       <button type="button" onclick="removeFile(${i})" class="text-red-400 hover:text-red-600 p-1">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
@@ -3399,24 +3417,32 @@ function handleFileSelect(e) {
   processFiles(e.target.files);
   e.target.value = '';
 }
-function processFiles(fileList) {
-  Array.from(fileList).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-      formFiles.push({
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        dataUrl: ev.target.result,
-        uploadedAt: new Date().toISOString()
-      });
+async function processFiles(fileList) {
+  const folder = editingDeal ? 'deals/' + editingDeal.id : 'deals/unsaved';
+  for (const file of Array.from(fileList)) {
+    const loadingId = 'loading-' + Date.now();
+    const el = document.getElementById('files-list');
+    if (el) el.insertAdjacentHTML('beforeend', `<div id="${loadingId}" class="text-xs text-slate-400 italic p-2">Caricamento ${esc(file.name)}…</div>`);
+    try {
+      const { path, url } = await uploadFileToSupabase(file, folder);
+      formFiles.push({ name: file.name, type: file.type, size: file.size, url, path, uploadedAt: new Date().toISOString() });
       persistFilesOnDeal();
+    } catch(err) {
+      alert('Errore caricamento "' + file.name + '": ' + err.message + '\n\nAssicurati che il bucket "dealflow-files" (pubblico) esista su Supabase → Storage.');
+    } finally {
+      const lel = document.getElementById(loadingId);
+      if (lel) lel.remove();
       renderFilesList();
-    };
-    reader.readAsDataURL(file);
-  });
+    }
+  }
 }
-function removeFile(i) { formFiles.splice(i,1); persistFilesOnDeal(); renderFilesList(); }
+function removeFile(i) {
+  const f = formFiles[i];
+  if (f && f.path) deleteFileFromSupabase(f.path);
+  formFiles.splice(i, 1);
+  persistFilesOnDeal();
+  renderFilesList();
+}
 function persistFilesOnDeal() {
   if (!editingDeal) return;
   try {
@@ -3445,14 +3471,19 @@ function renderInvestorFilesList() {
         <div class="text-sm font-medium text-slate-700 truncate">${esc(f.name)}</div>
         <div class="text-xs text-slate-400">${fmtBytes(f.size||0)} · ${new Date(f.uploadedAt).toLocaleDateString('it-IT')}</div>
       </div>
-      <a href="${f.dataUrl}" download="${esc(f.name)}" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">Scarica</a>
+      <a href="${f.url||f.dataUrl||'#'}" target="_blank" rel="noopener" download="${esc(f.name)}" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">Scarica</a>
       <button type="button" onclick="removeInvestorFile(${i})" class="text-red-400 hover:text-red-600 p-1">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
   `).join('');
 }
-function removeInvestorFile(i) { _investorFiles.splice(i, 1); renderInvestorFilesList(); }
+function removeInvestorFile(i) {
+  const f = _investorFiles[i];
+  if (f && f.path) deleteFileFromSupabase(f.path);
+  _investorFiles.splice(i, 1);
+  renderInvestorFilesList();
+}
 function handleInvestorFileDrop(e) {
   e.preventDefault();
   if (e.dataTransfer && e.dataTransfer.files) processInvestorFiles(e.dataTransfer.files);
@@ -3461,21 +3492,23 @@ function handleInvestorFileSelect(e) {
   processInvestorFiles(e.target.files);
   e.target.value = '';
 }
-function processInvestorFiles(fileList) {
-  Array.from(fileList).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-      _investorFiles.push({
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        dataUrl: ev.target.result,
-        uploadedAt: new Date().toISOString()
-      });
+async function processInvestorFiles(fileList) {
+  const folder = 'investors/' + (_investorEditingId || 'unsaved');
+  for (const file of Array.from(fileList)) {
+    const loadingId = 'inv-loading-' + Date.now();
+    const el = document.getElementById('investor-files-list');
+    if (el) el.insertAdjacentHTML('beforeend', `<div id="${loadingId}" class="text-xs text-slate-400 italic p-2">Caricamento ${esc(file.name)}…</div>`);
+    try {
+      const { path, url } = await uploadFileToSupabase(file, folder);
+      _investorFiles.push({ name: file.name, type: file.type, size: file.size, url, path, uploadedAt: new Date().toISOString() });
+    } catch(err) {
+      alert('Errore caricamento "' + file.name + '": ' + err.message + '\n\nAssicurati che il bucket "dealflow-files" (pubblico) esista su Supabase → Storage.');
+    } finally {
+      const lel = document.getElementById(loadingId);
+      if (lel) lel.remove();
       renderInvestorFilesList();
-    };
-    reader.readAsDataURL(file);
-  });
+    }
+  }
 }
 
 // ============================================================
