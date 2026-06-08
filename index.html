@@ -3713,18 +3713,24 @@ function renderInvestors() {
                 ${inv.coInvestmentInterest?'<span class="text-blue-700">✓ Co-inv</span>':''}
                 ${inv.boardSeat?'<span class="text-purple-700">✓ Board</span>':''}
               </div>
-              ${(inv.pitches||[]).length > 0 ? (() => {
-                const last = (inv.pitches||[]).slice(-1)[0];
+              ${(() => {
+                const pitches = inv.pitches||[];
+                if (!pitches.length) return '';
+                const last = pitches[pitches.length-1];
                 const outcomeColor = {'Interessato':'bg-green-100 text-green-700','In valutazione':'bg-yellow-100 text-yellow-700','Follow-up richiesto':'bg-blue-100 text-blue-700','Non interessato':'bg-red-100 text-red-700','Investito':'bg-emerald-100 text-emerald-700'}[last.outcome]||'bg-slate-100 text-slate-600';
-                const dealName = loadDeals().find(d=>d.id===last.dealId);
-                return `<div class="pt-2 border-t border-slate-100 mt-2">
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-slate-400">${(inv.pitches||[]).length} presentazion${(inv.pitches||[]).length===1?'e':'i'}</span>
-                    <span class="px-2 py-0.5 rounded-full font-medium ${outcomeColor}">${esc(last.outcome)}</span>
+                const lastDeal = deals.find(d=>d.id===last.dealId);
+                const lastDate = last.date ? new Date(last.date).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}) : '';
+                return `<div class="mt-2 pt-2 border-t border-slate-100 space-y-1">
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-500 font-medium">${pitches.length} presentazion${pitches.length===1?'e':'i'}</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium ${outcomeColor}">${esc(last.outcome)}</span>
                   </div>
-                  ${dealName ? `<div class="text-xs text-slate-500 mt-0.5 truncate">Ultimo: ${esc(dealName.company)}</div>` : ''}
+                  <div class="flex items-center justify-between text-slate-400">
+                    <span class="truncate">${lastDeal ? esc(lastDeal.company) : '—'}</span>
+                    ${lastDate ? `<span class="flex-shrink-0 ml-2">${lastDate}</span>` : ''}
+                  </div>
                 </div>`;
-              })() : ''}
+              })()}
             </div>
             <div class="px-5 pb-4 flex gap-2 items-center">
               <button onclick="openInvestorModal('${inv.id}')" class="flex-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
