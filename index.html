@@ -1822,13 +1822,15 @@ function conceptField(key, label, placeholder, d, withValidation, withSources) {
     <div class="flex items-start justify-between gap-2 mb-2 flex-wrap">
       <label class="text-xs font-bold text-slate-600 uppercase tracking-wide">${label}</label>
       <div class="flex items-center gap-2 flex-wrap flex-shrink-0">
-        ${withSources ? `<div id="vsrc-${key}" class="flex gap-1 flex-wrap">
+        ${withSources ? `<div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Validato da:</span>
+          <div id="vsrc-${key}" class="flex gap-1 flex-wrap">
           ${['Researcher','Literature','Target User','Stakeholder'].map(s=>`
             <button type="button" data-src="${s}" onclick="conceptToggleSource('${key}','${s}')"
               class="${srcs.includes(s)?'px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-300':'px-2 py-0.5 rounded-full text-xs font-medium bg-white text-slate-400 border border-slate-200 hover:border-slate-300'}">
               ${s}
             </button>`).join('')}
-        </div>` : ''}
+        </div></div>` : ''}
         ${withValidation ? `
         <div class="flex gap-1">
           <button type="button" id="vstat-ipotesi-${key}" onclick="conceptSetValidation('${key}','Ipotesi')"
