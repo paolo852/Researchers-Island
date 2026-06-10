@@ -14,10 +14,10 @@
     .score-green { @apply bg-green-100 text-green-800 border border-green-300; }
     .score-orange { @apply bg-orange-100 text-orange-800 border border-orange-300; }
     .score-red { @apply bg-red-100 text-red-800 border border-red-300; }
-    .stage-development { @apply bg-sky-100 text-sky-800; }
-    .stage-predd { @apply bg-orange-100 text-orange-800; }
-    .stage-dd { @apply bg-yellow-100 text-yellow-800; }
-    .stage-investimento { @apply bg-green-100 text-green-800; }
+    .stage-development { @apply bg-violet-100 text-violet-800; }
+    .stage-predd { @apply bg-sky-100 text-sky-800; }
+    .stage-dd { @apply bg-amber-100 text-amber-800; }
+    .stage-investimento { @apply bg-emerald-100 text-emerald-800; }
     .stage-rejected { @apply bg-red-100 text-red-800; }
     .fade-in { animation: fadeIn 0.2s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -538,13 +538,15 @@ function scoreBadge(score) {
   return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold ${cls}">${score.toFixed(1)}</span>`;
 }
 
+const STAGES = ['Feasibility','PoC','Prototype','Product','Rejected'];
+
 function stageBadge(stage) {
   const map = {
-    'Development': 'stage-development',
-    'Pre Due Diligence': 'stage-predd',
-    'Due Diligence': 'stage-dd',
-    'Investimento': 'stage-investimento',
-    'Rejected': 'stage-rejected'
+    'Feasibility': 'stage-development',
+    'PoC':         'stage-predd',
+    'Prototype':   'stage-dd',
+    'Product':     'stage-investimento',
+    'Rejected':    'stage-rejected'
   };
   const cls = map[stage] || 'bg-slate-100 text-slate-600';
   return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}">${stage}</span>`;
@@ -595,8 +597,9 @@ let dashboardDealSort = 'score_desc';
 
 function _dealSectorTag(d) {
   const s = (d.sector||'').toLowerCase();
-  if (s.includes('clean') || s.includes('climate') || s.includes('energy') || s.includes('green')) return 'cleantech';
-  if (s.includes('med') || s.includes('bio') || s.includes('health') || s.includes('pharma')) return 'medtech';
+  if (s.includes('clean') || s.includes('climate') || s.includes('energy') || s.includes('green') || s.includes('agri')) return 'cleantech';
+  if (s.includes('med') || s.includes('health') || s.includes('pharma')) return 'medtech';
+  if (s.includes('bio')) return 'medtech';
   return 'other';
 }
 
@@ -607,7 +610,7 @@ function refreshDealsTableBody() {
     ? deals.filter(d => d.company.toLowerCase().includes(search) || (d.sector||'').toLowerCase().includes(search))
     : [...deals];
   const [sortKey, sortDir] = dashboardDealSort.split('_');
-  const stageOrd = ['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'];
+  const stageOrd = STAGES;
   filtered.sort((a,b) => {
     let va, vb;
     if (sortKey === 'score') { va = computeScore(a); vb = computeScore(b); }
@@ -835,7 +838,7 @@ function renderPipeline() {
             oninput="pipelineFilter=this.value; renderPipelineTable()" value="${pipelineFilter}">
           <select id="pipeline-stage-filter" onchange="pipelineStageFilter=this.value; renderPipelineTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
             <option value="">Tutti gli stage</option>
-            ${['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'].map(s=>`<option value="${s}" ${pipelineStageFilter===s?'selected':''}>${s}</option>`).join('')}
+            ${STAGES.map(s=>`<option value="${s}" ${pipelineStageFilter===s?'selected':''}>${s}</option>`).join('')}
           </select>
           ${(pipelineFilter||pipelineStageFilter||pipelineSectorFilter||pipelineTrlFilter||pipelineScoreFilter||pipelineLeadFilter)
             ? `<button onclick="pipelineFilter='';pipelineStageFilter='';pipelineSectorFilter='';pipelineTrlFilter='';pipelineScoreFilter='';pipelineLeadFilter='';renderPipeline()" class="text-xs text-slate-500 hover:text-red-500 underline whitespace-nowrap">✕ Reset filtri</button>`
@@ -1039,7 +1042,7 @@ function quickStage(id) {
   deals = loadDeals();
   const d = deals.find(x => x.id === id);
   if (!d) return;
-  const order = ['Development','Pre Due Diligence','Due Diligence','Investimento'];
+  const order = ['Feasibility','PoC','Prototype','Product'];
   const idx = order.indexOf(d.stage);
   if (idx >= 0 && idx < order.length - 1) {
     d.stage = order[idx + 1];
@@ -1123,11 +1126,12 @@ function renderForm(dealId) {
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-600 mb-1">Settore *</label>
-              <select name="sector" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              <select name="sector" id="sector-select" required onchange="toggleCustomSector(this.value,'sector-custom')" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
                 <option value="">— Seleziona settore —</option>
-                <option value="Medtech" ${(d.sector||'')==='Medtech'?'selected':''}>Medtech</option>
-                <option value="Cleantech" ${(d.sector||'')==='Cleantech'?'selected':''}>Cleantech</option>
+                ${['Medtech','Cleantech','Agritech','Quantum','Biotech'].map(s=>`<option value="${s}" ${(d.sector||'')===(s)?'selected':''}>${s}</option>`).join('')}
+                <option value="__custom__" ${!['','Medtech','Cleantech','Agritech','Quantum','Biotech'].includes(d.sector||'')?'selected':''}>Altro…</option>
               </select>
+              <input id="sector-custom" type="text" name="sectorCustom" placeholder="Specifica settore" value="${!['','Medtech','Cleantech','Agritech','Quantum','Biotech'].includes(d.sector||'') ? esc(d.sector||'') : ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 ${!['','Medtech','Cleantech','Agritech','Quantum','Biotech'].includes(d.sector||'') ? '' : 'hidden'}">
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-slate-600 mb-1">Descrizione</label>
@@ -1147,7 +1151,7 @@ function renderForm(dealId) {
             <div>
               <label class="block text-sm font-medium text-slate-600 mb-1">Stage</label>
               <select name="stage" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                ${['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'].map(s => `<option value="${s}" ${d.stage===s?'selected':''}>${s}</option>`).join('')}
+                ${STAGES.map(s => `<option value="${s}" ${d.stage===s?'selected':''}>${s}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -1196,33 +1200,36 @@ function renderForm(dealId) {
           <h2 class="text-base font-semibold text-teal-800 mb-4 pb-2 border-b border-slate-100">Progetto di Investimento</h2>
 
 
-          <!-- 1. Product Snapshot -->
+          <!-- 1. Technology Snapshot -->
           <details open class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
             <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>1. Product Snapshot</span>
+              <span>1. Technology Snapshot</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('technology','1.1 TECHNOLOGY','Principio scientifico, meccanismo e novità (max 10–15 righe)', d)}
-              ${conceptField('product','1.2 PRODUCT','Descrivi il prodotto previsto: cosa è, come funziona, i benefici ad alto livello', d)}
-              ${conceptField('trlJustification','1.3 TRL JUSTIFICATION','Giustificazione del TRL corrente', d)}
-              ${conceptField('keyEvidence','1.4 KEY EVIDENCE','Pubblicazioni, prototipi, dati lab, validazioni terze', d)}
-              ${conceptField('maturityGaps','1.5 MATURITY GAPS','Cosa resta ancora da dimostrare', d)}
-              ${conceptField('nextTrlMilestone','1.6 NEXT TRL MILESTONE','Prossimo milestone TRL', d)}
-              ${conceptField('intellectualProperty','1.7 INTELLECTUAL PROPERTY','Brevetti, applicazioni, know-how, segreti commerciali', d)}
+              ${conceptField('technology','1.1 TECHNOLOGY','Principio scientifico, meccanismo e novità (max 10–15 righe)', d, false, true)}
+              ${conceptField('trlJustification','1.2 TRL JUSTIFICATION','Giustificazione del TRL corrente rispetto agli evidence disponibili', d, false, true)}
+              ${conceptField('keyEvidence','1.3 KEY EVIDENCE','Pubblicazioni, prototipi, dati lab, validazioni terze', d, false, true)}
+              ${conceptField('maturityGaps','1.4 MATURITY GAPS','Cosa resta ancora da dimostrare prima del prossimo TRL', d, false, true)}
+              ${conceptField('nextTrlMilestone','1.5 NEXT TRL MILESTONE','Prossimo milestone TRL: obiettivo, timeline, risorse necessarie', d, false, true)}
+              ${conceptField('intellectualProperty','1.6 INTELLECTUAL PROPERTY','Brevetti (depositati/concessi/in preparazione), know-how, segreti commerciali', d, false, true)}
+              ${conceptField('techRisks','1.7 RISCHI TECNOLOGICI','Principali rischi tecnici: cosa potrebbe non funzionare, vincoli fisici/ingegneristici, dipendenze critiche da fornitori o materiali', d, false, true)}
             </div>
           </details>
 
-          <!-- 2. Problem and Value Proposition -->
+          <!-- 2. Application Scenario -->
           <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
             <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>2. Problem and Value Proposition</span>
+              <span>2. Application Scenario</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('problemStatement','2.1 APPLICATION SCENARIO — PROBLEM STATEMENT','Chi, contesto, quantificazione del pain. Perché le soluzioni esistenti non bastano.', d, true)}
-              ${conceptField('valueProposition','2.2 APPLICATION SCENARIO — VALUE PROPOSITION','Come cambierebbe lo scenario applicativo con il prodotto.', d, true)}
-              ${conceptField('willingnessToPay','2.3 WILLINGNESS TO PAY','Disponibilità a pagare del cliente target: range di prezzo accettabile, benchmark con soluzioni alternative, modello di pricing ipotizzato', d, true)}
+              ${conceptField('problemStatement','2.1 PROBLEM STATEMENT','Chi, in quale contesto, con quale intensità del pain. Perché le soluzioni esistenti non bastano e qual è il costo del problema.', d, true)}
+              ${conceptField('product','2.2 PRODUCT','Cos\'è il prodotto e le sue funzionalità principali. Come risponde ai bisogni sopra descritti. Come cambia i processi: as-is → to-be.', d, true)}
+              ${conceptField('valueProposition','2.3 VALUE PROPOSITION & PLACEMENT','Elementi differenziali del prodotto rispetto alle alternative. Unique selling point. Principali motivi di acquisto. Posizionamento nel mercato.', d, true)}
+              ${conceptField('marketScenario','2.4 MARKET SCENARIO','Target price/cost e margini attesi. Business model (ipotetico e presente nel mercato). Value chain. Key requirements di mercato per l\'adozione.', d, true)}
+              ${conceptField('target','2.5 TARGET','Chi sono gli utilizzatori finali, i possibili partner, i produttori, gli stakeholder in generale e i decision maker nel processo di acquisto/adozione.', d, true)}
+              ${conceptField('stakeholderEngagement','2.6 STAKEHOLDER ENGAGEMENT','Rispetto alle categorie sopra: ingaggio per informazioni su ciclo di vendita, processi e applicazioni prioritarie, validazione dello scenario di mercato, workflow e procedure in cui si dovrà inserire il prodotto.', d, true)}
             </div>
           </details>
 
@@ -1233,8 +1240,9 @@ function renderForm(dealId) {
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('marketValue','3.1 VALORE DI MERCATO ATTUALE E PROSPETTICO','Top-down: TAM → SAM → SOM. Bottom-up: volume clienti × ticket medio × frequenza. Trend di crescita e driver principali', d)}
-              ${conceptField('competitorAnalysis','3.2 ANALISI DEI COMPETITOR','Competitor diretti e indiretti, quote di mercato, punti di forza/debolezza, posizionamento differenziante della tecnologia', d)}
+              ${conceptField('marketValue','3.1 VALORE DI MERCATO ATTUALE E PROSPETTICO','Top-down: TAM → SAM → SOM. Bottom-up: volume clienti × ticket medio × frequenza. Trend di crescita e driver principali.', d)}
+              ${conceptField('competitorAnalysis','3.2 ANALISI DEI COMPETITOR','Competitor diretti e indiretti, quote di mercato, punti di forza/debolezza, posizionamento differenziante della tecnologia.', d)}
+              ${conceptField('investmentTrends','3.3 INVESTMENT TRENDS','Indicatori di investimento per questo problem solving/prodotto: deal VC e privati, corporate investment, grant e call istituzionali. Numero di articoli e paper (trend). Congressi e interventi rilevanti. Trend patent (depositi, famiglie brevettali, principali player).', d)}
             </div>
           </details>
 
@@ -1245,8 +1253,9 @@ function renderForm(dealId) {
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('roadmap','4.1 FROM CURRENT TRL TO MARKET','Fasi, milestone tecnici, decision gate, timeline indicativa', d)}
-              ${conceptField('scalability','4.2 SCALABILITÀ','Modello di scala: come cresce il business oltre il primo cliente/mercato? Barriere all\'ingresso, effetti di rete, economia di scala nella produzione o distribuzione', d)}
+              ${conceptField('roadmap','4.1 FROM CURRENT TRL TO MARKET','Fasi di sviluppo, milestone tecnici e commerciali, decision gate, timeline indicativa e principali risorse richieste.', d)}
+              ${conceptField('nextMilestones','4.2 NEXT 12 MONTHS — MILESTONES & DECISION POINTS','Attività critiche nei prossimi 12 mesi: cosa deve essere dimostrato, quali decisioni go/no-go, chi le prende e con quali criteri.', d)}
+              ${conceptField('scalability','4.3 SCALABILITÀ','Modello di scala: come cresce il business oltre il primo cliente/mercato? Barriere all\'ingresso, effetti di rete, economia di scala nella produzione o distribuzione.', d)}
             </div>
           </details>
 
@@ -1393,6 +1402,10 @@ function renderForm(dealId) {
               <div class="flex justify-between text-xs text-slate-400 mt-1">
                 <span>TRL 1</span><span>TRL 5</span><span>TRL 9</span>
               </div>
+              <div class="mt-3">
+                <label class="block text-xs font-medium text-slate-500 mb-1">Note sul TRL <span class="text-slate-400 font-normal">(motivazione, blocchi, fiducia nella stima)</span></label>
+                <textarea name="trlNotes" rows="2" placeholder="Es. il TRL 4 è confermato dai dati di laboratorio pubblicati, ma la stima potrebbe essere ottimistica perché manca un test in condizioni reali…" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(d.trlNotes||'')}</textarea>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-600 mb-1">Investimento richiesto (€)</label>
@@ -1533,7 +1546,7 @@ function renderForm(dealId) {
   CRITERION_KEYS.forEach(k => { renderCriterionTasks(k); renderCriterionComments(k); });
   EVAL_CRITERION_KEYS.forEach(k => { renderEvalCriterionTasks(k); renderEvalCriterionComments(k); });
   // Render concept inline comment threads
-  CONCEPT_FIELD_KEYS.forEach(k => renderConceptComments(k));
+  CONCEPT_FIELD_KEYS.forEach(k => { renderConceptComments(k); renderCriterionTasks(k); });
   renderFilesList();
   renderDealInvestorPitches();
   setupLiveScore();
@@ -1606,27 +1619,47 @@ function simpleSlider(name, label, weight, value) {
 // ============================================================
 // CONCEPT DEVELOPMENT HELPERS
 // ============================================================
-const CONCEPT_FIELD_KEYS = ['projectName','leadOrg','technology','product','trlJustification','keyEvidence','maturityGaps','nextTrlMilestone','intellectualProperty','problemStatement','valueProposition','tam','sam','som','roadmap','riskiestAssumptions'];
-const CONCEPT_VALIDATION_FIELDS = ['problemStatement','valueProposition'];
+const CONCEPT_FIELD_KEYS = ['technology','trlJustification','keyEvidence','maturityGaps','nextTrlMilestone','intellectualProperty','techRisks','problemStatement','product','valueProposition','marketScenario','target','stakeholderEngagement','marketValue','competitorAnalysis','investmentTrends','roadmap','nextMilestones','scalability','collaborations'];
+const CONCEPT_VALIDATION_FIELDS = ['problemStatement','product','valueProposition','marketScenario','target','stakeholderEngagement'];
 
 // In-memory cache for concept data while form is open
 let _conceptData = {};
 
 function conceptInitFromDeal(d) {
   _conceptData = {
-    fields: JSON.parse(JSON.stringify((d.concept&&d.concept.fields)||{})),
-    approvals: JSON.parse(JSON.stringify((d.concept&&d.concept.approvals)||{})),
-    comments: JSON.parse(JSON.stringify((d.concept&&d.concept.comments)||{})),
+    fields:           JSON.parse(JSON.stringify((d.concept&&d.concept.fields)||{})),
+    approvals:        JSON.parse(JSON.stringify((d.concept&&d.concept.approvals)||{})),
+    comments:         JSON.parse(JSON.stringify((d.concept&&d.concept.comments)||{})),
     validationStatus: JSON.parse(JSON.stringify((d.concept&&d.concept.validationStatus)||{})),
-    risks: JSON.parse(JSON.stringify((d.concept&&d.concept.risks)||[]))
+    validationSources:JSON.parse(JSON.stringify((d.concept&&d.concept.validationSources)||{})),
+    risks:            JSON.parse(JSON.stringify((d.concept&&d.concept.risks)||[]))
   };
 }
 
 function conceptSetField(key, val) {
   if (!_conceptData.fields) _conceptData.fields = {};
   _conceptData.fields[key] = val;
-  // persist immediately if editing
   persistConceptOnDeal();
+}
+
+function conceptToggleSource(key, source) {
+  if (!_conceptData.validationSources) _conceptData.validationSources = {};
+  const cur = _conceptData.validationSources[key] || [];
+  const idx = cur.indexOf(source);
+  if (idx >= 0) cur.splice(idx, 1); else cur.push(source);
+  _conceptData.validationSources[key] = cur;
+  persistConceptOnDeal();
+  // re-render only the source buttons for this key
+  const container = document.getElementById('vsrc-'+key);
+  if (container) {
+    const srcs = _conceptData.validationSources[key] || [];
+    container.querySelectorAll('button[data-src]').forEach(btn => {
+      const s = btn.getAttribute('data-src');
+      btn.className = srcs.includes(s)
+        ? 'px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-300'
+        : 'px-2 py-0.5 rounded-full text-xs font-medium bg-white text-slate-400 border border-slate-200 hover:border-slate-300';
+    });
+  }
 }
 
 function persistConceptOnDeal() {
@@ -1779,33 +1812,45 @@ function conceptSetValidation(key, val) {
   }
 }
 
-function conceptField(key, label, placeholder, d, withValidation) {
+function conceptField(key, label, placeholder, d, withValidation, withSources) {
   const val = (d.concept && d.concept.fields && d.concept.fields[key]) || '';
   const vstat = (d.concept && d.concept.validationStatus && d.concept.validationStatus[key]) || 'Ipotesi';
+  const srcs  = (d.concept && d.concept.validationSources && d.concept.validationSources[key]) || [];
+  const commentCount = ((d.concept&&d.concept.comments&&d.concept.comments[key])||[]).length;
   return `
   <div class="border border-slate-100 rounded-lg p-3 bg-white">
-    <div class="flex items-start justify-between gap-2 mb-2">
+    <div class="flex items-start justify-between gap-2 mb-2 flex-wrap">
       <label class="text-xs font-bold text-slate-600 uppercase tracking-wide">${label}</label>
-      ${withValidation ? `
-      <div class="flex gap-1 flex-shrink-0">
-        <button type="button" id="vstat-ipotesi-${key}" onclick="conceptSetValidation('${key}','Ipotesi')"
-          class="${vstat==='Ipotesi'?'px-3 py-1 rounded-full text-xs font-semibold border border-slate-400 bg-slate-200 text-slate-700':'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400'}">
-          Ipotesi
-        </button>
-        <button type="button" id="vstat-validato-${key}" onclick="conceptSetValidation('${key}','Validato')"
-          class="${vstat==='Validato'?'px-3 py-1 rounded-full text-xs font-semibold border border-green-400 bg-green-100 text-green-700':'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400'}">
-          Validato
-        </button>
-      </div>` : ''}
+      <div class="flex items-center gap-2 flex-wrap flex-shrink-0">
+        ${withSources ? `<div id="vsrc-${key}" class="flex gap-1 flex-wrap">
+          ${['Researcher','Literature','Target User','Stakeholder'].map(s=>`
+            <button type="button" data-src="${s}" onclick="conceptToggleSource('${key}','${s}')"
+              class="${srcs.includes(s)?'px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-300':'px-2 py-0.5 rounded-full text-xs font-medium bg-white text-slate-400 border border-slate-200 hover:border-slate-300'}">
+              ${s}
+            </button>`).join('')}
+        </div>` : ''}
+        ${withValidation ? `
+        <div class="flex gap-1">
+          <button type="button" id="vstat-ipotesi-${key}" onclick="conceptSetValidation('${key}','Ipotesi')"
+            class="${vstat==='Ipotesi'?'px-3 py-1 rounded-full text-xs font-semibold border border-slate-400 bg-slate-200 text-slate-700':'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400'}">
+            Ipotesi
+          </button>
+          <button type="button" id="vstat-validato-${key}" onclick="conceptSetValidation('${key}','Validato')"
+            class="${vstat==='Validato'?'px-3 py-1 rounded-full text-xs font-semibold border border-green-400 bg-green-100 text-green-700':'px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white text-slate-400'}">
+            Validato
+          </button>
+        </div>` : ''}
+      </div>
     </div>
     <textarea id="concept-field-${key}" rows="3" placeholder="${placeholder}..."
       oninput="conceptSetField('${key}',this.value)"
       class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(val)}</textarea>
-    ${conceptApprovalBar(key, d)}
+
+    <!-- Commenti -->
     <details class="mt-2 bg-slate-50 rounded-lg border border-slate-100">
       <summary class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-500 select-none flex items-center justify-between">
         <span>Commenti</span>
-        <span class="text-slate-400 font-normal" id="concept-comment-count-${key}">${((d.concept&&d.concept.comments&&d.concept.comments[key])||[]).length} commenti</span>
+        <span class="text-slate-400 font-normal" id="concept-comment-count-${key}">${commentCount} commenti</span>
       </summary>
       <div class="p-2 border-t border-slate-100">
         <div id="concept-comments-${key}" class="space-y-1.5 mb-2"></div>
@@ -1815,6 +1860,20 @@ function conceptField(key, label, placeholder, d, withValidation) {
         </div>
       </div>
     </details>
+
+    <!-- Task -->
+    <details class="mt-1 bg-slate-50 rounded-lg border border-slate-100">
+      <summary class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-500 select-none flex items-center justify-between">
+        <span>Task</span>
+        <button type="button" onclick="event.preventDefault();event.stopPropagation();addCriterionTask('${key}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">+ Aggiungi</button>
+      </summary>
+      <div class="p-2 border-t border-slate-100">
+        <div id="crit-tasks-${key}" class="space-y-1"></div>
+      </div>
+    </details>
+
+    <!-- Approva -->
+    ${conceptApprovalBar(key, d)}
   </div>`;
 }
 
@@ -1987,6 +2046,13 @@ function setMarketValidation(validated) {
   if (howWrap) { howWrap.classList.toggle('hidden', !validated); }
 }
 
+function toggleCustomSector(val, inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  if (val === '__custom__') { el.classList.remove('hidden'); el.focus(); }
+  else el.classList.add('hidden');
+}
+
 function toggleSourceName() {
   const type = document.getElementById('form-source-type').value;
   const wrap = document.getElementById('source-name-wrap');
@@ -2144,13 +2210,14 @@ function saveDeal(e) {
   const deal = {
     id: editingDeal ? editingDeal.id : 'deal-' + Date.now(),
     company: g('company'),
-    sector: g('sector'),
+    sector: g('sector') === '__custom__' ? (g('sectorCustom') || 'Altro') : g('sector'),
     description: g('description'),
     pipelineSource: g('pipelineSource'),
     sourceName: g('sourceName'),
     useOfInvestment: fd.getAll('useOfInvestment'),
     useOfInvestmentNotes: g('useOfInvestmentNotes'),
     trl: gi('trl'),
+    trlNotes: g('trlNotes'),
     // industrialNeed derived from market validation toggle (B1)
     industrialNeed: marketValidated ? 9 : 3,
     industrialNeedJustification: marketValidationHow,
@@ -2513,7 +2580,12 @@ function openQuickAdd() {
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Settore *</label>
-        <input name="sector" type="text" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        <select name="sector" required onchange="toggleCustomSector(this.value,'quick-sector-custom')" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="">— Seleziona —</option>
+          ${['Medtech','Cleantech','Agritech','Quantum','Biotech'].map(s=>`<option value="${s}">${s}</option>`).join('')}
+          <option value="__custom__">Altro…</option>
+        </select>
+        <input id="quick-sector-custom" type="text" name="sectorCustom" placeholder="Specifica settore" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 hidden">
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -2526,7 +2598,7 @@ function openQuickAdd() {
         <div>
           <label class="block text-sm font-medium text-slate-600 mb-1">Stage</label>
           <select name="stage" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-            ${['Development','Pre Due Diligence','Due Diligence','Investimento','Rejected'].map(s => `<option value="${s}" ${s==='Development'?'selected':''}>${s}</option>`).join('')}
+            ${STAGES.map(s => `<option value="${s}" ${s==='Feasibility'?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -2552,7 +2624,7 @@ function quickAddSave(e) {
   const newDeal = {
     id: 'deal-' + Date.now(),
     company: fd.get('company') || '',
-    sector: fd.get('sector') || '',
+    sector: fd.get('sector') === '__custom__' ? (fd.get('sectorCustom') || 'Altro') : (fd.get('sector') || ''),
     description: fd.get('description') || '',
     pipelineSource: fd.get('pipelineSource') || 'Internal',
     sourceName: '',
@@ -4174,7 +4246,7 @@ function computeInvestorMatch(deal, inv) {
   else          {              details.push({ ok: false, label: 'TRL', note: `TRL ${trl} fuori dal range ${trlMin}–${trlMax}` }); }
 
   // Stage (20 pt) — mappa deal stage → termini usati dagli investitori
-  const stageMap = { 'Development': 'Seed', 'Pre Due Diligence': 'Seed', 'Due Diligence': 'Series A', 'Investimento': 'Series A', 'Rejected': null };
+  const stageMap = { 'Feasibility': 'Pre-seed', 'PoC': 'Seed', 'Prototype': 'Seed', 'Product': 'Series A', 'Rejected': null };
   const dealStageKey = stageMap[deal.stage] || deal.stage;
   const stageMatch = (inv.stages || []).some(s => s === dealStageKey || s.toLowerCase().includes(dealStageKey.toLowerCase()));
   if (stageMatch) { score += 20; details.push({ ok: true,  label: 'Stage', note: `${deal.stage} compatibile con ${(inv.stages||[]).join(', ')}` }); }
