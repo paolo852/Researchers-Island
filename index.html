@@ -3766,12 +3766,7 @@ function totalFilesSize() {
 function updateFilesWarning() {
   const el = document.getElementById('files-size-warning');
   if (!el) return;
-  const tot = totalFilesSize();
-  if (tot > FILE_WARN_BYTES) {
-    el.innerHTML = `<span class="text-red-600 font-medium">Attenzione: ${fmtBytes(tot)} totali — vicino al limite localStorage</span>`;
-  } else {
-    el.textContent = `Totale: ${fmtBytes(tot)}`;
-  }
+  el.textContent = `Totale: ${fmtBytes(totalFilesSize())}`;
 }
 function renderFilesList() {
   const el = document.getElementById('files-list');
