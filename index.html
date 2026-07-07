@@ -1280,8 +1280,10 @@ function renderForm(dealId) {
             </summary>
             <div class="p-4 space-y-4">
               ${conceptField('marketValue','3.1 VALORE DI MERCATO ATTUALE E PROSPETTICO','Top-down: TAM → SAM → SOM. Bottom-up: volume clienti × ticket medio × frequenza. Trend di crescita e driver principali.', d)}
-              ${conceptField('competitorAnalysis','3.2 ANALISI DEI COMPETITOR','Competitor diretti e indiretti, quote di mercato, punti di forza/debolezza, posizionamento differenziante della tecnologia.', d)}
-              ${conceptField('investmentTrends','3.3 INVESTMENT TRENDS','Indicatori di investimento per questo problem solving/prodotto: deal VC e privati, corporate investment, grant e call istituzionali. Numero di articoli e paper (trend). Congressi e interventi rilevanti. Trend patent (depositi, famiglie brevettali, principali player).', d)}
+              ${conceptField('segmentationTargeting','3.2 SEGMENTAZIONE E TARGETING','Analizzare il mercato identificando i segmenti di clienti e definendo i target finali scelti, giustificando la decisione.', d)}
+              ${conceptField('adoptionRequirements','3.3 REQUISITI CHIAVE DI ADOZIONE E BARRIERE ALL\'INGRESSO','Requisiti tecnici, normativi, economici e organizzativi necessari per l\'adozione. Barriere all\'ingresso (regolatorie, capital-intensive, network effect, switching cost, IP, ecc.) e come affrontarle.', d)}
+              ${conceptField('competitorAnalysis','3.4 ANALISI DEI COMPETITOR','Competitor diretti e indiretti, quote di mercato, punti di forza/debolezza, posizionamento differenziante della tecnologia.', d)}
+              ${conceptField('investmentTrends','3.5 INVESTMENT TRENDS','Indicatori di investimento per questo problem solving/prodotto: deal VC e privati, corporate investment, grant e call istituzionali. Numero di articoli e paper (trend). Congressi e interventi rilevanti. Trend patent (depositi, famiglie brevettali, principali player).', d)}
             </div>
           </details>
 
@@ -1660,7 +1662,7 @@ function simpleSlider(name, label, weight, value) {
 // ============================================================
 // CONCEPT DEVELOPMENT HELPERS
 // ============================================================
-const CONCEPT_FIELD_KEYS = ['technology','trlJustification','nextTrlMilestone','intellectualProperty','marketValue','competitorAnalysis','investmentTrends','roadmap','nextMilestones','scalability','collaborations'];
+const CONCEPT_FIELD_KEYS = ['technology','trlJustification','nextTrlMilestone','intellectualProperty','marketValue','segmentationTargeting','adoptionRequirements','competitorAnalysis','investmentTrends','roadmap','nextMilestones','scalability','collaborations'];
 const CONCEPT_VALIDATION_FIELDS = [];
 
 // In-memory cache for concept data while form is open
