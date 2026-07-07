@@ -321,10 +321,8 @@ const DEMO_DEALS = [
         leadOrg: 'Politecnico di Milano – TTO',
         technology: 'Centro NV (azoto-vacanza) in diamante sintetico CVD. Il difetto NV genera uno spin elettronico sensibile a campi magnetici locali a temperatura ambiente. Eccitazione ottica (532 nm laser) + lettura in fluorescenza. Innovazione: controllo coerente del singolo spin con microonde, permette magnetometria sub-nanotesla senza criostato.',
         product: 'Sensore magnetico miniaturizzato per imaging biomedicale. Si integra con sistemi MRI come sonda addizionale per imaging funzionale ad alta risoluzione spaziale (<100 µm). Benefici: risoluzione 10x superiore agli attuali sensori SQUID, nessun raffreddamento a -269°C, form factor compatibile con sala diagnostica standard.',
-        trlJustification: 'TRL 4: prototipo funzionante in laboratorio, sensibilità di 10 pT/√Hz dimostrata in ambiente controllato. Non ancora testato in ambiente rilevante (sala MRI ospedaliera).',
-        keyEvidence: 'Pubblicazione su Nature Physics (2024), prototipo benchtop, dati di sensibilità confrontati con SQUID di riferimento (Magnicon). Accordo di test con IRCCS San Raffaele firmato.',
-        maturityGaps: 'Miniaturizzazione da cm a mm. Schermatura interferenze RF in sala MRI. Integrazione con software DICOM esistente. Validazione su fantoccio anatomico (TRL 5).',
-        nextTrlMilestone: 'TRL 5 entro Q2 2025: primo test su fantoccio in sala MRI del San Raffaele con protocollo clinico approvato.',
+        trlJustification: 'TRL 4: prototipo funzionante in laboratorio, sensibilità di 10 pT/√Hz dimostrata in ambiente controllato. Non ancora testato in ambiente rilevante (sala MRI ospedaliera). Evidence: pubblicazione su Nature Physics (2024), prototipo benchtop, dati di sensibilità confrontati con SQUID di riferimento (Magnicon). Accordo di test con IRCCS San Raffaele firmato.',
+        nextTrlMilestone: 'TRL 5 entro Q2 2025: primo test su fantoccio in sala MRI del San Raffaele con protocollo clinico approvato. Restano da chiudere miniaturizzazione (cm→mm), schermatura RF, integrazione DICOM. Risorse: 2 FTE ingegneri + budget test clinico ~€120k.',
         intellectualProperty: 'Brevetto EP concesso (EP3921234, "NV-center magnetic sensor for medical imaging"). PCT in corso (WO2024/xxxxxx). Know-how esclusivo su processo di crescita CVD e controllo MW.',
         problemStatement: 'I neurologi e radiologi non possono rilevare attività elettrica neuronale in tempo reale con risoluzione sub-millimetrica. L\'EEG ha risoluzione spaziale ~cm, la fMRI risoluzione temporale di secondi. Mercato dei soli sistemi MEG (magnetoencefalografia): >$400M/anno, in crescita del 9%. I SQUID richiedono elio liquido ($30k/anno manutenzione), limitando la diffusione a centri ad alto budget.',
         valueProposition: 'Con QuantumSense il neurologo ottiene mappe di attività neuronale con risoluzione spaziale <1 mm e temporale <1 ms, a temperatura ambiente, installabile in qualsiasi sala diagnostica esistente. Riduzione costi operativi >80% rispetto a MEG tradizionale.',
@@ -454,10 +452,8 @@ const DEMO_DEALS = [
         leadOrg: 'Università di Bologna – Spin-off',
         technology: 'Fotocatalisi solare assistita per elettrolisi dell\'acqua. Fotocatalizzatore a base di eterodi semiconduttori (BiVO4/WO3) con co-catalizzatore IrO2 nanostrutturato. Meccanismo: eccitazione fotonica genera portatori che riducono protoni (H⁺→H₂) e ossidano acqua (H₂O→O₂+4H⁺) senza input elettrico esterno oltre alla luce solare. Efficienza Faradaica 85% in condizioni di laboratorio.',
         product: 'Modulo elettrolizzatore fotocatalitico da 1kW (scalabile a 50kW) per produzione idrogeno verde <2€/kg. Target mercato primario: industrie chimiche e raffinerie per de-carbonizzazione processi interni.',
-        trlJustification: 'TRL 3: proof of concept sperimentale dimostrato in laboratorio su scala 100ml. Efficienza Faradaica e tasso di produzione H₂ misurati e pubblicati. Da validare su scala rilevante (1kW).',
-        keyEvidence: 'Paper su ACS Energy Letters (2024, IF 19.3). Dati originali di produzione H₂: 450 µmol/h/g cat su reattore batch 100ml. Accordo MoU con Eni Refining per test pilota 1MW.',
-        maturityGaps: 'Degrado a lungo termine del fotocatalizzatore (obiettivo: >1000h stabilità). Scale-up da batch a flusso continuo. Gestione termica su scala kW. Disponibilità iridio a lungo termine (metallo critico).',
-        nextTrlMilestone: 'TRL 4: modulo 1kW in reattore a flusso continuo con 100h test di durata continuativo entro Q4 2024.',
+        trlJustification: 'TRL 3: proof of concept sperimentale dimostrato in laboratorio su scala 100ml. Efficienza Faradaica e tasso di produzione H₂ misurati e pubblicati. Da validare su scala rilevante (1kW). Evidence: paper su ACS Energy Letters (2024, IF 19.3), dati originali di produzione H₂ 450 µmol/h/g cat su reattore batch 100ml, MoU con Eni Refining per test pilota 1MW.',
+        nextTrlMilestone: 'TRL 4: modulo 1kW in reattore a flusso continuo con 100h test di durata continuativo entro Q4 2024. Da chiudere: stabilità fotocatalizzatore >1000h, scale-up da batch a flusso, gestione termica kW. Risorse: 3 FTE + budget reattore pilota ~€250k.',
         intellectualProperty: 'Domanda brevettuale PCT (WO2024/xxxxxx) in corso. Accordo esclusiva mondiale con Università di Bologna come spin-off. Know-how su processo di sintesi del fotocatalizzatore BiVO4/WO3.',
         problemStatement: 'L\'idrogeno da fonti fossili (grey hydrogen) è ancora il 95% della produzione mondiale (<$1.5/kg). L\'elettrolisi tradizionale con energia rinnovabile costa >$3/kg per via degli alti CAPEX degli elettrolizzatori PEM e del costo dell\'energia. La REPowerEU chiede 10 Mt/anno di H₂ verde entro 2030 — attualmente produzione UE <0.1 Mt/anno.',
         valueProposition: 'Con HydroCrack la produzione di H₂ avviene direttamente dalla luce solare senza necessità di separare la generazione di elettricità dall\'elettrolisi, eliminando il 40% delle perdite di conversione. Costo target <2€/kg H₂, competitivo con SMR a partire da $4/MMBTU gas naturale.',
@@ -1241,12 +1237,9 @@ function renderForm(dealId) {
             </summary>
             <div class="p-4 space-y-4">
               ${conceptField('technology','1.1 TECHNOLOGY','Principio scientifico, meccanismo e novità (max 10–15 righe)', d, false, true)}
-              ${conceptField('trlJustification','1.2 TRL JUSTIFICATION','Giustificazione del TRL corrente rispetto agli evidence disponibili', d, false, true)}
-              ${conceptField('keyEvidence','1.3 KEY EVIDENCE','Pubblicazioni, prototipi, dati lab, validazioni terze', d, false, true)}
-              ${conceptField('maturityGaps','1.4 MATURITY GAPS','Cosa resta ancora da dimostrare prima del prossimo TRL', d, false, true)}
-              ${conceptField('nextTrlMilestone','1.5 NEXT TRL MILESTONE','Prossimo milestone TRL: obiettivo, timeline, risorse necessarie', d, false, true)}
-              ${conceptField('intellectualProperty','1.6 INTELLECTUAL PROPERTY','Brevetti (depositati/concessi/in preparazione), know-how, segreti commerciali', d, false, true)}
-              ${conceptField('techRisks','1.7 RISCHI TECNOLOGICI','Principali rischi tecnici: cosa potrebbe non funzionare, vincoli fisici/ingegneristici, dipendenze critiche da fornitori o materiali', d, false, true)}
+              ${conceptField('trlJustification','1.2 TRL JUSTIFICATION AND KEY EVIDENCES','Giustificazione del TRL corrente rispetto agli evidence disponibili: pubblicazioni, prototipi, dati lab, validazioni terze', d, false, true)}
+              ${conceptField('nextTrlMilestone','1.3 NEXT TRL MILESTONE','Prossimo TRL: obiettivo, cosa manca da dimostrare per raggiungerlo, timeline, risorse necessarie...', d, false, true)}
+              ${conceptField('intellectualProperty','1.4 INTELLECTUAL PROPERTY','Brevetti (depositati/concessi/in preparazione), know-how, segreti commerciali', d, false, true)}
             </div>
           </details>
 
@@ -1652,7 +1645,7 @@ function simpleSlider(name, label, weight, value) {
 // ============================================================
 // CONCEPT DEVELOPMENT HELPERS
 // ============================================================
-const CONCEPT_FIELD_KEYS = ['technology','trlJustification','keyEvidence','maturityGaps','nextTrlMilestone','intellectualProperty','techRisks','problemStatement','product','valueProposition','marketScenario','target','stakeholderEngagement','marketValue','competitorAnalysis','investmentTrends','roadmap','nextMilestones','scalability','collaborations'];
+const CONCEPT_FIELD_KEYS = ['technology','trlJustification','nextTrlMilestone','intellectualProperty','problemStatement','product','valueProposition','marketScenario','target','stakeholderEngagement','marketValue','competitorAnalysis','investmentTrends','roadmap','nextMilestones','scalability','collaborations'];
 const CONCEPT_VALIDATION_FIELDS = ['problemStatement','product','valueProposition','marketScenario','target','stakeholderEngagement'];
 
 // In-memory cache for concept data while form is open
