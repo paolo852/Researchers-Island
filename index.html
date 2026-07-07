@@ -1249,13 +1249,26 @@ function renderForm(dealId) {
               <span>2. Application Scenario</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
-            <div class="p-4 space-y-4">
-              ${conceptField('problemStatement','2.1 PROBLEM STATEMENT','Spiegare il contesto e raccontare qual è il problema/pain, l\'intensità con cui è sperimentato e da chi. Chiarire perché le soluzioni esistenti non sono in grado di rispondere efficacemente a questo need. Indicare anche qual è il costo monetario e non associato a questo problema — es. costo delle alternative esistenti o costo che si deve sostenere in mancanza di questa soluzione (in termini di tempo, efficienza, ecc.).', d, true)}
-              ${conceptField('product','2.2 PRODOTTO','Spiegare cos\'è il prodotto e quali sono le sue funzionalità principali, chiarendo in che modo risponde ai bisogni sopra descritti e cambierebbe i processi attuali (confronto tra situazione AS IS vs TO BE).', d, true)}
-              ${conceptField('valueProposition','2.3 VALUE PROPOSITION & PLACEMENT','Qual è la value proposition del prodotto? Indicarne gli elementi differenziali rispetto alle alternative con particolare focus sullo Unique Selling Point. Inoltre spiegare quali sono le principali leve che spingerebbero il cliente all\'acquisto e come potrebbe posizionarsi sul mercato un progetto del genere.', d, true)}
-              ${conceptField('marketScenario','2.4 MARKET SCENARIO','Target price/cost e margini attesi. Business model (ipotetico e presente nel mercato). Value chain. Key requirements di mercato per l\'adozione.', d, true)}
-              ${conceptField('target','2.5 TARGET','Chi sono gli utilizzatori finali, i possibili partner, i produttori, gli stakeholder in generale e i decision maker nel processo di acquisto/adozione.', d, true)}
-              ${conceptField('stakeholderEngagement','2.6 STAKEHOLDER ENGAGEMENT','Rispetto alle categorie sopra: ingaggio per informazioni su ciclo di vendita, processi e applicazioni prioritarie, validazione dello scenario di mercato, workflow e procedure in cui si dovrà inserire il prodotto.', d, true)}
+            <div class="p-4 space-y-6">
+              <!-- 2.1 Application Scenarios (repeatable) -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-semibold text-slate-700">2.1 APPLICATION SCENARIOS</h3>
+                  <button type="button" onclick="addAppScenario()" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg font-medium transition-colors">+ Aggiungi scenario</button>
+                </div>
+                <p class="text-xs text-slate-500 mb-3">Ogni scenario rappresenta un possibile ambito di applicazione con proprio problem statement, prodotto e value proposition.</p>
+                <div id="app-scenarios-list" class="space-y-4"></div>
+              </div>
+
+              <!-- 2.2 Stakeholder Engagement -->
+              <div class="pt-4 border-t border-slate-200">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-semibold text-slate-700">2.2 STAKEHOLDER ENGAGEMENT</h3>
+                  <button type="button" onclick="addStakeholder()" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg font-medium transition-colors">+ Aggiungi stakeholder</button>
+                </div>
+                <p class="text-xs text-slate-500 mb-3">Stakeholder ingaggiati per validare ciclo di vendita, processi, applicazioni prioritarie, workflow. Per ognuno, tracciare i contatti avuti e i risultati dell'interazione.</p>
+                <div id="stakeholders-list" class="space-y-3"></div>
+              </div>
             </div>
           </details>
 
@@ -1573,6 +1586,8 @@ function renderForm(dealId) {
   EVAL_CRITERION_KEYS.forEach(k => { renderEvalCriterionTasks(k); renderEvalCriterionComments(k); });
   // Render concept inline comment threads
   CONCEPT_FIELD_KEYS.forEach(k => { renderConceptComments(k); renderCriterionTasks(k); });
+  renderAppScenarios();
+  renderStakeholders();
   renderFilesList();
   renderDealInvestorPitches();
   setupLiveScore();
@@ -1645,21 +1660,36 @@ function simpleSlider(name, label, weight, value) {
 // ============================================================
 // CONCEPT DEVELOPMENT HELPERS
 // ============================================================
-const CONCEPT_FIELD_KEYS = ['technology','trlJustification','nextTrlMilestone','intellectualProperty','problemStatement','product','valueProposition','marketScenario','target','stakeholderEngagement','marketValue','competitorAnalysis','investmentTrends','roadmap','nextMilestones','scalability','collaborations'];
-const CONCEPT_VALIDATION_FIELDS = ['problemStatement','product','valueProposition','marketScenario','target','stakeholderEngagement'];
+const CONCEPT_FIELD_KEYS = ['technology','trlJustification','nextTrlMilestone','intellectualProperty','marketValue','competitorAnalysis','investmentTrends','roadmap','nextMilestones','scalability','collaborations'];
+const CONCEPT_VALIDATION_FIELDS = [];
 
 // In-memory cache for concept data while form is open
 let _conceptData = {};
 
 function conceptInitFromDeal(d) {
   _conceptData = {
-    fields:           JSON.parse(JSON.stringify((d.concept&&d.concept.fields)||{})),
-    approvals:        JSON.parse(JSON.stringify((d.concept&&d.concept.approvals)||{})),
-    comments:         JSON.parse(JSON.stringify((d.concept&&d.concept.comments)||{})),
-    validationStatus: JSON.parse(JSON.stringify((d.concept&&d.concept.validationStatus)||{})),
-    validationSources:JSON.parse(JSON.stringify((d.concept&&d.concept.validationSources)||{})),
-    risks:            JSON.parse(JSON.stringify((d.concept&&d.concept.risks)||[]))
+    fields:               JSON.parse(JSON.stringify((d.concept&&d.concept.fields)||{})),
+    approvals:            JSON.parse(JSON.stringify((d.concept&&d.concept.approvals)||{})),
+    comments:             JSON.parse(JSON.stringify((d.concept&&d.concept.comments)||{})),
+    validationStatus:     JSON.parse(JSON.stringify((d.concept&&d.concept.validationStatus)||{})),
+    validationSources:    JSON.parse(JSON.stringify((d.concept&&d.concept.validationSources)||{})),
+    risks:                JSON.parse(JSON.stringify((d.concept&&d.concept.risks)||[])),
+    applicationScenarios: JSON.parse(JSON.stringify((d.concept&&d.concept.applicationScenarios)||[])),
+    stakeholders:         JSON.parse(JSON.stringify((d.concept&&d.concept.stakeholders)||[]))
   };
+  // Migrate legacy single-scenario fields into first application scenario
+  if (_conceptData.applicationScenarios.length === 0) {
+    const f = _conceptData.fields || {};
+    if (f.problemStatement || f.product || f.valueProposition) {
+      _conceptData.applicationScenarios.push({
+        id: 'as-legacy-' + Date.now(),
+        name: 'Scenario principale',
+        problemStatement: f.problemStatement || '',
+        product: f.product || '',
+        valueProposition: f.valueProposition || ''
+      });
+    }
+  }
 }
 
 function conceptSetField(key, val) {
@@ -1696,6 +1726,186 @@ function persistConceptOnDeal() {
   deals[idx].concept = JSON.parse(JSON.stringify(_conceptData));
   saveDeals(deals);
   editingDeal = deals[idx];
+}
+
+// -------- Application Scenarios --------
+function addAppScenario() {
+  if (!_conceptData.applicationScenarios) _conceptData.applicationScenarios = [];
+  const n = _conceptData.applicationScenarios.length + 1;
+  _conceptData.applicationScenarios.push({
+    id: 'as-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
+    name: 'Scenario ' + n,
+    problemStatement: '',
+    product: '',
+    valueProposition: ''
+  });
+  persistConceptOnDeal();
+  renderAppScenarios();
+}
+function removeAppScenario(sid) {
+  if (!_conceptData.applicationScenarios) return;
+  if (!confirm('Eliminare questo application scenario?')) return;
+  _conceptData.applicationScenarios = _conceptData.applicationScenarios.filter(s => s.id !== sid);
+  persistConceptOnDeal();
+  renderAppScenarios();
+}
+function updateAppScenario(sid, field, value) {
+  if (!_conceptData.applicationScenarios) return;
+  const s = _conceptData.applicationScenarios.find(x => x.id === sid);
+  if (s) { s[field] = value; persistConceptOnDeal(); }
+}
+function renderAppScenarios() {
+  const el = document.getElementById('app-scenarios-list');
+  if (!el) return;
+  const list = _conceptData.applicationScenarios || [];
+  if (list.length === 0) {
+    el.innerHTML = '<div class="text-xs text-slate-400 italic py-4 text-center border border-dashed border-slate-200 rounded-lg">Nessuno scenario. Clicca "+ Aggiungi scenario" per iniziare.</div>';
+    return;
+  }
+  el.innerHTML = list.map((s, i) => `
+    <div class="border border-slate-200 rounded-xl bg-white overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-2.5 bg-teal-50/60 border-b border-slate-200">
+        <span class="text-xs font-bold text-teal-700 flex-shrink-0">#${i+1}</span>
+        <input type="text" value="${esc(s.name||'')}" placeholder="Nome scenario" oninput="updateAppScenario('${s.id}','name',this.value)" class="flex-1 bg-transparent border-0 text-sm font-semibold text-slate-800 focus:outline-none focus:bg-white focus:border focus:border-teal-300 rounded px-2 py-1">
+        <button type="button" onclick="removeAppScenario('${s.id}')" class="text-red-400 hover:text-red-600 p-1" title="Elimina scenario">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
+        </button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Problem Statement</label>
+          <p class="text-xs text-slate-400 mb-1">Contesto, problema/pain, intensità e da chi è sperimentato. Perché le soluzioni esistenti non bastano. Costo monetario e non del problema.</p>
+          <textarea rows="4" placeholder="Descrivi il problema..." oninput="updateAppScenario('${s.id}','problemStatement',this.value)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">${esc(s.problemStatement||'')}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Prodotto</label>
+          <p class="text-xs text-slate-400 mb-1">Cos'è il prodotto e le sue funzionalità principali. Come risponde al bisogno. Confronto AS IS vs TO BE.</p>
+          <textarea rows="4" placeholder="Descrivi il prodotto..." oninput="updateAppScenario('${s.id}','product',this.value)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">${esc(s.product||'')}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Value Proposition &amp; Placement</label>
+          <p class="text-xs text-slate-400 mb-1">Elementi differenziali, USP, principali leve d'acquisto, posizionamento sul mercato.</p>
+          <textarea rows="4" placeholder="Value proposition..." oninput="updateAppScenario('${s.id}','valueProposition',this.value)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">${esc(s.valueProposition||'')}</textarea>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// -------- Stakeholders --------
+const STAKEHOLDER_CATEGORIES = ['End User','Partner','Producer','Decision Maker','KOL / Expert','Regulator','Distributor','Payer','Other'];
+
+function addStakeholder() {
+  if (!_conceptData.stakeholders) _conceptData.stakeholders = [];
+  _conceptData.stakeholders.push({
+    id: 'sh-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
+    category: 'End User',
+    name: '',
+    role: '',
+    interactions: []
+  });
+  persistConceptOnDeal();
+  renderStakeholders();
+}
+function removeStakeholder(sid) {
+  if (!_conceptData.stakeholders) return;
+  if (!confirm('Eliminare questo stakeholder e le sue interazioni?')) return;
+  _conceptData.stakeholders = _conceptData.stakeholders.filter(s => s.id !== sid);
+  persistConceptOnDeal();
+  renderStakeholders();
+}
+function updateStakeholder(sid, field, value) {
+  if (!_conceptData.stakeholders) return;
+  const s = _conceptData.stakeholders.find(x => x.id === sid);
+  if (s) { s[field] = value; persistConceptOnDeal(); }
+}
+function addStakeholderInteraction(sid) {
+  if (!_conceptData.stakeholders) return;
+  const s = _conceptData.stakeholders.find(x => x.id === sid);
+  if (!s) return;
+  if (!s.interactions) s.interactions = [];
+  s.interactions.push({
+    id: 'shi-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
+    date: new Date().toISOString().slice(0,10),
+    description: '',
+    results: ''
+  });
+  persistConceptOnDeal();
+  renderStakeholders();
+}
+function removeStakeholderInteraction(sid, iid) {
+  if (!_conceptData.stakeholders) return;
+  const s = _conceptData.stakeholders.find(x => x.id === sid);
+  if (!s || !s.interactions) return;
+  s.interactions = s.interactions.filter(i => i.id !== iid);
+  persistConceptOnDeal();
+  renderStakeholders();
+}
+function updateStakeholderInteraction(sid, iid, field, value) {
+  if (!_conceptData.stakeholders) return;
+  const s = _conceptData.stakeholders.find(x => x.id === sid);
+  if (!s || !s.interactions) return;
+  const it = s.interactions.find(i => i.id === iid);
+  if (it) { it[field] = value; persistConceptOnDeal(); }
+}
+function _stakeholderCatColor(cat) {
+  const m = {
+    'End User':      'bg-blue-100 text-blue-800',
+    'Partner':       'bg-purple-100 text-purple-800',
+    'Producer':      'bg-amber-100 text-amber-800',
+    'Decision Maker':'bg-red-100 text-red-800',
+    'KOL / Expert':  'bg-indigo-100 text-indigo-800',
+    'Regulator':     'bg-slate-200 text-slate-700',
+    'Distributor':   'bg-green-100 text-green-800',
+    'Payer':         'bg-emerald-100 text-emerald-800',
+    'Other':         'bg-slate-100 text-slate-600'
+  };
+  return m[cat] || 'bg-slate-100 text-slate-600';
+}
+function renderStakeholders() {
+  const el = document.getElementById('stakeholders-list');
+  if (!el) return;
+  const list = _conceptData.stakeholders || [];
+  if (list.length === 0) {
+    el.innerHTML = '<div class="text-xs text-slate-400 italic py-4 text-center border border-dashed border-slate-200 rounded-lg">Nessuno stakeholder. Clicca "+ Aggiungi stakeholder" per iniziare.</div>';
+    return;
+  }
+  el.innerHTML = list.map(s => {
+    const cat = s.category || 'Other';
+    const catCol = _stakeholderCatColor(cat);
+    const interactions = (s.interactions || []).slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+    return `
+    <div class="border border-slate-200 rounded-xl bg-white overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex-wrap">
+        <select onchange="updateStakeholder('${s.id}','category',this.value); renderStakeholders()" class="text-xs font-semibold border border-slate-200 rounded-full px-2.5 py-1 ${catCol} focus:outline-none focus:ring-1 focus:ring-teal-300">
+          ${STAKEHOLDER_CATEGORIES.map(c => `<option value="${c}" ${cat===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+        <input type="text" value="${esc(s.name||'')}" placeholder="Nome / Organizzazione" oninput="updateStakeholder('${s.id}','name',this.value)" class="flex-1 min-w-[160px] bg-transparent border-0 text-sm font-semibold text-slate-800 focus:outline-none focus:bg-white focus:border focus:border-teal-300 rounded px-2 py-1">
+        <input type="text" value="${esc(s.role||'')}" placeholder="Ruolo (opzionale)" oninput="updateStakeholder('${s.id}','role',this.value)" class="w-40 bg-transparent border-0 text-xs text-slate-600 focus:outline-none focus:bg-white focus:border focus:border-teal-300 rounded px-2 py-1">
+        <button type="button" onclick="removeStakeholder('${s.id}')" class="text-red-400 hover:text-red-600 p-1" title="Elimina stakeholder">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
+        </button>
+      </div>
+      <div class="p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-600">Interazioni (${interactions.length})</span>
+          <button type="button" onclick="addStakeholderInteraction('${s.id}')" class="text-xs text-teal-700 hover:text-teal-900 font-medium">+ Aggiungi contatto</button>
+        </div>
+        ${interactions.length === 0 ? '<div class="text-xs text-slate-400 italic py-2">Nessun contatto tracciato.</div>' : interactions.map(it => `
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-2 bg-slate-50/40">
+            <div class="flex items-center gap-2">
+              <input type="date" value="${esc(it.date||'')}" onchange="updateStakeholderInteraction('${s.id}','${it.id}','date',this.value); renderStakeholders()" class="text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-300">
+              <button type="button" onclick="removeStakeholderInteraction('${s.id}','${it.id}')" class="ml-auto text-red-400 hover:text-red-600 p-1" title="Elimina contatto">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <textarea rows="2" placeholder="Descrizione dell'interazione (canale, oggetto della conversazione, punti discussi...)" oninput="updateStakeholderInteraction('${s.id}','${it.id}','description',this.value)" class="w-full border border-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-teal-300">${esc(it.description||'')}</textarea>
+            <textarea rows="2" placeholder="Risultati / feedback / next steps..." oninput="updateStakeholderInteraction('${s.id}','${it.id}','results',this.value)" class="w-full border border-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-teal-300">${esc(it.results||'')}</textarea>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function addConceptRisk() {
