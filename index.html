@@ -1259,15 +1259,6 @@ function renderForm(dealId) {
                 <div id="app-scenarios-list" class="space-y-4"></div>
               </div>
 
-              <!-- 2.2 Stakeholder Engagement -->
-              <div class="pt-4 border-t border-slate-200">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-semibold text-slate-700">2.2 STAKEHOLDER ENGAGEMENT</h3>
-                  <button type="button" onclick="addStakeholder()" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg font-medium transition-colors">+ Aggiungi stakeholder</button>
-                </div>
-                <p class="text-xs text-slate-500 mb-3">Stakeholder ingaggiati per validare ciclo di vendita, processi, applicazioni prioritarie, workflow. Per ognuno, tracciare i contatti avuti e i risultati dell'interazione.</p>
-                <div id="stakeholders-list" class="space-y-3"></div>
-              </div>
             </div>
           </details>
 
@@ -1312,10 +1303,26 @@ function renderForm(dealId) {
             </div>
           </details>
 
-          <!-- 6. Risks and Critical Assumptions -->
+          <!-- 6. Stakeholders -->
           <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
             <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>6. Risks and Critical Assumptions</span>
+              <span>6. Stakeholders</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-semibold text-slate-700">6.1 STAKEHOLDERS</h3>
+                <button type="button" onclick="addStakeholder()" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg font-medium transition-colors">+ Aggiungi stakeholder</button>
+              </div>
+              <p class="text-xs text-slate-500 mb-3">Stakeholder ingaggiati (end user, partner, decision maker, KOL, ecc.). Per ognuno, tracciare i contatti avuti, la descrizione dell'interazione e i risultati.</p>
+              <div id="stakeholders-list" class="space-y-3"></div>
+            </div>
+          </details>
+
+          <!-- 7. Risks and Critical Assumptions -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>7. Risks and Critical Assumptions</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4">
@@ -1359,16 +1366,6 @@ function renderForm(dealId) {
             </div>
           </details>
 
-          <!-- 6. Collaborazioni Attive -->
-          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
-            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>7. Collaborazioni Attive</span>
-              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </summary>
-            <div class="p-4 space-y-4">
-              ${conceptField('collaborations','7.1 COLLABORAZIONI ATTIVE','Partner industriali, accademici, istituzionali. Per ciascuno: nome, tipo di collaborazione, stato (attiva/in negoziazione), valore strategico', d)}
-            </div>
-          </details>
         </div>
 
         <!-- SEZIONE 6: Ricercatori -->
@@ -1674,7 +1671,7 @@ function simpleSlider(name, label, weight, value) {
 // ============================================================
 // CONCEPT DEVELOPMENT HELPERS
 // ============================================================
-const CONCEPT_FIELD_KEYS = ['technology','trlJustification','intellectualProperty','marketValue','segmentationTargeting','adoptionRequirements','competitorAnalysis','investmentTrends','roadmap','nextMilestones','bmActivities','bmRevenues','bmCosts','bmSustainability','collaborations'];
+const CONCEPT_FIELD_KEYS = ['technology','trlJustification','intellectualProperty','marketValue','segmentationTargeting','adoptionRequirements','competitorAnalysis','investmentTrends','roadmap','nextMilestones','bmActivities','bmRevenues','bmCosts','bmSustainability'];
 const CONCEPT_VALIDATION_FIELDS = [];
 
 // In-memory cache for concept data while form is open
