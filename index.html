@@ -1298,10 +1298,24 @@ function renderForm(dealId) {
             </div>
           </details>
 
-          <!-- 5. Risks and Critical Assumptions -->
+          <!-- 5. Business Model -->
           <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
             <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>5. Risks and Critical Assumptions</span>
+              <span>5. Business Model</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-4">
+              ${conceptField('bmActivities','5.1 ATTIVITÀ CHIAVE, KEY ASSETS, MAKE OR BUY & KEY PARTNER','Key assets: quali risorse strategiche (tecnologie, IP, dati, team, impianti) sono indispensabili? Make or Buy e Key Partner: cosa sviluppiamo e manteniamo all\'interno dell\'azienda e cosa esternalizziamo a partner/fornitori per ottimizzare il flusso? Indicare i partner chiave identificati, specificare se contattati e con che feedback.', d)}
+              ${conceptField('bmRevenues','5.2 REVENUES STREAM','Come generiamo ricavi, qual è il modello? Assunzioni su pricing strategy: su quali logiche si basano le prime ipotesi di pricing? Come viene calcolato il ritorno economico interno?', d)}
+              ${conceptField('bmCosts','5.3 COST STRUCTURE','Costi di avviamento (CapEx / una tantum): principali investimenti iniziali (es. sviluppo software, brevetti, macchinari, laboratori). Costi ricorrenti (OpEx, fissi vs variabili): licenze, personale, ecc. Scalabilità economica: all\'aumentare del volume clienti, come si muovono i costi?', d)}
+              ${conceptField('bmSustainability','5.4 SOSTENIBILITÀ E KPI','Break-even: qual è la condizione minima affinché il progetto diventi profittevole? KPI finanziari e di business: quali metriche economiche guideranno il monitoraggio del successo?', d)}
+            </div>
+          </details>
+
+          <!-- 6. Risks and Critical Assumptions -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>6. Risks and Critical Assumptions</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4">
@@ -1348,11 +1362,11 @@ function renderForm(dealId) {
           <!-- 6. Collaborazioni Attive -->
           <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
             <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>6. Collaborazioni Attive</span>
+              <span>7. Collaborazioni Attive</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('collaborations','6.1 COLLABORAZIONI ATTIVE','Partner industriali, accademici, istituzionali. Per ciascuno: nome, tipo di collaborazione, stato (attiva/in negoziazione), valore strategico', d)}
+              ${conceptField('collaborations','7.1 COLLABORAZIONI ATTIVE','Partner industriali, accademici, istituzionali. Per ciascuno: nome, tipo di collaborazione, stato (attiva/in negoziazione), valore strategico', d)}
             </div>
           </details>
         </div>
@@ -1660,7 +1674,7 @@ function simpleSlider(name, label, weight, value) {
 // ============================================================
 // CONCEPT DEVELOPMENT HELPERS
 // ============================================================
-const CONCEPT_FIELD_KEYS = ['technology','trlJustification','intellectualProperty','marketValue','segmentationTargeting','adoptionRequirements','competitorAnalysis','investmentTrends','roadmap','nextMilestones','collaborations'];
+const CONCEPT_FIELD_KEYS = ['technology','trlJustification','intellectualProperty','marketValue','segmentationTargeting','adoptionRequirements','competitorAnalysis','investmentTrends','roadmap','nextMilestones','bmActivities','bmRevenues','bmCosts','bmSustainability','collaborations'];
 const CONCEPT_VALIDATION_FIELDS = [];
 
 // In-memory cache for concept data while form is open
