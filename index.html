@@ -1277,45 +1277,45 @@ function renderForm(dealId) {
             </div>
           </details>
 
-          <!-- 4. Development Roadmap -->
+          <!-- 4. Business Model -->
           <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
             <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>4. Development Roadmap</span>
+              <span>4. Business Model</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4 space-y-4">
-              ${conceptField('roadmap','4.1 FROM CURRENT TRL TO MARKET','Fasi di sviluppo, milestone tecnici e commerciali, decision gate, timeline indicativa e principali risorse richieste.', d)}
-              ${conceptField('nextMilestones','4.2 NEXT 12 MONTHS — MILESTONES & DECISION POINTS','Attività critiche nei prossimi 12 mesi: cosa deve essere dimostrato, quali decisioni go/no-go, chi le prende e con quali criteri.', d)}
+              ${conceptField('bmActivities','4.1 ATTIVITÀ CHIAVE, KEY ASSETS, MAKE OR BUY & KEY PARTNER','Key assets: quali risorse strategiche (tecnologie, IP, dati, team, impianti) sono indispensabili? Make or Buy e Key Partner: cosa sviluppiamo e manteniamo all\'interno dell\'azienda e cosa esternalizziamo a partner/fornitori per ottimizzare il flusso? Indicare i partner chiave identificati, specificare se contattati e con che feedback.', d)}
+              ${conceptField('bmRevenues','4.2 REVENUES STREAM','Come generiamo ricavi, qual è il modello? Assunzioni su pricing strategy: su quali logiche si basano le prime ipotesi di pricing? Come viene calcolato il ritorno economico interno?', d)}
+              ${conceptField('bmCosts','4.3 COST STRUCTURE','Costi di avviamento (CapEx / una tantum): principali investimenti iniziali (es. sviluppo software, brevetti, macchinari, laboratori). Costi ricorrenti (OpEx, fissi vs variabili): licenze, personale, ecc. Scalabilità economica: all\'aumentare del volume clienti, come si muovono i costi?', d)}
+              ${conceptField('bmSustainability','4.4 SOSTENIBILITÀ E KPI','Break-even: qual è la condizione minima affinché il progetto diventi profittevole? KPI finanziari e di business: quali metriche economiche guideranno il monitoraggio del successo?', d)}
             </div>
           </details>
 
-          <!-- 5. Business Model -->
+          <!-- 5. Stakeholders -->
           <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
             <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>5. Business Model</span>
-              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </summary>
-            <div class="p-4 space-y-4">
-              ${conceptField('bmActivities','5.1 ATTIVITÀ CHIAVE, KEY ASSETS, MAKE OR BUY & KEY PARTNER','Key assets: quali risorse strategiche (tecnologie, IP, dati, team, impianti) sono indispensabili? Make or Buy e Key Partner: cosa sviluppiamo e manteniamo all\'interno dell\'azienda e cosa esternalizziamo a partner/fornitori per ottimizzare il flusso? Indicare i partner chiave identificati, specificare se contattati e con che feedback.', d)}
-              ${conceptField('bmRevenues','5.2 REVENUES STREAM','Come generiamo ricavi, qual è il modello? Assunzioni su pricing strategy: su quali logiche si basano le prime ipotesi di pricing? Come viene calcolato il ritorno economico interno?', d)}
-              ${conceptField('bmCosts','5.3 COST STRUCTURE','Costi di avviamento (CapEx / una tantum): principali investimenti iniziali (es. sviluppo software, brevetti, macchinari, laboratori). Costi ricorrenti (OpEx, fissi vs variabili): licenze, personale, ecc. Scalabilità economica: all\'aumentare del volume clienti, come si muovono i costi?', d)}
-              ${conceptField('bmSustainability','5.4 SOSTENIBILITÀ E KPI','Break-even: qual è la condizione minima affinché il progetto diventi profittevole? KPI finanziari e di business: quali metriche economiche guideranno il monitoraggio del successo?', d)}
-            </div>
-          </details>
-
-          <!-- 6. Stakeholders -->
-          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
-            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
-              <span>6. Stakeholders</span>
+              <span>5. Stakeholders</span>
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
             <div class="p-4">
               <div class="flex items-center justify-between mb-2">
-                <h3 class="text-sm font-semibold text-slate-700">6.1 STAKEHOLDERS</h3>
+                <h3 class="text-sm font-semibold text-slate-700">5.1 STAKEHOLDERS</h3>
                 <button type="button" onclick="addStakeholder()" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg font-medium transition-colors">+ Aggiungi stakeholder</button>
               </div>
               <p class="text-xs text-slate-500 mb-3">Stakeholder ingaggiati (end user, partner, decision maker, KOL, ecc.). Per ognuno, tracciare i contatti avuti, la descrizione dell'interazione e i risultati.</p>
               <div id="stakeholders-list" class="space-y-3"></div>
+            </div>
+          </details>
+
+          <!-- 6. Development Roadmap -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>6. Development Roadmap</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-4">
+              ${conceptField('roadmap','6.1 FROM CURRENT TRL TO MARKET','Fasi di sviluppo, milestone tecnici e commerciali, decision gate, timeline indicativa e principali risorse richieste.', d)}
+              ${conceptField('nextMilestones','6.2 NEXT 12 MONTHS — MILESTONES & DECISION POINTS','Attività critiche nei prossimi 12 mesi: cosa deve essere dimostrato, quali decisioni go/no-go, chi le prende e con quali criteri.', d)}
             </div>
           </details>
 
