@@ -24,6 +24,11 @@
     .rt-editor ol { list-style: decimal; padding-left: 1.25rem; }
     .rt-editor li { margin: 0.15rem 0; }
     .rt-btn { transition: background-color 0.1s; }
+    .section-readonly input:disabled,
+    .section-readonly textarea:disabled,
+    .section-readonly select:disabled { background-color: #f8fafc !important; color: #64748b !important; cursor: not-allowed; }
+    .section-readonly .rt-toolbar { display: none !important; }
+    .section-readonly [data-edit-only] { display: none !important; }
     .fade-in { animation: fadeIn 0.2s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -572,7 +577,26 @@ function toggleBlock(blockId, chevronId) {
   if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
 }
 
+const PAGE_TO_PERM = {
+  dashboard: null,               // always accessible
+  pipeline: 'pipeline',
+  new: 'pipeline',
+  portfolio: 'portfolio',
+  'portfolio-detail': 'portfolio',
+  team: 'team',
+  investors: 'investors',
+  industries: 'industries',
+  settings: 'settings'
+};
+
 function navigate(page, dealId) {
+  // permission gate: block if user cannot view this section
+  const permKey = PAGE_TO_PERM[page];
+  if (permKey && typeof canView === 'function' && !canView(permKey)) {
+    alert('Non hai i permessi per accedere a questa sezione.');
+    return;
+  }
+
   pages.forEach(p => {
     document.getElementById('page-' + p).classList.add('hidden');
     const nav = document.getElementById('nav-' + p);
@@ -593,7 +617,64 @@ function navigate(page, dealId) {
     case 'industries':       renderIndustries(); break;
     case 'settings':         renderSettings(); break;
   }
+
+  // apply read-only lock if user has view-only permission for this section
+  try { applyReadonlyToPage(page); } catch(_) {}
 }
+
+function applyReadonlyToPage(page) {
+  const permKey = PAGE_TO_PERM[page];
+  const el = document.getElementById('page-' + page);
+  if (!el) return;
+  if (!permKey) { el.classList.remove('section-readonly'); _removeReadonlyBanner(el); return; }
+  const ro = !canEdit(permKey);
+  if (ro) {
+    el.classList.add('section-readonly');
+    _addReadonlyBanner(el);
+    // Disable form controls
+    el.querySelectorAll('input, textarea, select').forEach(x => {
+      if (x.type === 'button' || x.type === 'submit' || x.type === 'reset') return;
+      x.setAttribute('disabled', 'disabled');
+    });
+    el.querySelectorAll('[contenteditable="true"]').forEach(x => x.setAttribute('contenteditable', 'false'));
+  } else {
+    el.classList.remove('section-readonly');
+    _removeReadonlyBanner(el);
+  }
+}
+
+function _addReadonlyBanner(container) {
+  if (container.querySelector(':scope > .readonly-banner')) return;
+  const b = document.createElement('div');
+  b.className = 'readonly-banner sticky top-0 z-10 bg-amber-100 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-2 rounded-lg mb-4 flex items-center gap-2';
+  b.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0-13a9 9 0 100 18 9 9 0 000-18z"/></svg>Modalità sola lettura: non hai i permessi per modificare questa sezione.';
+  container.prepend(b);
+}
+function _removeReadonlyBanner(container) {
+  const b = container.querySelector(':scope > .readonly-banner');
+  if (b) b.remove();
+}
+
+// Global click blocker for read-only sections
+function _readonlyClickBlocker(e) {
+  const section = e.target.closest('.section-readonly');
+  if (!section) return;
+  const btn = e.target.closest('button, a[role="button"], [role="button"]');
+  if (!btn) return;
+  // Allow navigation buttons and layout toggles
+  const oc = (btn.getAttribute('onclick') || '').trim();
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard('];
+  if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
+  if (SAFE_PREFIXES.some(p => oc.startsWith(p))) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+}
+document.addEventListener('click', _readonlyClickBlocker, true);
+document.addEventListener('submit', function(e) {
+  const section = e.target.closest('.section-readonly');
+  if (section) { e.preventDefault(); e.stopPropagation(); }
+}, true);
 
 // ============================================================
 // DASHBOARD
