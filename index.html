@@ -1581,7 +1581,7 @@ function renderForm(dealId) {
         <!-- ════════════════════════════════════════════════════════
              BLOCCO 2 — VENTURE BUILDING
              ════════════════════════════════════════════════════════ -->
-        <div class="rounded-2xl border-2 border-amber-200 bg-amber-50/30 p-1">
+        <div id="vb-wrapper" class="rounded-2xl border-2 border-amber-200 bg-amber-50/30 p-1 ${isAdminMember(currentUser()) ? '' : 'section-readonly'}">
           <button type="button" onclick="toggleBlock('vb-block','vb-chevron')" class="w-full flex items-center gap-3 px-5 pt-4 pb-3 mb-2 text-left">
             <div class="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center flex-shrink-0">
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
@@ -1769,6 +1769,18 @@ function renderForm(dealId) {
   renderAppScenarios();
   renderStakeholders();
   renderEcoFinFilesList();
+  // If current user is not admin, lock down the Venture Building block
+  try {
+    const vb = document.getElementById('vb-wrapper');
+    if (vb && !isAdminMember(currentUser())) {
+      vb.classList.add('section-readonly');
+      vb.querySelectorAll('input, textarea, select').forEach(x => {
+        if (x.type === 'button' || x.type === 'submit' || x.type === 'reset') return;
+        x.setAttribute('disabled', 'disabled');
+      });
+      vb.querySelectorAll('[contenteditable="true"]').forEach(x => x.setAttribute('contenteditable', 'false'));
+    }
+  } catch(_) {}
   renderFilesList();
   renderDealInvestorPitches();
   setupLiveScore();
