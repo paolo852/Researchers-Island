@@ -342,7 +342,24 @@ async function _sbLoadAll() {
   const { data, error } = await _sb.from('app_data').select('key, value');
   if (error) throw error;
   (data || []).forEach(row => {
-    localStorage.setItem(row.key, JSON.stringify(row.value));
+    // Safety: never overwrite non-empty local data with an empty cloud value
+    // (protects against a stale/accidentally-wiped cloud row erasing local work).
+    const incoming = row.value;
+    const isEmpty = incoming == null
+      || (Array.isArray(incoming) && incoming.length === 0)
+      || (typeof incoming === 'object' && !Array.isArray(incoming) && Object.keys(incoming).length === 0);
+    if (isEmpty) {
+      const localRaw = localStorage.getItem(row.key);
+      if (localRaw) {
+        try {
+          const localVal = JSON.parse(localRaw);
+          const localHasData = (Array.isArray(localVal) && localVal.length > 0)
+            || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
+          if (localHasData) return; // keep local
+        } catch(_) {}
+      }
+    }
+    localStorage.setItem(row.key, JSON.stringify(incoming));
   });
 }
 
@@ -1137,7 +1154,7 @@ function renderPipelineTable() {
     </tr>`;
   }).join('');
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-slate-400">Nessun deal trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-12 text-slate-400">Nessun deal trovato</td></tr>';
   }
 }
 
