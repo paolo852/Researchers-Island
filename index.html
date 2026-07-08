@@ -4089,8 +4089,24 @@ function renderSettings() {
           </div>
         </div>` : ''}
       </div>
+
+      ${isSuperAdmin ? `
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3 mt-4">
+        <div class="flex items-center gap-2 mb-2">
+          <h2 class="text-base font-semibold text-slate-700">Template Piano Eco-Fin</h2>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Super Admin</span>
+        </div>
+        <p class="text-xs text-slate-500">Carica qui il file Excel/CSV usato come template scaricabile dal Capitolo 8 di ogni deal. Se nessun file è caricato, viene generato automaticamente un CSV precompilato.</p>
+        <div id="ecofin-template-info" class="p-3 border border-slate-200 rounded-lg bg-slate-50"></div>
+        <div class="flex gap-2 flex-wrap">
+          <button type="button" onclick="document.getElementById('ecofin-template-input').click()" class="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg font-medium">Carica nuovo template</button>
+          <button type="button" onclick="removeEcoFinTemplate()" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium">Elimina template caricato</button>
+          <input id="ecofin-template-input" type="file" accept=".xlsx,.xls,.csv,.ods,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="handleEcoFinTemplateSelect(event)" class="hidden">
+        </div>
+      </div>` : ''}
     </div>
   `;
+  if (isSuperAdmin) { try { renderEcoFinTemplateInfo(); } catch(_) {} }
 }
 
 function updateSetting(key, val) {
@@ -4342,7 +4358,81 @@ function persistFilesOnDeal() {
 }
 
 // -------- Piano Eco-Fin --------
+const ECOFIN_TEMPLATE_KEY = 'dealflow_ecofin_template';
+function loadEcoFinTemplate() {
+  try { return JSON.parse(localStorage.getItem(ECOFIN_TEMPLATE_KEY) || 'null'); } catch(_) { return null; }
+}
+function saveEcoFinTemplateMeta(meta) {
+  if (meta) localStorage.setItem(ECOFIN_TEMPLATE_KEY, JSON.stringify(meta));
+  else localStorage.removeItem(ECOFIN_TEMPLATE_KEY);
+  _sbSync(ECOFIN_TEMPLATE_KEY, meta);
+}
+
+function renderEcoFinTemplateInfo() {
+  const el = document.getElementById('ecofin-template-info');
+  if (!el) return;
+  const t = loadEcoFinTemplate();
+  if (!t) {
+    el.innerHTML = '<span class="text-xs text-slate-400 italic">Nessun template caricato — viene usato il CSV precompilato di default.</span>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="flex items-center gap-3">
+      <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <div class="flex-1 min-w-0">
+        <a href="${esc(t.url||'#')}" target="_blank" class="text-sm font-medium text-slate-800 hover:text-indigo-600 truncate block">${esc(t.name)}</a>
+        <p class="text-xs text-slate-400">${fmtBytes(t.size||0)} · caricato il ${esc((t.uploadedAt||'').slice(0,10))} da ${esc(t.uploadedBy||'—')}</p>
+      </div>
+    </div>`;
+}
+
+async function handleEcoFinTemplateSelect(e) {
+  const files = e.target.files;
+  if (!files || !files.length) return;
+  const file = files[0];
+  e.target.value = '';
+  if (!isSuperAdminMember(currentUser())) { alert('Solo il super admin può caricare il template.'); return; }
+  try {
+    const { path, url } = await uploadFileToSupabase(file, 'ecofin-template');
+    // remove old file if any
+    const prev = loadEcoFinTemplate();
+    if (prev && prev.path && prev.path !== path) { try { await deleteFileFromSupabase(prev.path); } catch(_) {} }
+    const me = currentUser();
+    saveEcoFinTemplateMeta({ name: file.name, size: file.size, url, path, uploadedAt: new Date().toISOString(), uploadedBy: me ? me.name : '' });
+    renderEcoFinTemplateInfo();
+    alert('Template caricato. Tutti gli utenti scaricheranno questo file dal Capitolo 8.');
+  } catch(err) {
+    alert('Errore caricamento template: ' + err.message);
+  }
+}
+
+async function removeEcoFinTemplate() {
+  if (!isSuperAdminMember(currentUser())) { alert('Solo il super admin può eliminare il template.'); return; }
+  const t = loadEcoFinTemplate();
+  if (!t) { alert('Nessun template caricato.'); return; }
+  if (!confirm('Eliminare il template? Verrà ripristinato il CSV precompilato di default.')) return;
+  try { if (t.path) await deleteFileFromSupabase(t.path); } catch(_) {}
+  saveEcoFinTemplateMeta(null);
+  renderEcoFinTemplateInfo();
+}
+
 function downloadEcoFinTemplate() {
+  const t = loadEcoFinTemplate();
+  if (t && t.url) {
+    // download the uploaded template
+    const a = document.createElement('a');
+    a.href = t.url;
+    a.download = t.name || 'template_piano_eco_fin';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+  _downloadDefaultEcoFinTemplate();
+}
+
+function _downloadDefaultEcoFinTemplate() {
   const rows = [
     ['Piano Eco-Fin — Template'],
     [''],
