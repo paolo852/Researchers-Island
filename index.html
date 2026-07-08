@@ -966,7 +966,7 @@ function renderPipeline() {
           <h1 class="text-2xl font-bold text-slate-800 mb-1">Pipeline Deal</h1>
           <p class="text-slate-500 text-sm">Tutti i deal in gestione</p>
         </div>
-        <button onclick="openQuickAdd()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-md">
+        <button onclick="openQuickAdd()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-md ${isAdminMember(currentUser()) ? '' : 'hidden'}">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Nuovo Lead
         </button>
@@ -1230,6 +1230,11 @@ let _investorEditingId = null;
 let _investorPitches = [];
 
 function renderForm(dealId) {
+  if (!dealId && !isAdminMember(currentUser())) {
+    alert('Solo un admin può creare una nuova partecipata.');
+    navigate('pipeline');
+    return;
+  }
   deals = loadDeals();
   editingDeal = dealId ? deals.find(d => d.id === dealId) : null;
   const d = editingDeal || {};
@@ -2759,6 +2764,7 @@ function removeCapTableRow(i) {
 // Save
 function saveDeal(e) {
   e.preventDefault();
+  if (!editingDeal && !isAdminMember(currentUser())) { alert('Solo un admin può creare una nuova partecipata.'); return; }
   deals = loadDeals();
   const form = document.getElementById('deal-form');
   const fd = new FormData(form);
@@ -3132,6 +3138,10 @@ function stageBadgeText(stage) { return stage || '–'; }
 // QUICK ADD MODAL — fast lead insertion (5 fields)
 // ============================================================
 function openQuickAdd() {
+  if (!isAdminMember(currentUser())) {
+    alert('Solo un admin può creare una nuova partecipata.');
+    return;
+  }
   const body = document.getElementById('quick-modal-body');
   body.innerHTML = `
     <div class="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -3189,6 +3199,7 @@ function closeQuickAdd() {
 }
 function quickAddSave(e) {
   e.preventDefault();
+  if (!isAdminMember(currentUser())) { alert('Solo un admin può creare una nuova partecipata.'); return; }
   const fd = new FormData(e.target);
   deals = loadDeals();
   const newDeal = {
