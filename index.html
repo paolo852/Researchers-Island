@@ -4107,6 +4107,20 @@ function renderSettings() {
         </div>` : ''}
       </div>
 
+      ${isAdmin ? `
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3 mt-4">
+        <div class="flex items-center gap-2 mb-2">
+          <h2 class="text-base font-semibold text-slate-700">Backup e ripristino dati</h2>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Admin</span>
+        </div>
+        <p class="text-xs text-slate-500">Esporta un file JSON con tutti i dati locali (deal, team, investitori, portfolio, impostazioni). Salvalo come backup e ricaricalo in caso di perdita. Se Supabase è configurato, i dati importati verranno risincronizzati automaticamente.</p>
+        <div class="flex gap-2 flex-wrap">
+          <button type="button" onclick="exportBackup()" class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg font-medium">Esporta backup JSON</button>
+          <button type="button" onclick="document.getElementById('backup-import-input').click()" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-medium">Importa da JSON</button>
+          <input id="backup-import-input" type="file" accept=".json,application/json" onchange="importBackup(event)" class="hidden">
+        </div>
+      </div>` : ''}
+
       ${isSuperAdmin ? `
       <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3 mt-4">
         <div class="flex items-center gap-2 mb-2">
@@ -4371,6 +4385,65 @@ function persistFilesOnDeal() {
     if (idx >= 0) { deals[idx].files = JSON.parse(JSON.stringify(formFiles)); saveDeals(deals); editingDeal = deals[idx]; }
   } catch (err) {
     alert('Errore salvataggio file: ' + err.message + '\nProbabilmente hai raggiunto il limite di localStorage.');
+  }
+}
+
+// -------- Backup / Restore all local data --------
+const BACKUP_KEYS = [
+  'dealflow_demo',            // deals
+  'dealflow_team',            // team
+  'dealflow_investors',       // investors
+  'dealflow_portfolio',       // portfolio
+  'dealflow_industries',      // industries
+  'dealflow_notifications',   // notifications
+  ECOFIN_TEMPLATE_KEY         // eco-fin template meta
+];
+
+function exportBackup() {
+  const dump = { exportedAt: new Date().toISOString(), data: {} };
+  // Include all dealflow_* keys we can find
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k) continue;
+    if (k.startsWith('dealflow_') || k.startsWith('dealflow-')) {
+      try { dump.data[k] = JSON.parse(localStorage.getItem(k)); }
+      catch(_) { dump.data[k] = localStorage.getItem(k); }
+    }
+  }
+  const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  a.download = 'dealflow-backup-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function importBackup(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!confirm('L\'importazione sovrascriverà i dati locali con quelli del file. Confermi?')) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const payload = parsed && parsed.data ? parsed.data : parsed;
+    if (!payload || typeof payload !== 'object') { alert('File non valido.'); return; }
+    let count = 0;
+    Object.keys(payload).forEach(k => {
+      try {
+        localStorage.setItem(k, JSON.stringify(payload[k]));
+        _sbSync(k, payload[k]); // push to cloud
+        count++;
+      } catch(_) {}
+    });
+    alert('Importate ' + count + ' chiavi. La pagina si ricarica.');
+    location.reload();
+  } catch(err) {
+    alert('Errore importazione: ' + err.message);
   }
 }
 
