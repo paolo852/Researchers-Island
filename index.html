@@ -19,6 +19,11 @@
     .stage-dd { @apply bg-amber-100 text-amber-800; }
     .stage-investimento { @apply bg-emerald-100 text-emerald-800; }
     .stage-rejected { @apply bg-red-100 text-red-800; }
+    .rt-editor:empty:before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; }
+    .rt-editor ul { list-style: disc; padding-left: 1.25rem; }
+    .rt-editor ol { list-style: decimal; padding-left: 1.25rem; }
+    .rt-editor li { margin: 0.15rem 0; }
+    .rt-btn { transition: background-color 0.1s; }
     .fade-in { animation: fadeIn 0.2s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -1817,17 +1822,17 @@ function renderAppScenarios() {
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Problem Statement</label>
           <p class="text-xs text-slate-400 mb-1">Contesto, problema/pain, intensità e da chi è sperimentato. Perché le soluzioni esistenti non bastano. Costo monetario e non del problema.</p>
-          <textarea rows="4" placeholder="Descrivi il problema..." oninput="updateAppScenario('${s.id}','problemStatement',this.value)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">${esc(s.problemStatement||'')}</textarea>
+          ${richTextEditor('as-'+s.id+'-problem', s.problemStatement||'', 'Descrivi il problema...', "updateAppScenario('"+s.id+"','problemStatement', arguments[0])")}
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Prodotto</label>
           <p class="text-xs text-slate-400 mb-1">Cos'è il prodotto e le sue funzionalità principali. Come risponde al bisogno. Confronto AS IS vs TO BE.</p>
-          <textarea rows="4" placeholder="Descrivi il prodotto..." oninput="updateAppScenario('${s.id}','product',this.value)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">${esc(s.product||'')}</textarea>
+          ${richTextEditor('as-'+s.id+'-product', s.product||'', 'Descrivi il prodotto...', "updateAppScenario('"+s.id+"','product', arguments[0])")}
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Value Proposition &amp; Placement</label>
           <p class="text-xs text-slate-400 mb-1">Elementi differenziali, USP, principali leve d'acquisto, posizionamento sul mercato.</p>
-          <textarea rows="4" placeholder="Value proposition..." oninput="updateAppScenario('${s.id}','valueProposition',this.value)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">${esc(s.valueProposition||'')}</textarea>
+          ${richTextEditor('as-'+s.id+'-vp', s.valueProposition||'', 'Value proposition...', "updateAppScenario('"+s.id+"','valueProposition', arguments[0])")}
         </div>
 
         ${_appScenarioValidationBlock(s.id)}
@@ -2144,6 +2149,85 @@ function conceptSetValidation(key, val) {
   }
 }
 
+// -------- Rich Text Editor (contenteditable + minimal toolbar) --------
+// Handler is invoked as a function body with `arguments[0]` = HTML value.
+// We stash the handler string on the element as data-rt-handler and call it in JS.
+function richTextEditor(id, initialHtml, placeholder, handlerCode) {
+  const html = _rtSanitizeStored(initialHtml || '');
+  // handlerCode is a JS snippet with `arguments[0]` referring to HTML value.
+  const encHandler = String(handlerCode || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  return `
+    <div class="border border-slate-200 rounded-lg focus-within:ring-2 focus-within:ring-indigo-300 bg-white overflow-hidden">
+      <div class="rt-toolbar flex items-center gap-0.5 px-2 py-1 border-b border-slate-100 bg-slate-50/70 text-slate-500 text-xs flex-wrap">
+        <button type="button" title="Grassetto" onmousedown="event.preventDefault()" onclick="rtExec('${id}','bold')" class="rt-btn font-bold hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center">B</button>
+        <button type="button" title="Corsivo" onmousedown="event.preventDefault()" onclick="rtExec('${id}','italic')" class="rt-btn italic hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center">I</button>
+        <button type="button" title="Sottolineato" onmousedown="event.preventDefault()" onclick="rtExec('${id}','underline')" class="rt-btn underline hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center">U</button>
+        <span class="mx-1 text-slate-300">|</span>
+        <button type="button" title="Elenco puntato" onmousedown="event.preventDefault()" onclick="rtExec('${id}','insertUnorderedList')" class="rt-btn hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center">•</button>
+        <button type="button" title="Elenco numerato" onmousedown="event.preventDefault()" onclick="rtExec('${id}','insertOrderedList')" class="rt-btn hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center">1.</button>
+        <span class="mx-1 text-slate-300">|</span>
+        <label title="Colore testo" onmousedown="event.preventDefault()" class="rt-btn hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center cursor-pointer relative">
+          <span class="text-red-500 font-bold">A</span>
+          <input type="color" oninput="rtExec('${id}','foreColor',this.value)" class="absolute inset-0 opacity-0 cursor-pointer" style="width:100%;height:100%;">
+        </label>
+        <label title="Evidenzia" onmousedown="event.preventDefault()" class="rt-btn hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center cursor-pointer relative">
+          <span class="bg-yellow-200 px-0.5 rounded text-slate-700 font-bold">H</span>
+          <input type="color" oninput="rtExec('${id}','hiliteColor',this.value)" class="absolute inset-0 opacity-0 cursor-pointer" style="width:100%;height:100%;">
+        </label>
+        <span class="mx-1 text-slate-300">|</span>
+        <button type="button" title="Rimuovi formattazione" onmousedown="event.preventDefault()" onclick="rtExec('${id}','removeFormat')" class="rt-btn hover:bg-slate-200 rounded px-1.5 h-6 flex items-center justify-center text-[10px]">Aa</button>
+      </div>
+      <div id="${id}" contenteditable="true"
+        data-rt-handler="${encHandler}"
+        data-placeholder="${(placeholder||'').replace(/"/g,'&quot;')}"
+        oninput="rtOnInput('${id}')"
+        onpaste="rtOnPaste(event,'${id}')"
+        class="rt-editor w-full px-3 py-2 text-sm outline-none min-h-[5rem] leading-relaxed">${html}</div>
+    </div>`;
+}
+
+function _rtSanitizeStored(html) {
+  if (!html) return '';
+  // Very light sanitize: strip <script>, <iframe>, on* attributes, javascript: urls
+  let s = String(html);
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
+  s = s.replace(/<iframe[\s\S]*?<\/iframe>/gi, '');
+  s = s.replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '');
+  s = s.replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '');
+  s = s.replace(/javascript:/gi, '');
+  return s;
+}
+
+function rtExec(id, cmd, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.focus();
+  try {
+    document.execCommand(cmd, false, val === undefined ? null : val);
+  } catch(e) { console.warn('rtExec', cmd, e); }
+  rtOnInput(id);
+}
+
+function rtOnInput(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const html = _rtSanitizeStored(el.innerHTML || '');
+  const code = el.getAttribute('data-rt-handler') || '';
+  if (!code) return;
+  try {
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(code);
+    fn.call(el, html);
+  } catch(e) { console.warn('rt handler', e); }
+}
+
+function rtOnPaste(e, id) {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  try { document.execCommand('insertText', false, text); } catch(_) {}
+  rtOnInput(id);
+}
+
 function conceptField(key, label, placeholder, d, withValidation, withSources) {
   const val = (d.concept && d.concept.fields && d.concept.fields[key]) || '';
   const vstat = (d.concept && d.concept.validationStatus && d.concept.validationStatus[key]) || 'Ipotesi';
@@ -2176,9 +2260,7 @@ function conceptField(key, label, placeholder, d, withValidation, withSources) {
         </div>` : ''}
       </div>
     </div>
-    <textarea id="concept-field-${key}" rows="3" placeholder="${placeholder}..."
-      oninput="conceptSetField('${key}',this.value)"
-      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none">${esc(val)}</textarea>
+    ${richTextEditor('concept-field-'+key, val, placeholder, "conceptSetField('"+key+"', arguments[0])")}
 
     <!-- Commenti -->
     <details class="mt-2 bg-slate-50 rounded-lg border border-slate-100">
