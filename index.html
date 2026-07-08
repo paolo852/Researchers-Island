@@ -534,7 +534,7 @@ function scoreBadge(score) {
   return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold ${cls}">${score.toFixed(1)}</span>`;
 }
 
-const STAGES = ['Feasibility','PoC','Prototype','Product','Rejected'];
+const STAGES = ['Feasibility','PoC','Prototype','Product'];
 
 function stageBadge(stage) {
   const map = {
@@ -1366,6 +1366,29 @@ function renderForm(dealId) {
             </div>
           </details>
 
+          <!-- 8. Piano Eco-Fin -->
+          <details class="mb-3 border border-slate-200 rounded-xl overflow-hidden">
+            <summary class="cursor-pointer px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 select-none flex items-center justify-between hover:bg-slate-100">
+              <span>8. Piano Eco-Fin</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="p-4 space-y-3">
+              <p class="text-xs text-slate-500">Carica il piano economico-finanziario del progetto. Puoi partire dal template disponibile e adattarlo al caso specifico.</p>
+              <div class="flex gap-2 flex-wrap">
+                <button type="button" onclick="downloadEcoFinTemplate()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  Scarica template
+                </button>
+                <button type="button" onclick="document.getElementById('ecofin-file-input').click()" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                  Carica Excel
+                </button>
+                <input id="ecofin-file-input" type="file" accept=".xlsx,.xls,.csv,.ods,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="handleEcoFinFileSelect(event)" class="hidden">
+              </div>
+              <div id="ecofin-files-list" class="space-y-2"></div>
+            </div>
+          </details>
+
         </div>
 
         <!-- SEZIONE 6: Ricercatori -->
@@ -1599,6 +1622,7 @@ function renderForm(dealId) {
   CONCEPT_FIELD_KEYS.forEach(k => { renderConceptComments(k); renderCriterionTasks(k); });
   renderAppScenarios();
   renderStakeholders();
+  renderEcoFinFilesList();
   renderFilesList();
   renderDealInvestorPitches();
   setupLiveScore();
@@ -1798,9 +1822,63 @@ function renderAppScenarios() {
           <p class="text-xs text-slate-400 mb-1">Elementi differenziali, USP, principali leve d'acquisto, posizionamento sul mercato.</p>
           <textarea rows="4" placeholder="Value proposition..." oninput="updateAppScenario('${s.id}','valueProposition',this.value)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300">${esc(s.valueProposition||'')}</textarea>
         </div>
+
+        ${_appScenarioValidationBlock(s.id)}
       </div>
     </div>
   `).join('');
+  // populate comments, tasks, approval bars
+  list.forEach(s => {
+    renderConceptComments(s.id);
+    renderCriterionTasks(s.id);
+    const abEl = document.getElementById('concept-approval-'+s.id);
+    if (abEl) abEl.innerHTML = conceptApprovalBarInner(s.id);
+  });
+}
+
+function _appScenarioValidationBlock(key) {
+  const srcs = (_conceptData.validationSources && _conceptData.validationSources[key]) || [];
+  const commentCount = ((_conceptData.comments && _conceptData.comments[key]) || []).length;
+  const SOURCES = ['Interno','Researcher','Literature','Target User','Stakeholder'];
+  return `
+    <div class="pt-2 border-t border-slate-200 space-y-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Validato da:</span>
+        <div id="vsrc-${key}" class="flex gap-1 flex-wrap">
+          ${SOURCES.map(src => `
+            <button type="button" data-src="${src}" onclick="conceptToggleSource('${key}','${src}')"
+              class="${srcs.includes(src)?'px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-300':'px-2 py-0.5 rounded-full text-xs font-medium bg-white text-slate-400 border border-slate-200 hover:border-slate-300'}">
+              ${src}
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <details class="bg-slate-50 rounded-lg border border-slate-100">
+        <summary class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-500 select-none flex items-center justify-between">
+          <span>Commenti</span>
+          <span class="text-slate-400 font-normal" id="concept-comment-count-${key}">${commentCount} commenti</span>
+        </summary>
+        <div class="p-2 border-t border-slate-100">
+          <div id="concept-comments-${key}" class="space-y-1.5 mb-2"></div>
+          <textarea id="concept-comment-input-${key}" rows="2" placeholder="Scrivi un commento..." class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 resize-none bg-white"></textarea>
+          <div class="flex justify-end mt-1">
+            <button type="button" onclick="postConceptComment('${key}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded font-medium">Pubblica</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="bg-slate-50 rounded-lg border border-slate-100">
+        <summary class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-500 select-none flex items-center justify-between">
+          <span>Task</span>
+          <button type="button" onclick="event.preventDefault();event.stopPropagation();addCriterionTask('${key}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">+ Aggiungi</button>
+        </summary>
+        <div class="p-2 border-t border-slate-100">
+          <div id="crit-tasks-${key}" class="space-y-1"></div>
+        </div>
+      </details>
+
+      <div id="concept-approval-${key}"></div>
+    </div>`;
 }
 
 // -------- Stakeholders --------
@@ -2072,7 +2150,7 @@ function conceptField(key, label, placeholder, d, withValidation, withSources) {
         ${withSources ? `<div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Validato da:</span>
           <div id="vsrc-${key}" class="flex gap-1 flex-wrap">
-          ${['Researcher','Literature','Target User','Stakeholder'].map(s=>`
+          ${['Interno','Researcher','Literature','Target User','Stakeholder'].map(s=>`
             <button type="button" data-src="${s}" onclick="conceptToggleSource('${key}','${s}')"
               class="${srcs.includes(s)?'px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-300':'px-2 py-0.5 rounded-full text-xs font-medium bg-white text-slate-400 border border-slate-200 hover:border-slate-300'}">
               ${s}
@@ -3835,6 +3913,136 @@ function persistFilesOnDeal() {
   }
 }
 
+// -------- Piano Eco-Fin --------
+function downloadEcoFinTemplate() {
+  const rows = [
+    ['Piano Eco-Fin — Template'],
+    [''],
+    ['1. IPOTESI DI BASE'],
+    ['Voce','Y1','Y2','Y3','Y4','Y5','Note'],
+    ['N. clienti','','','','','',''],
+    ['Prezzo medio unitario','','','','','',''],
+    ['Ricavi totali','','','','','',''],
+    [''],
+    ['2. CONTO ECONOMICO'],
+    ['Voce','Y1','Y2','Y3','Y4','Y5','Note'],
+    ['Ricavi','','','','','',''],
+    ['Costo del venduto','','','','','',''],
+    ['Margine lordo','','','','','',''],
+    ['Costi del personale','','','','','',''],
+    ['Costi operativi (opex)','','','','','',''],
+    ['R&D','','','','','',''],
+    ['EBITDA','','','','','',''],
+    ['Ammortamenti','','','','','',''],
+    ['EBIT','','','','','',''],
+    ['Oneri finanziari','','','','','',''],
+    ['Utile netto','','','','','',''],
+    [''],
+    ['3. CAPEX / INVESTIMENTI INIZIALI'],
+    ['Voce','Importo','Anno','Categoria','Note'],
+    ['','','','',''],
+    ['','','','',''],
+    ['','','','',''],
+    [''],
+    ['4. CASH FLOW'],
+    ['Voce','Y1','Y2','Y3','Y4','Y5'],
+    ['Cash flow operativo','','','','',''],
+    ['Cash flow da investimenti','','','','',''],
+    ['Cash flow da finanziamenti','','','','',''],
+    ['Cassa netta di periodo','','','','',''],
+    ['Cassa cumulata','','','','',''],
+    [''],
+    ['5. KPI'],
+    ['KPI','Valore','Note'],
+    ['Break-even (anno)','',''],
+    ['Cash burn medio/mese','',''],
+    ['Runway (mesi)','',''],
+    ['ARR / MRR target','',''],
+    ['LTV / CAC','',''],
+    ['Margine EBITDA %','','']
+  ];
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c==null?'':c);
+    return /[",;\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(';')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'template_piano_eco_fin.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function handleEcoFinFileSelect(e) {
+  const files = e.target.files;
+  if (!files || !files.length) return;
+  await processEcoFinFiles(files);
+  e.target.value = '';
+}
+
+async function processEcoFinFiles(fileList) {
+  if (!editingDeal) { alert('Salva prima il deal per caricare il Piano Eco-Fin.'); return; }
+  if (!editingDeal.ecoFinFiles) editingDeal.ecoFinFiles = [];
+  const folder = 'ecofin/' + editingDeal.id;
+  const el = document.getElementById('ecofin-files-list');
+  for (const file of Array.from(fileList)) {
+    const loadingId = 'ecofin-loading-' + Date.now();
+    if (el) el.insertAdjacentHTML('beforeend', `<div id="${loadingId}" class="text-xs text-slate-400 italic p-2">Caricamento ${esc(file.name)}…</div>`);
+    try {
+      const { path, url } = await uploadFileToSupabase(file, folder);
+      editingDeal.ecoFinFiles.push({ name: file.name, type: file.type, size: file.size, url, path, uploadedAt: new Date().toISOString() });
+      persistEcoFinFiles();
+    } catch(err) {
+      alert('Errore caricamento "' + file.name + '": ' + err.message);
+    } finally {
+      const lel = document.getElementById(loadingId);
+      if (lel) lel.remove();
+      renderEcoFinFilesList();
+    }
+  }
+}
+
+function removeEcoFinFile(i) {
+  if (!editingDeal || !editingDeal.ecoFinFiles) return;
+  const f = editingDeal.ecoFinFiles[i];
+  if (f && f.path) deleteFileFromSupabase(f.path);
+  editingDeal.ecoFinFiles.splice(i, 1);
+  persistEcoFinFiles();
+  renderEcoFinFilesList();
+}
+
+function persistEcoFinFiles() {
+  if (!editingDeal) return;
+  deals = loadDeals();
+  const idx = deals.findIndex(d => d.id === editingDeal.id);
+  if (idx < 0) return;
+  deals[idx].ecoFinFiles = JSON.parse(JSON.stringify(editingDeal.ecoFinFiles || []));
+  saveDeals(deals);
+  editingDeal = deals[idx];
+}
+
+function renderEcoFinFilesList() {
+  const el = document.getElementById('ecofin-files-list');
+  if (!el) return;
+  const files = (editingDeal && editingDeal.ecoFinFiles) || [];
+  if (files.length === 0) { el.innerHTML = '<p class="text-xs text-slate-400 italic px-1">Nessun file caricato.</p>'; return; }
+  el.innerHTML = files.map((f, i) => `
+    <div class="flex items-center gap-3 p-2.5 border border-slate-200 rounded-lg bg-white">
+      <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <div class="flex-1 min-w-0">
+        <a href="${esc(f.url||'#')}" target="_blank" class="text-sm font-medium text-slate-800 hover:text-indigo-600 truncate block">${esc(f.name)}</a>
+        <p class="text-xs text-slate-400">${fmtBytes(f.size||0)} · ${esc((f.uploadedAt||'').slice(0,10))}</p>
+      </div>
+      <button type="button" onclick="removeEcoFinFile(${i})" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0" title="Elimina">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
 // ============================================================
 // INVESTOR FILE UPLOAD
 // ============================================================
@@ -4491,7 +4699,7 @@ function computeInvestorMatch(deal, inv) {
   else          {              details.push({ ok: false, label: 'TRL', note: `TRL ${trl} fuori dal range ${trlMin}–${trlMax}` }); }
 
   // Stage (20 pt) — mappa deal stage → termini usati dagli investitori
-  const stageMap = { 'Feasibility': 'Pre-seed', 'PoC': 'Seed', 'Prototype': 'Seed', 'Product': 'Series A', 'Rejected': null };
+  const stageMap = { 'Feasibility': 'Pre-seed', 'PoC': 'Seed', 'Prototype': 'Seed', 'Product': 'Series A' };
   const dealStageKey = stageMap[deal.stage] || deal.stage;
   const stageMatch = (inv.stages || []).some(s => s === dealStageKey || s.toLowerCase().includes(dealStageKey.toLowerCase()));
   if (stageMatch) { score += 20; details.push({ ok: true,  label: 'Stage', note: `${deal.stage} compatibile con ${(inv.stages||[]).join(', ')}` }); }
