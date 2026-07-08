@@ -6607,11 +6607,22 @@ function showApp() {
   const overlay = document.getElementById('loading-overlay');
   const status  = document.getElementById('loading-status');
 
-  // Load all data from Supabase into localStorage cache
+  // Failsafe: no matter what, hide the loading overlay after 12s
+  const failsafe = setTimeout(() => {
+    if (overlay && overlay.style.display !== 'none') {
+      console.warn('Loading failsafe: forcing overlay hide.');
+      overlay.style.display = 'none';
+    }
+  }, 12000);
+
+  // Load all data from Supabase into localStorage cache — with 8s timeout
   if (_sb) {
     try {
       if (status) status.textContent = 'Caricamento dati dal cloud…';
-      await _sbLoadAll();
+      await Promise.race([
+        _sbLoadAll(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Supabase (8s) — passo a dati locali')), 8000))
+      ]);
       if (status) status.textContent = 'Dati caricati ✓';
     } catch(e) {
       console.warn('Supabase load failed, using local data:', e.message);
@@ -6705,6 +6716,7 @@ function showApp() {
 
   // Hide loading overlay
   if (overlay) overlay.style.display = 'none';
+  clearTimeout(failsafe);
 
   // Check for invite token in URL
   const _urlParams = new URLSearchParams(window.location.search);
