@@ -6455,6 +6455,11 @@ function showApp() {
       m.permissions = m.accessLevel === 'admin' ? { pipeline:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' } : { pipeline:'edit', portfolio:'view', investors:'edit', team:'view', industries:'edit', settings:'edit' };
       _teamMigrated = true;
     }
+    // Force settings to 'edit' for non-admins (notifications must remain editable)
+    if (m.accessLevel !== 'admin' && m.permissions && m.permissions.settings === 'view') {
+      m.permissions.settings = 'edit';
+      _teamMigrated = true;
+    }
   });
   if (!team.some(m => m.id === 'tm-admin')) {
     team.unshift({ id: 'tm-admin', name: 'Francesca Petrucci', email: 'francesca.petrucci@day-one.biz', role: 'Partner', status: 'Active', username: 'francesca.petrucci@day-one.biz', password: 'Horizon2020', canLogin: true });
