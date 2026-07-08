@@ -1731,6 +1731,7 @@ function conceptSetField(key, val) {
   if (!_conceptData.fields) _conceptData.fields = {};
   _conceptData.fields[key] = val;
   persistConceptOnDeal();
+  notifyAdminsFieldUpdate(key, _conceptFieldLabel(key));
 }
 
 function conceptToggleSource(key, source) {
@@ -1787,7 +1788,13 @@ function removeAppScenario(sid) {
 function updateAppScenario(sid, field, value) {
   if (!_conceptData.applicationScenarios) return;
   const s = _conceptData.applicationScenarios.find(x => x.id === sid);
-  if (s) { s[field] = value; persistConceptOnDeal(); }
+  if (s) {
+    s[field] = value;
+    persistConceptOnDeal();
+    const scenarioName = s.name || 'Scenario';
+    const fieldLabels = { name: 'Nome scenario', problemStatement: 'Problem Statement', product: 'Prodotto', valueProposition: 'Value Proposition' };
+    notifyAdminsFieldUpdate('as-' + sid + '-' + field, scenarioName + ' — ' + (fieldLabels[field] || field));
+  }
 }
 function renderAppScenarios() {
   const el = document.getElementById('app-scenarios-list');
@@ -3396,14 +3403,15 @@ const NOTIF_TYPE_TO_SETTING = {
   task_assigned: 'tasksAssigned',
   task_due_soon: 'tasksDueSoon',
   deal_stage_change: 'stageChange',
-  new_deal: 'newDeal'
+  new_deal: 'newDeal',
+  field_updated: 'fieldUpdates'
 };
 function loadNotifications() {
   try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch(e) { return []; }
 }
 function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); _sbSync(NOTIF_KEY, list); }
 function userSettings(userId) {
-  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, emailNotifs:true };
+  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, fieldUpdates:true, emailNotifs:true };
   try {
     const raw = localStorage.getItem('dealflow_settings_' + userId);
     if (!raw) return def;
@@ -3414,6 +3422,57 @@ function saveUserSettings(userId, s) {
   localStorage.setItem('dealflow_settings_' + userId, JSON.stringify(s));
   _sbSync('dealflow_settings_' + userId, s);
 }
+// -------- Admin field-update notifier (debounced) --------
+const _CONCEPT_FIELD_LABELS = {
+  technology: '1.1 Technology',
+  trlJustification: '1.2 TRL Justification & Key Evidences',
+  intellectualProperty: '1.3 Intellectual Property',
+  marketValue: '3.1 Valore di mercato',
+  segmentationTargeting: '3.2 Segmentazione e Targeting',
+  adoptionRequirements: '3.3 Requisiti di adozione',
+  competitorAnalysis: '3.4 Analisi competitor',
+  investmentTrends: '3.5 Investment Trends',
+  bmActivities: '4.1 Attività chiave / Key Assets / Partner',
+  bmRevenues: '4.2 Revenues Stream',
+  bmCosts: '4.3 Cost Structure',
+  bmSustainability: '4.4 Sostenibilità e KPI',
+  roadmap: '6.1 From TRL to Market',
+  nextMilestones: '6.2 Next 12 months milestones'
+};
+function _conceptFieldLabel(key) { return _CONCEPT_FIELD_LABELS[key] || key; }
+
+function isAdminMember(m) {
+  if (!m) return false;
+  return m.id === 'tm-admin' || (m.email || '').toLowerCase() === 'francesca.petrucci@day-one.biz';
+}
+
+const _fieldUpdateTimers = {};
+function notifyAdminsFieldUpdate(fieldKey, fieldLabel) {
+  if (!editingDeal) return;
+  const me = currentUser();
+  const dealId = editingDeal.id;
+  const company = editingDeal.company || 'Deal';
+  const tk = dealId + '::' + fieldKey;
+  if (_fieldUpdateTimers[tk]) clearTimeout(_fieldUpdateTimers[tk]);
+  _fieldUpdateTimers[tk] = setTimeout(() => {
+    delete _fieldUpdateTimers[tk];
+    try {
+      const team = (typeof loadTeam === 'function') ? loadTeam() : [];
+      const admins = team.filter(isAdminMember);
+      admins.forEach(a => {
+        if (me && a.id === me.id) return;
+        addNotification({
+          userId: a.id,
+          type: 'field_updated',
+          title: company + ': aggiornato "' + fieldLabel + '"',
+          body: (me ? me.name + ' ha' : 'Qualcuno ha') + ' modificato il campo.',
+          dealId
+        });
+      });
+    } catch(e) { console.warn('field-update notif error:', e); }
+  }, 5000);
+}
+
 function addNotification(n) {
   if (!n.userId) return;
   const settingKey = NOTIF_TYPE_TO_SETTING[n.type];
@@ -3721,6 +3780,7 @@ function renderSettings() {
         ${row('tasksDueSoon','Task in scadenza','Avvisi per i task con scadenza nei prossimi 3 giorni')}
         ${row('stageChange','Cambio stage deal','Avvisi quando cambia lo stage di un deal a cui partecipi')}
         ${row('newDeal','Nuovi deal','Avvisi quando viene creato un nuovo deal')}
+        ${row('fieldUpdates','Aggiornamenti contenuti (solo admin)','Ricevi una notifica quando un utente modifica un campo di una scheda progetto')}
       </div>
       <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3 mt-4">
         <div class="flex items-center gap-2 mb-2">
