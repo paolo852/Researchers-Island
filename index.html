@@ -350,30 +350,55 @@ async function deleteFileFromSupabase(path) {
   try { await _sb.storage.from(SB_BUCKET).remove([path]); } catch(e) { console.warn('Storage delete error:', e.message); }
 }
 
+// Keys that hold an array of items with a stable id — safe to merge by id
+const MERGEABLE_ARRAY_KEYS = new Set(['dealflow_demo','dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries','dealflow_notifications']);
+
 async function _sbLoadAll() {
   if (!_sb) return;
   const { data, error } = await _sb.from('app_data').select('key, value');
   if (error) throw error;
   (data || []).forEach(row => {
-    // Safety: never overwrite non-empty local data with an empty cloud value
-    // (protects against a stale/accidentally-wiped cloud row erasing local work).
     const incoming = row.value;
+    const localRaw = localStorage.getItem(row.key);
+    let localVal = null;
+    if (localRaw) { try { localVal = JSON.parse(localRaw); } catch(_) {} }
+
+    // Rule 1: never let an empty cloud value wipe non-empty local
     const isEmpty = incoming == null
       || (Array.isArray(incoming) && incoming.length === 0)
       || (typeof incoming === 'object' && !Array.isArray(incoming) && Object.keys(incoming).length === 0);
     if (isEmpty) {
-      const localRaw = localStorage.getItem(row.key);
-      if (localRaw) {
-        try {
-          const localVal = JSON.parse(localRaw);
-          const localHasData = (Array.isArray(localVal) && localVal.length > 0)
-            || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
-          if (localHasData) return; // keep local
-        } catch(_) {}
-      }
+      const localHasData = (Array.isArray(localVal) && localVal.length > 0)
+        || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
+      if (localHasData) return; // keep local
     }
+
+    // Rule 2: for known array-of-objects keys, MERGE by id rather than replace
+    // Prevents a browser with a shorter list from wiping a browser with a longer one.
+    if (MERGEABLE_ARRAY_KEYS.has(row.key) && Array.isArray(incoming) && Array.isArray(localVal)) {
+      const merged = _mergeById(localVal, incoming);
+      localStorage.setItem(row.key, JSON.stringify(merged));
+      return;
+    }
+
     localStorage.setItem(row.key, JSON.stringify(incoming));
   });
+}
+
+function _mergeById(localArr, cloudArr) {
+  const byId = new Map();
+  // Seed with local first — local wins on ties unless cloud is explicitly newer
+  localArr.forEach(item => { if (item && item.id) byId.set(item.id, item); });
+  cloudArr.forEach(item => {
+    if (!item || !item.id) return;
+    const local = byId.get(item.id);
+    if (!local) { byId.set(item.id, item); return; }
+    // Compare updatedAt if available; otherwise keep local (safer against overwrite)
+    const lu = local.updatedAt ? Date.parse(local.updatedAt) : 0;
+    const cu = item.updatedAt ? Date.parse(item.updatedAt) : 0;
+    if (cu > lu) byId.set(item.id, item);
+  });
+  return Array.from(byId.values());
 }
 
 // ============================================================
@@ -595,6 +620,15 @@ function loadDeals() {
 function saveDeals(deals) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
   _sbSync(STORAGE_KEY, deals);
+}
+
+function _stampDealUpdated(dealId) {
+  if (!dealId) return;
+  try {
+    const list = loadDeals();
+    const d = list.find(x => x.id === dealId);
+    if (d) { d.updatedAt = new Date().toISOString(); saveDeals(list); }
+  } catch(_) {}
 }
 
 let deals = loadDeals();
@@ -1970,6 +2004,7 @@ function persistConceptOnDeal() {
   const idx = deals.findIndex(d => d.id === editingDeal.id);
   if (idx < 0) return;
   deals[idx].concept = JSON.parse(JSON.stringify(_conceptData));
+  deals[idx].updatedAt = new Date().toISOString();
   saveDeals(deals);
   editingDeal = deals[idx];
 }
