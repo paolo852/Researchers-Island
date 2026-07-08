@@ -4068,9 +4068,9 @@ function renderSettings() {
           <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">Brevo</span>
         </div>
         ${row('emailNotifs','Ricevi notifiche via email',`Le notifiche abilitate sopra vengono inviate anche all'indirizzo ${esc(u.email||'—')}`)}
-        ${isPartner ? `
+        ${isAdmin ? `
         <div class="p-4 border border-slate-200 rounded-lg bg-slate-50">
-          <div class="text-sm font-medium text-slate-700 mb-1">Brevo API Key <span class="text-xs text-slate-400 font-normal">(visibile solo ai Partner)</span></div>
+          <div class="text-sm font-medium text-slate-700 mb-1">Brevo API Key <span class="text-xs text-slate-400 font-normal">(visibile solo agli admin)</span></div>
           <div class="text-xs text-slate-500 mb-2">Incolla qui la chiave da Brevo → SMTP &amp; API → API Keys. Viene salvata in modo sicuro e non compare nel codice sorgente.</div>
           <div class="flex gap-2">
             <input id="brevo-key-input" type="password" placeholder="xkeysib-..." value="${esc(getBrevoKey())}"
