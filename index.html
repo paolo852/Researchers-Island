@@ -146,6 +146,60 @@
       </div>
       <div id="login-error" class="text-sm text-red-600 hidden">Credenziali non valide o utente non autorizzato.</div>
       <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium">Accedi</button>
+      <div class="text-center pt-2">
+        <button type="button" onclick="openForgotPasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Password dimenticata?</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div id="forgot-modal-overlay" class="fixed inset-0 z-[110] bg-black/50 hidden flex items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-slate-800">Reimposta password</h2>
+      <button onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <p class="text-sm text-slate-500 mb-4">Inserisci l'email associata al tuo account. Ti invieremo un link per reimpostare la password (valido 60 minuti).</p>
+    <form onsubmit="doForgotPassword(event)" class="space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Email</label>
+        <input id="forgot-email" type="email" required autofocus class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div id="forgot-message" class="text-sm hidden"></div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeForgotPasswordModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annulla</button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Invia link</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- RESET PASSWORD OVERLAY -->
+<div id="reset-overlay" class="fixed inset-0 z-[100] bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-800 flex items-center justify-center hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 bg-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-3">DT</div>
+      <h1 class="text-xl font-bold text-slate-800">Reimposta password</h1>
+      <p id="reset-welcome-text" class="text-sm text-slate-500 mt-1">Inserisci la tua nuova password.</p>
+    </div>
+    <form onsubmit="doResetPassword(event)" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Email (username)</label>
+        <input id="reset-email" type="email" readonly class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-500 cursor-not-allowed">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nuova password</label>
+        <input id="reset-password" type="password" required minlength="8" autocomplete="new-password" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Conferma nuova password</label>
+        <input id="reset-password2" type="password" required minlength="8" autocomplete="new-password" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div id="reset-error" class="text-sm text-red-600 hidden"></div>
+      <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors">Salva nuova password e accedi</button>
     </form>
   </div>
 </div>
@@ -4089,6 +4143,88 @@ function doSetPassword(e) {
   if (usernameEl) usernameEl.value = team[idx].email;
 }
 
+// -------- Forgot password (email a reset link) --------
+let _resetMemberId = null;
+
+function openForgotPasswordModal() {
+  document.getElementById('forgot-modal-overlay').classList.remove('hidden');
+  const em = document.getElementById('forgot-email');
+  if (em) em.value = document.getElementById('login-username').value || '';
+  const msg = document.getElementById('forgot-message');
+  if (msg) { msg.classList.add('hidden'); msg.textContent = ''; }
+}
+function closeForgotPasswordModal() {
+  document.getElementById('forgot-modal-overlay').classList.add('hidden');
+}
+
+async function doForgotPassword(e) {
+  e.preventDefault();
+  const email = (document.getElementById('forgot-email').value || '').trim().toLowerCase();
+  const msg = document.getElementById('forgot-message');
+  msg.classList.remove('hidden');
+  msg.className = 'text-sm text-slate-500';
+  msg.textContent = 'Se l\'indirizzo è registrato, riceverai una email con il link entro pochi istanti.';
+
+  const team = loadTeam();
+  const idx = team.findIndex(m => (m.email||'').toLowerCase() === email && m.status !== 'Inactive');
+  if (idx < 0) {
+    // Do NOT reveal that account doesn't exist — keep generic message.
+    return;
+  }
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2,'0')).join('');
+  team[idx].resetToken = token;
+  team[idx].resetExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 60 min
+  saveTeam(team);
+
+  const appUrl = window.location.origin + window.location.pathname;
+  const resetLink = appUrl + '?reset=' + token;
+  const html = _emailHtml(
+    'Reimposta la tua password',
+    'Hai richiesto di reimpostare la password per il tuo account su DeepTech Deal Flow Manager. Clicca il pulsante qui sotto per scegliere una nuova password. Il link è valido 60 minuti.',
+    'Reimposta password',
+    resetLink,
+    (team[idx].name||'').split(' ')[0]
+  );
+
+  if (!getBrevoKey()) {
+    msg.className = 'text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2';
+    msg.innerHTML = 'Brevo non è configurato. Il link di reset è: <a class="text-indigo-600 underline break-all" href="' + resetLink + '">' + resetLink + '</a>';
+    return;
+  }
+  try {
+    await sendBrevoEmail(team[idx].email, team[idx].name, 'DeepTech Deal Flow — Reset password', html);
+  } catch(err) {
+    console.warn('reset email error:', err);
+  }
+}
+
+function doResetPassword(e) {
+  e.preventDefault();
+  const p1 = document.getElementById('reset-password').value;
+  const p2 = document.getElementById('reset-password2').value;
+  const errEl = document.getElementById('reset-error');
+  errEl.classList.add('hidden');
+  if (p1 !== p2) { errEl.textContent = 'Le password non corrispondono.'; errEl.classList.remove('hidden'); return; }
+  if (p1.length < 8) { errEl.textContent = 'La password deve essere di almeno 8 caratteri.'; errEl.classList.remove('hidden'); return; }
+  const team = loadTeam();
+  const idx = team.findIndex(m => m.id === _resetMemberId);
+  if (idx < 0) { errEl.textContent = 'Link non valido o scaduto.'; errEl.classList.remove('hidden'); return; }
+  team[idx].password = p1;
+  team[idx].canLogin = true;
+  team[idx].status = 'Active';
+  team[idx].resetToken = null;
+  team[idx].resetExpiry = null;
+  if (!team[idx].username) team[idx].username = team[idx].email;
+  saveTeam(team);
+
+  window.history.replaceState({}, '', window.location.pathname);
+  document.getElementById('reset-overlay').classList.add('hidden');
+  showLogin();
+  const usernameEl = document.getElementById('login-username');
+  if (usernameEl) usernameEl.value = team[idx].email;
+  alert('Password aggiornata. Ora puoi accedere con le nuove credenziali.');
+}
+
 
 // ============================================================
 // FILES (per deal)
@@ -6348,6 +6484,24 @@ function showApp() {
       return;
     }
     // Token not found or expired — clean URL and proceed normally
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  // Check for password-reset token in URL
+  const _resetToken = _urlParams.get('reset');
+  if (_resetToken) {
+    const _teamNow = loadTeam();
+    const _resetMember = _teamNow.find(m => m.resetToken === _resetToken && m.resetExpiry && new Date(m.resetExpiry) > new Date());
+    if (_resetMember) {
+      _resetMemberId = _resetMember.id;
+      const wt = document.getElementById('reset-welcome-text');
+      if (wt) wt.textContent = 'Ciao ' + (_resetMember.name||'') + ', imposta una nuova password.';
+      document.getElementById('reset-email').value = _resetMember.email;
+      document.getElementById('reset-overlay').classList.remove('hidden');
+      return;
+    }
+    // Token not found or expired
+    alert('Il link di reset è scaduto o non valido. Richiedine uno nuovo.');
     window.history.replaceState({}, '', window.location.pathname);
   }
 
