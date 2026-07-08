@@ -1903,7 +1903,8 @@ function conceptInitFromDeal(d) {
     validationSources:    JSON.parse(JSON.stringify((d.concept&&d.concept.validationSources)||{})),
     risks:                JSON.parse(JSON.stringify((d.concept&&d.concept.risks)||[])),
     applicationScenarios: JSON.parse(JSON.stringify((d.concept&&d.concept.applicationScenarios)||[])),
-    stakeholders:         JSON.parse(JSON.stringify((d.concept&&d.concept.stakeholders)||[]))
+    stakeholders:         JSON.parse(JSON.stringify((d.concept&&d.concept.stakeholders)||[])),
+    lastEdited:           JSON.parse(JSON.stringify((d.concept&&d.concept.lastEdited)||{}))
   };
   // Migrate legacy single-scenario fields into first application scenario
   if (_conceptData.applicationScenarios.length === 0) {
@@ -1920,9 +1921,25 @@ function conceptInitFromDeal(d) {
   }
 }
 
+function _stampFieldEdit(key) {
+  if (!_conceptData.lastEdited) _conceptData.lastEdited = {};
+  const u = currentUser();
+  _conceptData.lastEdited[key] = { by: u ? u.name : '', at: new Date().toISOString() };
+  const el = document.getElementById('lastedit-' + key);
+  if (el) el.innerHTML = _fmtLastEdit(_conceptData.lastEdited[key]);
+}
+function _fmtLastEdit(le) {
+  if (!le || !le.at) return '';
+  const d = new Date(le.at);
+  const dtStr = d.toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'2-digit' }) + ' ' + d.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+  const by = le.by ? ' da <span class="font-medium text-slate-500">' + esc(le.by) + '</span>' : '';
+  return 'Ultima modifica: ' + dtStr + by;
+}
+
 function conceptSetField(key, val) {
   if (!_conceptData.fields) _conceptData.fields = {};
   _conceptData.fields[key] = val;
+  _stampFieldEdit(key);
   persistConceptOnDeal();
   notifyAdminsFieldUpdate(key, _conceptFieldLabel(key));
 }
@@ -1983,6 +2000,7 @@ function updateAppScenario(sid, field, value) {
   const s = _conceptData.applicationScenarios.find(x => x.id === sid);
   if (s) {
     s[field] = value;
+    _stampFieldEdit('as-' + sid + '-' + field);
     persistConceptOnDeal();
     const scenarioName = s.name || 'Scenario';
     const fieldLabels = { name: 'Nome scenario', problemStatement: 'Problem Statement', product: 'Prodotto', valueProposition: 'Value Proposition' };
@@ -2011,16 +2029,19 @@ function renderAppScenarios() {
           <label class="block text-xs font-semibold text-slate-600 mb-1">Problem Statement</label>
           <p class="text-xs text-slate-400 mb-1">Contesto, problema/pain, intensità e da chi è sperimentato. Perché le soluzioni esistenti non bastano. Costo monetario e non del problema.</p>
           ${richTextEditor('as-'+s.id+'-problem', s.problemStatement||'', 'Descrivi il problema...', "updateAppScenario('"+s.id+"','problemStatement', arguments[0])")}
+          <div id="lastedit-as-${s.id}-problemStatement" class="text-[10px] text-slate-400 mt-1 italic">${_fmtLastEdit(_conceptData.lastEdited && _conceptData.lastEdited['as-'+s.id+'-problemStatement'])}</div>
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Prodotto</label>
           <p class="text-xs text-slate-400 mb-1">Cos'è il prodotto e le sue funzionalità principali. Come risponde al bisogno. Confronto AS IS vs TO BE.</p>
           ${richTextEditor('as-'+s.id+'-product', s.product||'', 'Descrivi il prodotto...', "updateAppScenario('"+s.id+"','product', arguments[0])")}
+          <div id="lastedit-as-${s.id}-product" class="text-[10px] text-slate-400 mt-1 italic">${_fmtLastEdit(_conceptData.lastEdited && _conceptData.lastEdited['as-'+s.id+'-product'])}</div>
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Value Proposition &amp; Placement</label>
           <p class="text-xs text-slate-400 mb-1">Elementi differenziali, USP, principali leve d'acquisto, posizionamento sul mercato.</p>
           ${richTextEditor('as-'+s.id+'-vp', s.valueProposition||'', 'Value proposition...', "updateAppScenario('"+s.id+"','valueProposition', arguments[0])")}
+          <div id="lastedit-as-${s.id}-valueProposition" class="text-[10px] text-slate-400 mt-1 italic">${_fmtLastEdit(_conceptData.lastEdited && _conceptData.lastEdited['as-'+s.id+'-valueProposition'])}</div>
         </div>
 
         ${_appScenarioValidationBlock(s.id)}
@@ -2421,6 +2442,7 @@ function conceptField(key, label, placeholder, d, withValidation, withSources) {
   const vstat = (d.concept && d.concept.validationStatus && d.concept.validationStatus[key]) || 'Ipotesi';
   const srcs  = (d.concept && d.concept.validationSources && d.concept.validationSources[key]) || [];
   const commentCount = ((d.concept&&d.concept.comments&&d.concept.comments[key])||[]).length;
+  const lastEdit = (d.concept && d.concept.lastEdited && d.concept.lastEdited[key]) || null;
   return `
   <div class="border border-slate-100 rounded-lg p-3 bg-white">
     <div class="flex items-start justify-between gap-2 mb-2 flex-wrap">
@@ -2449,6 +2471,7 @@ function conceptField(key, label, placeholder, d, withValidation, withSources) {
       </div>
     </div>
     ${richTextEditor('concept-field-'+key, val, placeholder, "conceptSetField('"+key+"', arguments[0])")}
+    <div id="lastedit-${key}" class="text-[10px] text-slate-400 mt-1 italic">${_fmtLastEdit(lastEdit)}</div>
 
     <!-- Commenti -->
     <details class="mt-2 bg-slate-50 rounded-lg border border-slate-100">
