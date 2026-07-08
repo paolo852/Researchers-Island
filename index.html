@@ -4096,7 +4096,7 @@ function renderSettings() {
           <h2 class="text-base font-semibold text-slate-700">Template Piano Eco-Fin</h2>
           <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Super Admin</span>
         </div>
-        <p class="text-xs text-slate-500">Carica qui il file Excel/CSV usato come template scaricabile dal Capitolo 8 di ogni deal. Se nessun file è caricato, viene generato automaticamente un CSV precompilato.</p>
+        <p class="text-xs text-slate-500">Carica qui il file Excel/CSV usato come template scaricabile dal Capitolo 8 di ogni deal. Se nessun file è caricato, il bottone "Scarica template" resta disponibile ma segnala all'utente che manca il template.</p>
         <div id="ecofin-template-info" class="p-3 border border-slate-200 rounded-lg bg-slate-50"></div>
         <div class="flex gap-2 flex-wrap">
           <button type="button" onclick="document.getElementById('ecofin-template-input').click()" class="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg font-medium">Carica nuovo template</button>
@@ -4373,7 +4373,7 @@ function renderEcoFinTemplateInfo() {
   if (!el) return;
   const t = loadEcoFinTemplate();
   if (!t) {
-    el.innerHTML = '<span class="text-xs text-slate-400 italic">Nessun template caricato — viene usato il CSV precompilato di default.</span>';
+    el.innerHTML = '<span class="text-xs text-slate-400 italic">Nessun template caricato. Fino a quando non ne carichi uno, gli utenti riceveranno un messaggio quando premono "Scarica template".</span>';
     return;
   }
   el.innerHTML = `
@@ -4419,7 +4419,6 @@ async function removeEcoFinTemplate() {
 function downloadEcoFinTemplate() {
   const t = loadEcoFinTemplate();
   if (t && t.url) {
-    // download the uploaded template
     const a = document.createElement('a');
     a.href = t.url;
     a.download = t.name || 'template_piano_eco_fin';
@@ -4429,7 +4428,7 @@ function downloadEcoFinTemplate() {
     document.body.removeChild(a);
     return;
   }
-  _downloadDefaultEcoFinTemplate();
+  alert('Nessun template caricato. Chiedi al super admin di caricarlo dalle Impostazioni.');
 }
 
 function _downloadDefaultEcoFinTemplate() {
