@@ -40,8 +40,21 @@
     <div class="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-5"></div>
     <p class="text-xl font-semibold mb-1">DeepTech Deal Flow</p>
     <p class="text-sm text-slate-400" id="loading-status">Connessione al cloud…</p>
+    <button id="loading-skip-btn" onclick="document.getElementById('loading-overlay').style.display='none'" class="hidden mt-6 text-xs text-slate-300 hover:text-white underline">Salta caricamento e usa dati locali</button>
   </div>
 </div>
+<script>
+// Ultra-early failsafe: no matter what fails in the app, force-hide the loading overlay after 10s
+// and show a manual skip button after 4s.
+setTimeout(function(){
+  var b = document.getElementById('loading-skip-btn');
+  if (b) b.classList.remove('hidden');
+}, 4000);
+setTimeout(function(){
+  var o = document.getElementById('loading-overlay');
+  if (o && o.style.display !== 'none') { o.style.display = 'none'; console.warn('Ultra-early failsafe hid overlay.'); }
+}, 10000);
+</script>
 
 <!-- SIDEBAR -->
 <aside id="sidebar" class="w-64 bg-slate-800 min-h-screen flex flex-col flex-shrink-0">
