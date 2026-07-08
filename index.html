@@ -217,6 +217,12 @@
   </div>
 </div>
 
+<div id="privileges-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
+  <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
+    <div id="privileges-modal-body"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // SUPABASE CONFIG
@@ -3525,8 +3531,41 @@ function _conceptFieldLabel(key) { return _CONCEPT_FIELD_LABELS[key] || key; }
 
 function isAdminMember(m) {
   if (!m) return false;
+  if (m.accessLevel === 'admin') return true;
   return m.id === 'tm-admin' || (m.email || '').toLowerCase() === 'francesca.petrucci@day-one.biz';
 }
+
+// Access-level & per-section permissions
+const PERM_SECTIONS = [
+  { key: 'pipeline',   label: 'Pipeline' },
+  { key: 'portfolio',  label: 'Portfolio' },
+  { key: 'investors',  label: 'Investitori' },
+  { key: 'team',       label: 'Team' },
+  { key: 'industries', label: 'Industrie' },
+  { key: 'settings',   label: 'Impostazioni' }
+];
+const PERM_LEVELS = ['edit','view','none'];
+function _defaultPermissions() {
+  return { pipeline:'edit', portfolio:'edit', investors:'edit', team:'view', industries:'edit', settings:'view' };
+}
+function _adminPermissions() {
+  return { pipeline:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' };
+}
+function userPermission(section) {
+  const u = currentUser();
+  if (!u) return 'none';
+  let m = u;
+  try {
+    const t = loadTeam();
+    const rec = t.find(x => x.id === u.id);
+    if (rec) m = rec;
+  } catch(_) {}
+  if (isAdminMember(m)) return 'edit';
+  const p = (m.permissions || _defaultPermissions())[section];
+  return p || 'view';
+}
+function canView(section)  { return userPermission(section) !== 'none'; }
+function canEdit(section)  { return userPermission(section) === 'edit'; }
 
 const _fieldUpdateTimers = {};
 function notifyAdminsFieldUpdate(fieldKey, fieldLabel) {
@@ -5761,6 +5800,8 @@ function renderTeam() {
                   <div class="text-xs text-slate-400 mt-0.5">${esc(m.email||'—')}</div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
+                  ${isAdminMember(m) ? '<span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 border border-red-200">Admin</span>' : '<span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200">User</span>'}
+                  ${isAdminMember(currentUser()) ? `<button onclick="openPrivilegesModal('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700">Privilegi</button>` : ''}
                   <button onclick="openTeamModal('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-50 hover:bg-slate-100 text-slate-600">Modifica</button>
                   <button onclick="deleteTeamMember('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 hover:bg-red-100 text-red-600">Elimina</button>
                 </div>
@@ -5870,6 +5911,116 @@ function openTeamModal(id) {
   document.getElementById('team-modal-overlay').classList.remove('hidden');
 }
 function closeTeamModal() { document.getElementById('team-modal-overlay').classList.add('hidden'); }
+
+// -------- Privileges modal --------
+function openPrivilegesModal(memberId) {
+  const me = currentUser();
+  if (!isAdminMember(me)) { alert('Solo un admin può modificare i privilegi.'); return; }
+  const team = loadTeam();
+  const m = team.find(x => x.id === memberId);
+  if (!m) return;
+  const perms = { ..._defaultPermissions(), ...(m.permissions || {}) };
+  const isAdmin = isAdminMember(m);
+  const body = document.getElementById('privileges-modal-body');
+  body.innerHTML = `
+    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">Privilegi utente</h2>
+        <p class="text-xs text-slate-400 mt-0.5">${esc(m.name)} · ${esc(m.email||'—')}</p>
+      </div>
+      <button onclick="closePrivilegesModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="privileges-form" onsubmit="savePrivileges(event,'${m.id}')" class="p-6 space-y-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-2">Livello di accesso</label>
+        <div class="flex gap-2">
+          <label class="flex-1 flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${isAdmin?'border-red-300 bg-red-50':'border-slate-200'}">
+            <input type="radio" name="accessLevel" value="admin" ${isAdmin?'checked':''} class="text-red-600">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">Admin</div>
+              <div class="text-xs text-slate-400">Accesso completo, può modificare privilegi</div>
+            </div>
+          </label>
+          <label class="flex-1 flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${!isAdmin?'border-slate-400 bg-slate-50':'border-slate-200'}">
+            <input type="radio" name="accessLevel" value="user" ${!isAdmin?'checked':''} class="text-slate-600">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">User</div>
+              <div class="text-xs text-slate-400">Permessi da impostare per sezione</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div id="perm-detail" class="${isAdmin?'opacity-50 pointer-events-none':''}">
+        <label class="block text-sm font-medium text-slate-600 mb-2">Permessi per sezione</label>
+        <p class="text-xs text-slate-400 mb-3">Per ogni sezione: <b>Modifica</b> (accesso completo), <b>Solo lettura</b> (nessuna modifica), <b>Nessun accesso</b> (sezione nascosta).</p>
+        <div class="space-y-2">
+          ${PERM_SECTIONS.map(sec => `
+            <div class="flex items-center gap-3 border border-slate-100 rounded-lg px-3 py-2">
+              <span class="flex-1 text-sm font-medium text-slate-700">${sec.label}</span>
+              <select name="perm-${sec.key}" class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                <option value="edit" ${perms[sec.key]==='edit'?'selected':''}>Modifica</option>
+                <option value="view" ${perms[sec.key]==='view'?'selected':''}>Solo lettura</option>
+                <option value="none" ${perms[sec.key]==='none'?'selected':''}>Nessun accesso</option>
+              </select>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closePrivilegesModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annulla</button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Salva</button>
+      </div>
+    </form>
+  `;
+  document.getElementById('privileges-modal-overlay').classList.remove('hidden');
+  // Toggle perm-detail based on access level radio
+  body.querySelectorAll('input[name="accessLevel"]').forEach(r => r.addEventListener('change', () => {
+    const isA = body.querySelector('input[name="accessLevel"][value="admin"]').checked;
+    const pd = document.getElementById('perm-detail');
+    if (pd) pd.className = isA ? 'opacity-50 pointer-events-none' : '';
+  }));
+}
+function closePrivilegesModal() { document.getElementById('privileges-modal-overlay').classList.add('hidden'); }
+function savePrivileges(e, memberId) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const team = loadTeam();
+  const idx = team.findIndex(x => x.id === memberId);
+  if (idx < 0) return;
+  const accessLevel = fd.get('accessLevel') || 'user';
+  team[idx].accessLevel = accessLevel;
+  if (accessLevel === 'admin') {
+    team[idx].permissions = _adminPermissions();
+  } else {
+    const p = {};
+    PERM_SECTIONS.forEach(sec => { p[sec.key] = fd.get('perm-'+sec.key) || 'view'; });
+    team[idx].permissions = p;
+  }
+  saveTeam(team);
+  closePrivilegesModal();
+  renderTeam();
+  applyPermissionsToSidebar();
+}
+
+function applyPermissionsToSidebar() {
+  const map = {
+    'nav-pipeline':   'pipeline',
+    'nav-portfolio':  'portfolio',
+    'nav-investors':  'investors',
+    'nav-team':       'team',
+    'nav-industries': 'industries',
+    'nav-settings':   'settings'
+  };
+  Object.keys(map).forEach(navId => {
+    const el = document.getElementById(navId);
+    if (!el) return;
+    if (canView(map[navId])) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+  });
+}
 
 let _teamPhotoData = undefined; // holds base64 data URL during modal editing
 
@@ -5996,6 +6147,7 @@ function showApp() {
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('sidebar').classList.remove('hidden');
   document.querySelector('main').classList.remove('hidden');
+  try { applyPermissionsToSidebar(); } catch(_) {}
   const u = currentUser();
   const el = document.getElementById('sidebar-user');
   if (u && el) el.textContent = u.name + ' · ' + u.role;
@@ -6049,6 +6201,14 @@ function showApp() {
     if (m.username === undefined) { m.username = ''; _teamMigrated = true; }
     if (m.password === undefined) { m.password = ''; _teamMigrated = true; }
     if (m.canLogin === undefined) { m.canLogin = false; _teamMigrated = true; }
+    if (m.accessLevel === undefined) {
+      m.accessLevel = (m.id === 'tm-admin' || (m.email||'').toLowerCase() === 'francesca.petrucci@day-one.biz') ? 'admin' : 'user';
+      _teamMigrated = true;
+    }
+    if (!m.permissions) {
+      m.permissions = m.accessLevel === 'admin' ? { pipeline:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' } : { pipeline:'edit', portfolio:'edit', investors:'edit', team:'view', industries:'edit', settings:'view' };
+      _teamMigrated = true;
+    }
   });
   if (!team.some(m => m.id === 'tm-admin')) {
     team.unshift({ id: 'tm-admin', name: 'Francesca Petrucci', email: 'francesca.petrucci@day-one.biz', role: 'Partner', status: 'Active', username: 'francesca.petrucci@day-one.biz', password: 'Horizon2020', canLogin: true });
