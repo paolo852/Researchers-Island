@@ -3687,10 +3687,15 @@ const _CONCEPT_FIELD_LABELS = {
 };
 function _conceptFieldLabel(key) { return _CONCEPT_FIELD_LABELS[key] || key; }
 
+function isSuperAdminMember(m) {
+  if (!m) return false;
+  if (m.accessLevel === 'superadmin') return true;
+  return m.id === 'tm-admin' || (m.email || '').toLowerCase() === 'francesca.petrucci@day-one.biz';
+}
 function isAdminMember(m) {
   if (!m) return false;
-  if (m.accessLevel === 'admin') return true;
-  return m.id === 'tm-admin' || (m.email || '').toLowerCase() === 'francesca.petrucci@day-one.biz';
+  if (isSuperAdminMember(m)) return true;
+  return m.accessLevel === 'admin';
 }
 
 // Access-level & per-section permissions
@@ -3994,6 +3999,7 @@ function renderSettings() {
   const s = userSettings(u.id);
   const isPartner = u.role === 'Partner';
   const isAdmin = isAdminMember(u);
+  const isSuperAdmin = isSuperAdminMember(u);
 
   const row = (key, label, desc) => `
     <label class="flex items-start justify-between gap-4 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
@@ -4068,9 +4074,9 @@ function renderSettings() {
           <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">Brevo</span>
         </div>
         ${row('emailNotifs','Ricevi notifiche via email',`Le notifiche abilitate sopra vengono inviate anche all'indirizzo ${esc(u.email||'—')}`)}
-        ${isAdmin ? `
+        ${isSuperAdmin ? `
         <div class="p-4 border border-slate-200 rounded-lg bg-slate-50">
-          <div class="text-sm font-medium text-slate-700 mb-1">Brevo API Key <span class="text-xs text-slate-400 font-normal">(visibile solo agli admin)</span></div>
+          <div class="text-sm font-medium text-slate-700 mb-1">Brevo API Key <span class="text-xs text-slate-400 font-normal">(visibile solo al super admin)</span></div>
           <div class="text-xs text-slate-500 mb-2">Incolla qui la chiave da Brevo → SMTP &amp; API → API Keys. Viene salvata in modo sicuro e non compare nel codice sorgente.</div>
           <div class="flex gap-2">
             <input id="brevo-key-input" type="password" placeholder="xkeysib-..." value="${esc(getBrevoKey())}"
@@ -6046,7 +6052,7 @@ function renderTeam() {
                   <div class="text-xs text-slate-400 mt-0.5">${esc(m.email||'—')}</div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                  ${isAdminMember(m) ? '<span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 border border-red-200">Admin</span>' : '<span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200">User</span>'}
+                  ${isSuperAdminMember(m) ? '<span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-700 border border-purple-200">Super Admin</span>' : (isAdminMember(m) ? '<span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 border border-red-200">Admin</span>' : '<span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200">User</span>')}
                   ${isAdminMember(currentUser()) ? `<button onclick="openPrivilegesModal('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700">Privilegi</button>` : ''}
                   <button onclick="openTeamModal('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-50 hover:bg-slate-100 text-slate-600">Modifica</button>
                   <button onclick="deleteTeamMember('${m.id}')" class="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 hover:bg-red-100 text-red-600">Elimina</button>
@@ -6166,7 +6172,9 @@ function openPrivilegesModal(memberId) {
   const m = team.find(x => x.id === memberId);
   if (!m) return;
   const perms = { ..._defaultPermissions(), ...(m.permissions || {}) };
-  const isAdmin = isAdminMember(m);
+  const isSuper = isSuperAdminMember(m);
+  const isAdmin = isAdminMember(m) && !isSuper;
+  const meIsSuper = isSuperAdminMember(me);
   const body = document.getElementById('privileges-modal-body');
   body.innerHTML = `
     <div class="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -6181,16 +6189,24 @@ function openPrivilegesModal(memberId) {
     <form id="privileges-form" onsubmit="savePrivileges(event,'${m.id}')" class="p-6 space-y-5">
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-2">Livello di accesso</label>
-        <div class="flex gap-2">
-          <label class="flex-1 flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${isAdmin?'border-red-300 bg-red-50':'border-slate-200'}">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+          ${meIsSuper ? `
+          <label class="flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${isSuper?'border-purple-400 bg-purple-50':'border-slate-200'}">
+            <input type="radio" name="accessLevel" value="superadmin" ${isSuper?'checked':''} class="text-purple-600">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">Super Admin</div>
+              <div class="text-xs text-slate-400">Accesso completo + Brevo API</div>
+            </div>
+          </label>` : ''}
+          <label class="flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${isAdmin?'border-red-300 bg-red-50':'border-slate-200'}">
             <input type="radio" name="accessLevel" value="admin" ${isAdmin?'checked':''} class="text-red-600">
             <div>
               <div class="text-sm font-semibold text-slate-700">Admin</div>
-              <div class="text-xs text-slate-400">Accesso completo, può modificare privilegi</div>
+              <div class="text-xs text-slate-400">Accesso completo alle sezioni</div>
             </div>
           </label>
-          <label class="flex-1 flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${!isAdmin?'border-slate-400 bg-slate-50':'border-slate-200'}">
-            <input type="radio" name="accessLevel" value="user" ${!isAdmin?'checked':''} class="text-slate-600">
+          <label class="flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${(!isAdmin && !isSuper)?'border-slate-400 bg-slate-50':'border-slate-200'}">
+            <input type="radio" name="accessLevel" value="user" ${(!isAdmin && !isSuper)?'checked':''} class="text-slate-600">
             <div>
               <div class="text-sm font-semibold text-slate-700">User</div>
               <div class="text-xs text-slate-400">Permessi da impostare per sezione</div>
@@ -6199,7 +6215,7 @@ function openPrivilegesModal(memberId) {
         </div>
       </div>
 
-      <div id="perm-detail" class="${isAdmin?'opacity-50 pointer-events-none':''}">
+      <div id="perm-detail" class="${(isAdmin||isSuper)?'opacity-50 pointer-events-none':''}">
         <label class="block text-sm font-medium text-slate-600 mb-2">Permessi per sezione</label>
         <p class="text-xs text-slate-400 mb-3">Per ogni sezione: <b>Modifica</b> (accesso completo), <b>Solo lettura</b> (nessuna modifica), <b>Nessun accesso</b> (sezione nascosta).</p>
         <div class="space-y-2">
@@ -6224,9 +6240,9 @@ function openPrivilegesModal(memberId) {
   document.getElementById('privileges-modal-overlay').classList.remove('hidden');
   // Toggle perm-detail based on access level radio
   body.querySelectorAll('input[name="accessLevel"]').forEach(r => r.addEventListener('change', () => {
-    const isA = body.querySelector('input[name="accessLevel"][value="admin"]').checked;
+    const val = body.querySelector('input[name="accessLevel"]:checked').value;
     const pd = document.getElementById('perm-detail');
-    if (pd) pd.className = isA ? 'opacity-50 pointer-events-none' : '';
+    if (pd) pd.className = (val === 'admin' || val === 'superadmin') ? 'opacity-50 pointer-events-none' : '';
   }));
 }
 function closePrivilegesModal() { document.getElementById('privileges-modal-overlay').classList.add('hidden'); }
@@ -6236,9 +6252,12 @@ function savePrivileges(e, memberId) {
   const team = loadTeam();
   const idx = team.findIndex(x => x.id === memberId);
   if (idx < 0) return;
-  const accessLevel = fd.get('accessLevel') || 'user';
+  const me = currentUser();
+  let accessLevel = fd.get('accessLevel') || 'user';
+  // Only super admins can promote/demote another super admin
+  if (accessLevel === 'superadmin' && !isSuperAdminMember(me)) accessLevel = 'admin';
   team[idx].accessLevel = accessLevel;
-  if (accessLevel === 'admin') {
+  if (accessLevel === 'admin' || accessLevel === 'superadmin') {
     team[idx].permissions = _adminPermissions();
   } else {
     const p = {};
@@ -6448,8 +6467,12 @@ function showApp() {
     if (m.password === undefined) { m.password = ''; _teamMigrated = true; }
     if (m.canLogin === undefined) { m.canLogin = false; _teamMigrated = true; }
     if (m.accessLevel === undefined) {
-      m.accessLevel = (m.id === 'tm-admin' || (m.email||'').toLowerCase() === 'francesca.petrucci@day-one.biz') ? 'admin' : 'user';
+      m.accessLevel = (m.id === 'tm-admin' || (m.email||'').toLowerCase() === 'francesca.petrucci@day-one.biz') ? 'superadmin' : 'user';
       _teamMigrated = true;
+    }
+    // Ensure Francesca is always super admin
+    if (m.id === 'tm-admin' || (m.email||'').toLowerCase() === 'francesca.petrucci@day-one.biz') {
+      if (m.accessLevel !== 'superadmin') { m.accessLevel = 'superadmin'; _teamMigrated = true; }
     }
     if (!m.permissions) {
       m.permissions = m.accessLevel === 'admin' ? { pipeline:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' } : { pipeline:'edit', portfolio:'view', investors:'edit', team:'view', industries:'edit', settings:'edit' };
