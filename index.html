@@ -350,55 +350,43 @@ async function deleteFileFromSupabase(path) {
   try { await _sb.storage.from(SB_BUCKET).remove([path]); } catch(e) { console.warn('Storage delete error:', e.message); }
 }
 
-// Keys that hold an array of items with a stable id — safe to merge by id
-const MERGEABLE_ARRAY_KEYS = new Set(['dealflow_demo','dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries','dealflow_notifications']);
+// Keys for which we NEVER let cloud overwrite local, and never merge back in from cloud automatically.
+// Local wins as source of truth. Cloud is a one-way backup only (localStorage -> Supabase).
+// Recovery from cloud can be done manually via Import backup or Supabase console.
+const LOCAL_ONLY_KEYS = new Set([
+  'dealflow_demo',          // deals
+  'dealflow_team',
+  'dealflow_investors',
+  'dealflow_portfolio',
+  'dealflow_industries',
+  'dealflow_notifications'
+]);
 
 async function _sbLoadAll() {
   if (!_sb) return;
   const { data, error } = await _sb.from('app_data').select('key, value');
   if (error) throw error;
   (data || []).forEach(row => {
+    // Never sync-in critical keys from cloud. Local is authoritative.
+    if (LOCAL_ONLY_KEYS.has(row.key)) return;
+
     const incoming = row.value;
     const localRaw = localStorage.getItem(row.key);
     let localVal = null;
     if (localRaw) { try { localVal = JSON.parse(localRaw); } catch(_) {} }
 
-    // Rule 1: never let an empty cloud value wipe non-empty local
+    // Safety: never let an empty cloud value wipe non-empty local
     const isEmpty = incoming == null
       || (Array.isArray(incoming) && incoming.length === 0)
       || (typeof incoming === 'object' && !Array.isArray(incoming) && Object.keys(incoming).length === 0);
     if (isEmpty) {
       const localHasData = (Array.isArray(localVal) && localVal.length > 0)
         || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
-      if (localHasData) return; // keep local
-    }
-
-    // Rule 2: for known array-of-objects keys, MERGE by id rather than replace
-    // Prevents a browser with a shorter list from wiping a browser with a longer one.
-    if (MERGEABLE_ARRAY_KEYS.has(row.key) && Array.isArray(incoming) && Array.isArray(localVal)) {
-      const merged = _mergeById(localVal, incoming);
-      localStorage.setItem(row.key, JSON.stringify(merged));
-      return;
+      if (localHasData) return;
     }
 
     localStorage.setItem(row.key, JSON.stringify(incoming));
   });
-}
-
-function _mergeById(localArr, cloudArr) {
-  const byId = new Map();
-  // Seed with local first — local wins on ties unless cloud is explicitly newer
-  localArr.forEach(item => { if (item && item.id) byId.set(item.id, item); });
-  cloudArr.forEach(item => {
-    if (!item || !item.id) return;
-    const local = byId.get(item.id);
-    if (!local) { byId.set(item.id, item); return; }
-    // Compare updatedAt if available; otherwise keep local (safer against overwrite)
-    const lu = local.updatedAt ? Date.parse(local.updatedAt) : 0;
-    const cu = item.updatedAt ? Date.parse(item.updatedAt) : 0;
-    if (cu > lu) byId.set(item.id, item);
-  });
-  return Array.from(byId.values());
 }
 
 // ============================================================
@@ -4189,7 +4177,9 @@ function renderSettings() {
           <button type="button" onclick="exportBackup()" class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg font-medium">Esporta backup JSON</button>
           <button type="button" onclick="document.getElementById('backup-import-input').click()" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-medium">Importa da JSON</button>
           <input id="backup-import-input" type="file" accept=".json,application/json" onchange="importBackup(event)" class="hidden">
+          <button type="button" onclick="restoreFromCloud()" class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-medium">Ripristina dal cloud</button>
         </div>
+        <p class="text-xs text-slate-400">Nota: la sincronizzazione dal cloud verso il locale è disabilitata per proteggere i tuoi dati. La app scrive comunque sul cloud come backup automatico. Usa "Ripristina dal cloud" solo se il tuo browser è vuoto e vuoi recuperare dai backup.</p>
       </div>` : ''}
 
       ${isSuperAdmin ? `
@@ -4456,6 +4446,26 @@ function persistFilesOnDeal() {
     if (idx >= 0) { deals[idx].files = JSON.parse(JSON.stringify(formFiles)); saveDeals(deals); editingDeal = deals[idx]; }
   } catch (err) {
     alert('Errore salvataggio file: ' + err.message + '\nProbabilmente hai raggiunto il limite di localStorage.');
+  }
+}
+
+// -------- Restore from cloud (manual, on demand) --------
+async function restoreFromCloud() {
+  if (!_sb) { alert('Supabase non configurato — impossibile ripristinare dal cloud.'); return; }
+  if (!confirm('Attenzione: verranno sovrascritti tutti i dati locali con quelli sul cloud. Procedere?')) return;
+  try {
+    const { data, error } = await _sb.from('app_data').select('key, value');
+    if (error) throw error;
+    let count = 0;
+    (data || []).forEach(row => {
+      if (row.value == null) return;
+      localStorage.setItem(row.key, JSON.stringify(row.value));
+      count++;
+    });
+    alert('Ripristinate ' + count + ' chiavi dal cloud. La pagina si ricarica.');
+    location.reload();
+  } catch(e) {
+    alert('Errore ripristino: ' + e.message);
   }
 }
 
