@@ -601,8 +601,9 @@ function loadDeals() {
   if (raw) {
     try { return JSON.parse(raw); } catch(e) {}
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_DEALS));
-  return JSON.parse(JSON.stringify(DEMO_DEALS));
+  // No demo fallback: a fresh browser must explicitly pull from cloud
+  // (Impostazioni → Ripristina dal cloud) to load the shared dataset.
+  return [];
 }
 
 function saveDeals(deals) {
@@ -4178,8 +4179,10 @@ function renderSettings() {
           <button type="button" onclick="document.getElementById('backup-import-input').click()" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-medium">Importa da JSON</button>
           <input id="backup-import-input" type="file" accept=".json,application/json" onchange="importBackup(event)" class="hidden">
           <button type="button" onclick="restoreFromCloud()" class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-medium">Ripristina dal cloud</button>
+          <button type="button" onclick="pushLocalToCloud()" class="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg font-medium">Sincronizza locale → cloud</button>
+          <button type="button" onclick="removeDemoDeals()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg font-medium">Rimuovi progetti demo</button>
         </div>
-        <p class="text-xs text-slate-400">Nota: la sincronizzazione dal cloud verso il locale è disabilitata per proteggere i tuoi dati. La app scrive comunque sul cloud come backup automatico. Usa "Ripristina dal cloud" solo se il tuo browser è vuoto e vuoi recuperare dai backup.</p>
+        <p class="text-xs text-slate-400">La sincronizzazione dal cloud verso il locale è disabilitata per proteggere i tuoi dati (locale = verità). La app scrive comunque su cloud come backup. Sui computer con dati sbagliati: "Ripristina dal cloud" (dopo che tu hai spinto i dati corretti con "Sincronizza locale → cloud").</p>
       </div>` : ''}
 
       ${isSuperAdmin ? `
@@ -4446,6 +4449,42 @@ function persistFilesOnDeal() {
     if (idx >= 0) { deals[idx].files = JSON.parse(JSON.stringify(formFiles)); saveDeals(deals); editingDeal = deals[idx]; }
   } catch (err) {
     alert('Errore salvataggio file: ' + err.message + '\nProbabilmente hai raggiunto il limite di localStorage.');
+  }
+}
+
+// -------- Force push local → cloud --------
+async function pushLocalToCloud() {
+  if (!_sb) { alert('Supabase non configurato — impossibile sincronizzare.'); return; }
+  if (!confirm('Verranno inviate al cloud TUTTE le tue chiavi locali, sovrascrivendo eventuali valori precedenti su cloud. Procedere?')) return;
+  let count = 0, errors = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || (!k.startsWith('dealflow_') && !k.startsWith('dealflow-'))) continue;
+    try {
+      const val = JSON.parse(localStorage.getItem(k));
+      const { error } = await _sb.from('app_data').upsert({ key: k, value: val, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      if (error) { console.warn('push error', k, error.message); errors++; }
+      else count++;
+    } catch(e) { errors++; }
+  }
+  alert('Sincronizzate ' + count + ' chiavi sul cloud' + (errors ? (' (' + errors + ' errori — vedi console)') : '.') + '\nOra sugli altri computer puoi cliccare "Ripristina dal cloud" per allinearli.');
+}
+
+// -------- Remove demo/seed deals (deal-001/002/003) --------
+function removeDemoDeals() {
+  if (!confirm('Rimuovere i progetti demo (deal-001, deal-002, deal-003) dal browser locale?')) return;
+  try {
+    const raw = localStorage.getItem('dealflow_demo');
+    if (!raw) { alert('Nessun deal locale da pulire.'); return; }
+    const list = JSON.parse(raw);
+    const before = list.length;
+    const filtered = list.filter(d => !['deal-001','deal-002','deal-003'].includes(d.id));
+    localStorage.setItem('dealflow_demo', JSON.stringify(filtered));
+    _sbSync('dealflow_demo', filtered);
+    alert('Rimossi ' + (before - filtered.length) + ' deal demo. La pagina si ricarica.');
+    location.reload();
+  } catch(e) {
+    alert('Errore: ' + e.message);
   }
 }
 
