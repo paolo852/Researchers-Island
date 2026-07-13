@@ -367,9 +367,6 @@ async function _sbLoadAll() {
   const { data, error } = await _sb.from('app_data').select('key, value');
   if (error) throw error;
   (data || []).forEach(row => {
-    // Never sync-in critical keys from cloud. Local is authoritative.
-    if (LOCAL_ONLY_KEYS.has(row.key)) return;
-
     const incoming = row.value;
     const localRaw = localStorage.getItem(row.key);
     let localVal = null;
@@ -383,6 +380,15 @@ async function _sbLoadAll() {
       const localHasData = (Array.isArray(localVal) && localVal.length > 0)
         || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
       if (localHasData) return;
+    }
+
+    // For LOCAL_ONLY keys, allow cloud → local ONLY if local is empty/missing (first-run hydration).
+    // Never overwrite existing local data with cloud state (prevents cross-browser wipes).
+    if (LOCAL_ONLY_KEYS.has(row.key)) {
+      const localHasData = (Array.isArray(localVal) && localVal.length > 0)
+        || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
+      if (localHasData) return; // keep local
+      // else fall through — hydrate from cloud
     }
 
     localStorage.setItem(row.key, JSON.stringify(incoming));
