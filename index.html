@@ -350,49 +350,32 @@ async function deleteFileFromSupabase(path) {
   try { await _sb.storage.from(SB_BUCKET).remove([path]); } catch(e) { console.warn('Storage delete error:', e.message); }
 }
 
-// Keys for which we NEVER let cloud overwrite local, and never merge back in from cloud automatically.
-// Local wins as source of truth. Cloud is a one-way backup only (localStorage -> Supabase).
-// Recovery from cloud can be done manually via Import backup or Supabase console.
-const LOCAL_ONLY_KEYS = new Set([
-  'dealflow_demo',          // deals
-  'dealflow_team',
-  'dealflow_investors',
-  'dealflow_portfolio',
-  'dealflow_industries',
-  'dealflow_notifications'
-]);
-
+// Cloud is the source of truth. Every startup pulls the current state from Supabase
+// into localStorage. Writes still go up via _sbSync in real time. localStorage is
+// just an offline cache so reads stay synchronous — but whatever is in the cloud wins.
 async function _sbLoadAll() {
   if (!_sb) return;
   const { data, error } = await _sb.from('app_data').select('key, value');
   if (error) throw error;
+  const seen = new Set();
   (data || []).forEach(row => {
-    const incoming = row.value;
-    const localRaw = localStorage.getItem(row.key);
-    let localVal = null;
-    if (localRaw) { try { localVal = JSON.parse(localRaw); } catch(_) {} }
-
-    // Safety: never let an empty cloud value wipe non-empty local
-    const isEmpty = incoming == null
-      || (Array.isArray(incoming) && incoming.length === 0)
-      || (typeof incoming === 'object' && !Array.isArray(incoming) && Object.keys(incoming).length === 0);
-    if (isEmpty) {
-      const localHasData = (Array.isArray(localVal) && localVal.length > 0)
-        || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
-      if (localHasData) return;
-    }
-
-    // For LOCAL_ONLY keys, allow cloud → local ONLY if local is empty/missing (first-run hydration).
-    // Never overwrite existing local data with cloud state (prevents cross-browser wipes).
-    if (LOCAL_ONLY_KEYS.has(row.key)) {
-      const localHasData = (Array.isArray(localVal) && localVal.length > 0)
-        || (localVal && typeof localVal === 'object' && !Array.isArray(localVal) && Object.keys(localVal).length > 0);
-      if (localHasData) return; // keep local
-      // else fall through — hydrate from cloud
-    }
-
-    localStorage.setItem(row.key, JSON.stringify(incoming));
+    seen.add(row.key);
+    // If cloud has no value for a key, don't touch local (keeps offline cache).
+    if (row.value == null) return;
+    localStorage.setItem(row.key, JSON.stringify(row.value));
   });
+  // If a critical key is completely missing on cloud, seed it up from local so
+  // subsequent loads on other browsers can hydrate.
+  const CRITICAL = ['dealflow_demo','dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries'];
+  for (const k of CRITICAL) {
+    if (seen.has(k)) continue;
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    try {
+      const val = JSON.parse(raw);
+      _sbSync(k, val);
+    } catch(_) {}
+  }
 }
 
 // ============================================================
