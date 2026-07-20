@@ -326,10 +326,18 @@ try {
 } catch(e) { console.warn('Supabase init failed:', e); }
 
 async function _sbSync(key, value) {
-  if (!_sb) return;
+  if (!_sb) {
+    // Even without Supabase, keep the dirty marker so a later _sbLoadAll doesn't clobber this write.
+    try { localStorage.setItem('_dirty_' + key, String(Date.now())); } catch(_) {}
+    return;
+  }
+  try { localStorage.setItem('_dirty_' + key, String(Date.now())); } catch(_) {}
   try {
-    await _sb.from('app_data').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-  } catch(e) { console.warn('Supabase sync error [' + key + ']:', e.message); }
+    const { error } = await _sb.from('app_data').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (error) { console.warn('Supabase sync error [' + key + ']:', error.message); return; }
+    // Confirmed pushed — clear dirty flag
+    try { localStorage.removeItem('_dirty_' + key); } catch(_) {}
+  } catch(e) { console.warn('Supabase sync exception [' + key + ']:', e.message); }
 }
 
 const SB_BUCKET = 'dealflow-files';
@@ -360,21 +368,25 @@ async function _sbLoadAll() {
   const seen = new Set();
   (data || []).forEach(row => {
     seen.add(row.key);
-    // If cloud has no value for a key, don't touch local (keeps offline cache).
     if (row.value == null) return;
+    // Protection: if this key has an unconfirmed local write pending, DO NOT overwrite it.
+    // Instead, re-push the local value up so cloud catches up.
+    if (localStorage.getItem('_dirty_' + row.key)) {
+      const localRaw = localStorage.getItem(row.key);
+      if (localRaw) {
+        try { _sbSync(row.key, JSON.parse(localRaw)); } catch(_) {}
+      }
+      return;
+    }
     localStorage.setItem(row.key, JSON.stringify(row.value));
   });
-  // If a critical key is completely missing on cloud, seed it up from local so
-  // subsequent loads on other browsers can hydrate.
+  // For keys entirely absent on cloud, seed them from local so other browsers can hydrate.
   const CRITICAL = ['dealflow_demo','dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries'];
   for (const k of CRITICAL) {
     if (seen.has(k)) continue;
     const raw = localStorage.getItem(k);
     if (!raw) continue;
-    try {
-      const val = JSON.parse(raw);
-      _sbSync(k, val);
-    } catch(_) {}
+    try { _sbSync(k, JSON.parse(raw)); } catch(_) {}
   }
 }
 
