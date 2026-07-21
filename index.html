@@ -325,20 +325,54 @@ try {
   }
 } catch(e) { console.warn('Supabase init failed:', e); }
 
+// Debounced per-key sync: coalesces many rapid writes into a single upsert.
+// Also marks a dirty flag until the push confirms, so a page reload cannot
+// clobber unconfirmed local data with stale cloud state.
+const _syncTimers = {};
+const _syncPending = {};
 async function _sbSync(key, value) {
-  if (!_sb) {
-    // Even without Supabase, keep the dirty marker so a later _sbLoadAll doesn't clobber this write.
-    try { localStorage.setItem('_dirty_' + key, String(Date.now())); } catch(_) {}
-    return;
-  }
   try { localStorage.setItem('_dirty_' + key, String(Date.now())); } catch(_) {}
-  try {
-    const { error } = await _sb.from('app_data').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    if (error) { console.warn('Supabase sync error [' + key + ']:', error.message); return; }
-    // Confirmed pushed — clear dirty flag
-    try { localStorage.removeItem('_dirty_' + key); } catch(_) {}
-  } catch(e) { console.warn('Supabase sync exception [' + key + ']:', e.message); }
+  _syncPending[key] = value;
+  if (!_sb) return;
+  if (_syncTimers[key]) clearTimeout(_syncTimers[key]);
+  _syncTimers[key] = setTimeout(async () => {
+    delete _syncTimers[key];
+    const val = _syncPending[key];
+    delete _syncPending[key];
+    try {
+      const { error } = await _sb.from('app_data').upsert({ key, value: val, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      if (error) { console.warn('Supabase sync error [' + key + ']:', error.message); return; }
+      // Only clear dirty if no newer edit came in during the flight
+      if (!_syncPending[key] && !_syncTimers[key]) {
+        try { localStorage.removeItem('_dirty_' + key); } catch(_) {}
+      }
+    } catch(e) { console.warn('Supabase sync exception [' + key + ']:', e.message); }
+  }, 1500);
 }
+
+// Best-effort flush on tab close: for each key with a pending debounced write, send
+// via fetch({keepalive:true}) so the browser guarantees delivery even after unload.
+window.addEventListener('beforeunload', () => {
+  if (!_sb) return;
+  const url = 'https://drvlvjyciuuslwytkdbg.supabase.co/rest/v1/app_data';
+  const anon = 'sb_publishable_x4uSMKo_6PrDkXbR4_uOxw_kGsLkNkt';
+  Object.keys(_syncPending).forEach(k => {
+    const val = _syncPending[k];
+    try {
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'apikey': anon,
+          'Authorization': 'Bearer ' + anon,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify({ key: k, value: val, updated_at: new Date().toISOString() }),
+        keepalive: true
+      });
+    } catch(_) {}
+  });
+});
 
 const SB_BUCKET = 'dealflow-files';
 
@@ -363,30 +397,77 @@ async function deleteFileFromSupabase(path) {
 // just an offline cache so reads stay synchronous — but whatever is in the cloud wins.
 async function _sbLoadAll() {
   if (!_sb) return;
-  const { data, error } = await _sb.from('app_data').select('key, value');
+  const { data, error } = await _sb.from('app_data').select('key, value, updated_at');
   if (error) throw error;
   const seen = new Set();
+  const perDealRows = [];
   (data || []).forEach(row => {
     seen.add(row.key);
     if (row.value == null) return;
-    // Protection: if this key has an unconfirmed local write pending, DO NOT overwrite it.
-    // Instead, re-push the local value up so cloud catches up.
+
+    // Per-deal rows: collect and merge into deals array below (they win over blob)
+    if (row.key.startsWith('deal_')) {
+      perDealRows.push({ id: row.key.slice(5), value: row.value, updated_at: row.updated_at });
+      return;
+    }
+
+    // Non-deal keys: if this key has an unconfirmed local write, don't overwrite
     if (localStorage.getItem('_dirty_' + row.key)) {
       const localRaw = localStorage.getItem(row.key);
-      if (localRaw) {
-        try { _sbSync(row.key, JSON.parse(localRaw)); } catch(_) {}
-      }
+      if (localRaw) { try { _sbSync(row.key, JSON.parse(localRaw)); } catch(_) {} }
       return;
     }
     localStorage.setItem(row.key, JSON.stringify(row.value));
   });
-  // For keys entirely absent on cloud, seed them from local so other browsers can hydrate.
-  const CRITICAL = ['dealflow_demo','dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries'];
+
+  // Assemble deals from per-deal rows (authoritative) unioned with local unpushed changes.
+  if (perDealRows.length > 0 || localStorage.getItem(STORAGE_KEY)) {
+    const localArr = (function(){
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(_) { return []; }
+    })();
+    const localById = new Map();
+    localArr.forEach(d => { if (d && d.id) localById.set(d.id, d); });
+
+    const merged = [];
+    const seenIds = new Set();
+    perDealRows.forEach(r => {
+      seenIds.add(r.id);
+      const local = localById.get(r.id);
+      const cloudUpd = r.updated_at ? Date.parse(r.updated_at) : 0;
+      const localUpd = local && local.updatedAt ? Date.parse(local.updatedAt) : 0;
+      // Prefer newer; if local is dirty for this deal, prefer local
+      if (localStorage.getItem('_dirty_deal_' + r.id) || localUpd > cloudUpd) {
+        merged.push(local || r.value);
+      } else {
+        merged.push(r.value);
+      }
+    });
+    // Include local-only deals not yet on cloud (fresh creates)
+    localArr.forEach(d => {
+      if (d && d.id && !seenIds.has(d.id)) {
+        merged.push(d);
+        // opportunistically push it up
+        try { _sbSync('deal_' + d.id, d); } catch(_) {}
+      }
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    try { localStorage.setItem('_dealIds', JSON.stringify(merged.map(d => d.id))); } catch(_) {}
+  }
+
+  // Bootstrap: for keys entirely absent on cloud, seed from local so other browsers can hydrate.
+  const CRITICAL = ['dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries'];
   for (const k of CRITICAL) {
     if (seen.has(k)) continue;
     const raw = localStorage.getItem(k);
     if (!raw) continue;
     try { _sbSync(k, JSON.parse(raw)); } catch(_) {}
+  }
+  // Also seed per-deal rows if only the legacy blob exists on cloud
+  if (perDealRows.length === 0) {
+    const localArr = (function(){
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(_) { return []; }
+    })();
+    localArr.forEach(d => { if (d && d.id) _sbSync('deal_' + d.id, d); });
   }
 }
 
@@ -607,9 +688,34 @@ function loadDeals() {
   return [];
 }
 
+// Deals sync strategy:
+// - localStorage: still stores the full array as one blob for offline reads
+// - Cloud: each deal is its own row (key = 'deal_<id>') so parallel edits on
+//   different deals never overwrite each other. The blob is also written for
+//   backward compatibility but the per-deal rows are the source of truth on load.
 function saveDeals(deals) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
+  // Blob write (backward compat) — heavily debounced
   _sbSync(STORAGE_KEY, deals);
+  // Per-deal writes — track ids we've seen to detect deletions
+  try {
+    const ids = new Set();
+    deals.forEach(d => {
+      if (!d || !d.id) return;
+      ids.add(d.id);
+      _sbSync('deal_' + d.id, d);
+    });
+    // Deletion: any deal_id previously known but no longer present → remove from cloud
+    const prevIdsRaw = localStorage.getItem('_dealIds');
+    let prevIds = [];
+    if (prevIdsRaw) { try { prevIds = JSON.parse(prevIdsRaw); } catch(_) {} }
+    prevIds.forEach(pid => {
+      if (!ids.has(pid) && _sb) {
+        _sb.from('app_data').delete().eq('key', 'deal_' + pid).then(() => {}, ()=>{});
+      }
+    });
+    localStorage.setItem('_dealIds', JSON.stringify(Array.from(ids)));
+  } catch(_) {}
 }
 
 function _stampDealUpdated(dealId) {
