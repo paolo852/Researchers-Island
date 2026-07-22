@@ -3841,7 +3841,8 @@ function loadNotifications() {
 }
 function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); _sbSync(NOTIF_KEY, list); }
 function userSettings(userId) {
-  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, fieldUpdates:true, emailNotifs:true };
+  // Note: fieldUpdates default is FALSE — subscription must be opt-in per user.
+  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, fieldUpdates:false, emailNotifs:true };
   try {
     const raw = localStorage.getItem('dealflow_settings_' + userId);
     if (!raw) return def;
@@ -3947,6 +3948,17 @@ function addNotification(n) {
   if (settingKey) {
     const s = userSettings(n.userId);
     if (s[settingKey] === false) return;
+    // Opt-in types (default false): fire ONLY when the recipient explicitly enabled.
+    // Prevents spurious emails when the sender's browser has never synced the recipient's settings.
+    const OPT_IN_TYPES = ['field_updated'];
+    if (OPT_IN_TYPES.includes(n.type)) {
+      const raw = localStorage.getItem('dealflow_settings_' + n.userId);
+      let explicit = false;
+      if (raw) {
+        try { explicit = JSON.parse(raw)[settingKey] === true; } catch(_) {}
+      }
+      if (!explicit) return;
+    }
   }
   const list = loadNotifications();
   list.unshift({
@@ -4250,7 +4262,7 @@ function renderSettings() {
         ${row('tasksDueSoon','Task in scadenza','Avvisi per i task con scadenza nei prossimi 3 giorni')}
         ${row('stageChange','Cambio stage deal','Avvisi quando cambia lo stage di un deal a cui partecipi')}
         ${row('newDeal','Nuovi deal','Avvisi quando viene creato un nuovo deal')}
-        ${row('fieldUpdates','Aggiornamenti contenuti (solo admin)','Ricevi una notifica quando un utente modifica un campo di una scheda progetto')}
+        ${row('fieldUpdates','Aggiornamenti contenuti — pipeline (solo admin)','Disattivo di default. Attiva se vuoi ricevere una notifica (anche via email) quando un utente modifica un campo di una scheda progetto.')}
       </div>
       <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3 mt-4">
         <div class="flex items-center gap-2 mb-2">
