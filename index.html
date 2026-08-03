@@ -3954,15 +3954,28 @@ const _CONCEPT_FIELD_LABELS = {
 };
 function _conceptFieldLabel(key) { return _CONCEPT_FIELD_LABELS[key] || key; }
 
+function _resolveMemberRecord(m) {
+  // Session objects don't carry accessLevel/permissions — look up the full team record by id.
+  if (!m || !m.id) return m;
+  if (m.accessLevel !== undefined && m.permissions !== undefined) return m;
+  try {
+    const team = (typeof loadTeam === 'function') ? loadTeam() : [];
+    const rec = team.find(x => x.id === m.id);
+    if (rec) return rec;
+  } catch(_) {}
+  return m;
+}
 function isSuperAdminMember(m) {
   if (!m) return false;
-  if (m.accessLevel === 'superadmin') return true;
-  return m.id === 'tm-admin' || (m.email || '').toLowerCase() === 'francesca.petrucci@day-one.biz';
+  const rec = _resolveMemberRecord(m);
+  if (rec && rec.accessLevel === 'superadmin') return true;
+  return (rec && (rec.id === 'tm-admin' || (rec.email || '').toLowerCase() === 'francesca.petrucci@day-one.biz'));
 }
 function isAdminMember(m) {
   if (!m) return false;
   if (isSuperAdminMember(m)) return true;
-  return m.accessLevel === 'admin';
+  const rec = _resolveMemberRecord(m);
+  return !!(rec && rec.accessLevel === 'admin');
 }
 
 // Access-level & per-section permissions
