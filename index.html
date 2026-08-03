@@ -401,6 +401,7 @@ async function _sbLoadAll() {
   if (error) throw error;
   const seen = new Set();
   const perDealRows = [];
+  const perTeamRows = [];
   (data || []).forEach(row => {
     seen.add(row.key);
     if (row.value == null) return;
@@ -408,6 +409,11 @@ async function _sbLoadAll() {
     // Per-deal rows: collect and merge into deals array below (they win over blob)
     if (row.key.startsWith('deal_')) {
       perDealRows.push({ id: row.key.slice(5), value: row.value, updated_at: row.updated_at });
+      return;
+    }
+    // Per-team-member rows: same pattern
+    if (row.key.startsWith('team_')) {
+      perTeamRows.push({ id: row.key.slice(5), value: row.value, updated_at: row.updated_at });
       return;
     }
 
@@ -480,6 +486,41 @@ async function _sbLoadAll() {
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     try { localStorage.setItem('_dealIds', JSON.stringify(merged.map(d => d.id))); } catch(_) {}
+  }
+
+  // Assemble team from per-member rows (authoritative). If any team_* row exists,
+  // that's the truth. Also union local-only members and legacy blob members.
+  if (perTeamRows.length > 0 || localStorage.getItem('dealflow_team')) {
+    const localArr = (function(){
+      try { return JSON.parse(localStorage.getItem('dealflow_team') || '[]'); } catch(_) { return []; }
+    })();
+    const legacyBlob = (function(){
+      const legacyRow = (data || []).find(r => r.key === 'dealflow_team');
+      try { return legacyRow && Array.isArray(legacyRow.value) ? legacyRow.value : []; } catch(_) { return []; }
+    })();
+    const byId = new Map();
+    // Layer 1: legacy blob rows (lowest priority)
+    legacyBlob.forEach(m => { if (m && m.id) byId.set(m.id, m); });
+    // Layer 2: local (medium)
+    localArr.forEach(m => { if (m && m.id) byId.set(m.id, m); });
+    // Layer 3: per-team rows (authoritative)
+    perTeamRows.forEach(r => {
+      const existing = byId.get(r.id);
+      const cloudUpd = r.updated_at ? Date.parse(r.updated_at) : 0;
+      const existingUpd = existing && existing.updatedAt ? Date.parse(existing.updatedAt) : 0;
+      if (localStorage.getItem('_dirty_team_' + r.id) && existing) {
+        return; // keep local (unpushed)
+      }
+      if (cloudUpd >= existingUpd) byId.set(r.id, r.value);
+    });
+    const merged = Array.from(byId.values());
+    localStorage.setItem('dealflow_team', JSON.stringify(merged));
+    try { localStorage.setItem('_teamIds', JSON.stringify(merged.map(m => m.id))); } catch(_) {}
+    // Seed per-member rows for anyone in local/legacy but not yet stored per-row
+    if (_sb) {
+      const perMemberIds = new Set(perTeamRows.map(r => r.id));
+      merged.forEach(m => { if (m && m.id && !perMemberIds.has(m.id)) _sbSync('team_' + m.id, m); });
+    }
   }
 
   // Bootstrap: for keys entirely absent on cloud, seed from local so other browsers can hydrate.
@@ -6438,10 +6479,33 @@ function loadTeam() {
   localStorage.setItem(TEAM_KEY, JSON.stringify(DEMO_TEAM));
   return JSON.parse(JSON.stringify(DEMO_TEAM));
 }
+// Team sync: each member is its own cloud row (key = 'team_<id>') so parallel
+// edits and additions across browsers never overwrite each other.
 function saveTeam(t) {
-  const stamped = (t || []).map(m => ({ ...m, updatedAt: m.updatedAt || new Date().toISOString() }));
+  const now = new Date().toISOString();
+  const stamped = (t || []).map(m => ({ ...m, updatedAt: m.updatedAt || now }));
   localStorage.setItem(TEAM_KEY, JSON.stringify(stamped));
+  // Legacy blob (keep for backward-compat only)
   _sbSync(TEAM_KEY, stamped);
+  // Per-member rows (source of truth going forward)
+  try {
+    const seenIds = new Set();
+    stamped.forEach(m => {
+      if (!m || !m.id) return;
+      seenIds.add(m.id);
+      _sbSync('team_' + m.id, m);
+    });
+    // Deletions
+    const prevIdsRaw = localStorage.getItem('_teamIds');
+    let prevIds = [];
+    if (prevIdsRaw) { try { prevIds = JSON.parse(prevIdsRaw); } catch(_) {} }
+    prevIds.forEach(pid => {
+      if (!seenIds.has(pid) && _sb) {
+        _sb.from('app_data').delete().eq('key', 'team_' + pid).then(() => {}, () => {});
+      }
+    });
+    localStorage.setItem('_teamIds', JSON.stringify(Array.from(seenIds)));
+  } catch(_) {}
 }
 
 function renderTeam() {
