@@ -3088,7 +3088,8 @@ function saveDeal(e) {
     notes: g('notes'),
     researchers: formResearchers,
     tasks: editingDeal ? (editingDeal.tasks || []) : (formTasks || []),
-    files: editingDeal ? (editingDeal.files || []) : (formFiles || [])
+    files: editingDeal ? (editingDeal.files || []) : (formFiles || []),
+    ecoFinFiles: editingDeal ? (editingDeal.ecoFinFiles || []) : []
   };
 
   // Preserve comments from prior state
