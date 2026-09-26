@@ -350,6 +350,26 @@ const _syncPending = {};
 // that were deleted elsewhere and bring them back.
 const _lastPushedJson = {};
 
+// Collections stored in the cloud as one row per record (prefix + id); localStorage keeps
+// the whole list under the blob key as a cache. Deletions are tombstones (see below).
+const ROW_COLLECTIONS = {
+  dealflow_investors:  'inv_',
+  dealflow_portfolio:  'port_',
+  dealflow_industries: 'ind_'
+};
+function _saveRowCollection(blobKey, list) {
+  const prefix = ROW_COLLECTIONS[blobKey];
+  localStorage.setItem(blobKey, JSON.stringify(list));
+  list.forEach(item => {
+    if (!item || !item.id) return;
+    const key = prefix + item.id;
+    const json = JSON.stringify(item);
+    if (_lastPushedJson[key] === json) return; // unchanged: don't re-upload (a stale copy could undo a delete)
+    _lastPushedJson[key] = json;
+    _sbSync(key, item);
+  });
+}
+
 // Rows are never hard-deleted (anon clients have no DELETE permission): a tombstone is
 // what tells every browser the record is gone. Only explicit user deletions call this.
 function _sbTombstone(key) {
@@ -432,6 +452,8 @@ async function _sbLoadAll() {
   const perDealRows = [];
   const perTeamRows = [];
   const perTaskRows = [];
+  const perCollectionRows = {};
+  Object.values(ROW_COLLECTIONS).forEach(p => { perCollectionRows[p] = []; });
   (data || []).forEach(row => {
     seen.add(row.key);
     if (row.value == null) return;
@@ -453,6 +475,10 @@ async function _sbLoadAll() {
     }
     // Tasks are never stored as a blob in the cloud; ignore any stray one
     if (row.key === TASKS_KEY) return;
+    // Investors / portfolio / industries: collect per-record rows; legacy blobs are handled below
+    const colPrefix = Object.values(ROW_COLLECTIONS).find(p => row.key.startsWith(p));
+    if (colPrefix) { perCollectionRows[colPrefix].push({ id: row.key.slice(colPrefix.length), value: row.value }); return; }
+    if (ROW_COLLECTIONS[row.key]) return;
 
     // Non-deal keys: if this key has an unconfirmed local write, don't overwrite
     if (localStorage.getItem('_dirty_' + row.key)) {
@@ -463,7 +489,7 @@ async function _sbLoadAll() {
     // For array-of-objects keys (team, investors, portfolio, industries),
     // union-merge by id rather than replace. Prevents a shorter cloud list from
     // wiping members that exist locally but not in the stale cloud blob.
-    const MERGE_KEYS = new Set(['dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries']);
+    const MERGE_KEYS = new Set(['dealflow_team']);
     if (MERGE_KEYS.has(row.key) && Array.isArray(row.value)) {
       const localArr = (function(){
         try { return JSON.parse(localStorage.getItem(row.key) || '[]'); } catch(_) { return []; }
@@ -596,8 +622,47 @@ async function _sbLoadAll() {
     localStorage.setItem(TASKS_KEY, JSON.stringify(out));
   }
 
+  // Investors / portfolio / industries: per-record rows are authoritative, tombstones remove
+  // records, an unconfirmed local edit wins, and records known only locally are kept and pushed.
+  for (const [blobKey, prefix] of Object.entries(ROW_COLLECTIONS)) {
+    const rows = perCollectionRows[prefix];
+    const localArr = (function(){
+      try { const v = JSON.parse(localStorage.getItem(blobKey) || '[]'); return Array.isArray(v) ? v : []; } catch(_) { return []; }
+    })();
+    let out;
+    if (!rows.length) {
+      // First load after switching to per-record rows: seed them from local + the legacy cloud list
+      const legacy = (data || []).find(r => r.key === blobKey);
+      const byId = new Map();
+      ((legacy && Array.isArray(legacy.value)) ? legacy.value : []).forEach(x => { if (x && x.id) byId.set(x.id, x); });
+      localArr.forEach(x => { if (x && x.id) byId.set(x.id, x); });
+      if (!byId.size) continue; // nothing anywhere yet
+      out = Array.from(byId.values());
+      out.forEach(x => _sbSync(prefix + x.id, x));
+    } else {
+      const localById = new Map(localArr.filter(x => x && x.id).map(x => [x.id, x]));
+      const seenIds = new Set();
+      out = [];
+      rows.forEach(r => {
+        seenIds.add(r.id);
+        const local = localById.get(r.id);
+        if (localStorage.getItem('_dirty_' + prefix + r.id)) {
+          if (local) { out.push(local); _sbSync(prefix + r.id, local); return; }
+          localStorage.removeItem('_dirty_' + prefix + r.id);
+        }
+        if (r.value && !r.value._deleted) out.push(r.value);
+      });
+      localArr.forEach(x => { if (x && x.id && !seenIds.has(x.id)) { out.push(x); _sbSync(prefix + x.id, x); } });
+      // Keep the local ordering; new records go last
+      const order = new Map(localArr.map((x, i) => [x && x.id, i]));
+      out.sort((a, b) => (order.has(a.id) ? order.get(a.id) : 1e9) - (order.has(b.id) ? order.get(b.id) : 1e9));
+    }
+    localStorage.setItem(blobKey, JSON.stringify(out));
+    out.forEach(x => { _lastPushedJson[prefix + x.id] = JSON.stringify(x); });
+  }
+
   // Bootstrap: for keys entirely absent on cloud, seed from local so other browsers can hydrate.
-  const CRITICAL =['dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries'];
+  const CRITICAL = ['dealflow_team'];
   for (const k of CRITICAL) {
     if (seen.has(k)) continue;
     const raw = localStorage.getItem(k);
@@ -6266,7 +6331,7 @@ function loadInvestors() {
   localStorage.setItem(INVESTORS_KEY, JSON.stringify(DEMO_INVESTORS));
   return JSON.parse(JSON.stringify(DEMO_INVESTORS));
 }
-function saveInvestors(list) { localStorage.setItem(INVESTORS_KEY, JSON.stringify(list)); _sbSync(INVESTORS_KEY, list); }
+function saveInvestors(list) { _saveRowCollection(INVESTORS_KEY, list); }
 
 const INV_STATUS_COLORS = {
   'Warm':          'bg-green-100 text-green-800',
@@ -6680,6 +6745,7 @@ function deleteInvestor(id) {
   if (!inv) return;
   if (confirm(`Eliminare "${inv.name}"?`)) {
     saveInvestors(list.filter(x => x.id !== id));
+    _sbTombstone('inv_' + id);
     renderInvestors();
   }
 }
@@ -6879,7 +6945,7 @@ function loadPortfolio() {
   localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(DEMO_PORTFOLIO));
   return JSON.parse(JSON.stringify(DEMO_PORTFOLIO));
 }
-function savePortfolio(list) { localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(list)); _sbSync(PORTFOLIO_KEY, list); }
+function savePortfolio(list) { _saveRowCollection(PORTFOLIO_KEY, list); }
 
 let editingPortfolio = null;
 let portfolioMilestones = [];
@@ -7219,7 +7285,7 @@ function deletePortfolio(id) {
   const list = loadPortfolio();
   const p = list.find(x => x.id === id);
   if (!p) return;
-  if (confirm('Eliminare "' + p.company + '"?')) { savePortfolio(list.filter(x=>x.id!==id)); renderPortfolio(); }
+  if (confirm('Eliminare "' + p.company + '"?')) { savePortfolio(list.filter(x=>x.id!==id)); _sbTombstone('port_' + id); renderPortfolio(); }
 }
 
 // ============================================================
@@ -7296,7 +7362,7 @@ function loadIndustries() {
   localStorage.setItem(INDUSTRIES_KEY, JSON.stringify(DEMO_INDUSTRIES));
   return JSON.parse(JSON.stringify(DEMO_INDUSTRIES));
 }
-function saveIndustries(list) { localStorage.setItem(INDUSTRIES_KEY, JSON.stringify(list)); _sbSync(INDUSTRIES_KEY, list); }
+function saveIndustries(list) { _saveRowCollection(INDUSTRIES_KEY, list); }
 
 let industryValidations = [];
 let industryNeeds = [];
@@ -7535,7 +7601,7 @@ function deleteIndustry(id) {
   const list = loadIndustries();
   const ind = list.find(x => x.id === id);
   if (!ind) return;
-  if (confirm('Eliminare "' + ind.name + '"?')) { saveIndustries(list.filter(x=>x.id!==id)); renderIndustries(); }
+  if (confirm('Eliminare "' + ind.name + '"?')) { saveIndustries(list.filter(x=>x.id!==id)); _sbTombstone('ind_' + id); renderIndustries(); }
 }
 
 document.getElementById('industry-modal-overlay').addEventListener('click', function(e) {
