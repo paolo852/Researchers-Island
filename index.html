@@ -29,6 +29,9 @@
     .section-readonly select:disabled { background-color: #f8fafc !important; color: #64748b !important; cursor: not-allowed; }
     .section-readonly .rt-toolbar { display: none !important; }
     .section-readonly [data-edit-only] { display: none !important; }
+    .task-row .task-check svg { opacity: 0; transition: opacity .15s; }
+    .task-row .task-check:hover svg, .task-row .task-check.is-done svg { opacity: 1; }
+    .task-col-over { @apply ring-2 ring-indigo-400 bg-indigo-50/60; }
     .fade-in { animation: fadeIn 0.2s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -85,6 +88,11 @@ setTimeout(function(){
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Pipeline
     </button>
+    <button onclick="navigate('tasks')" id="nav-tasks" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
+      <span class="flex-1">Task</span>
+      <span id="nav-tasks-badge" class="hidden"></span>
+    </button>
     <button onclick="navigate('portfolio')" id="nav-portfolio" class="sidebar-link w-full text-left">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
       Portfolio
@@ -118,6 +126,7 @@ setTimeout(function(){
   <div id="page-dashboard" class="p-6 fade-in hidden"></div>
   <div id="page-pipeline" class="p-6 fade-in"></div>
   <div id="page-new" class="p-6 fade-in hidden"></div>
+  <div id="page-tasks" class="p-6 fade-in hidden"></div>
   <div id="page-portfolio" class="p-6 fade-in hidden"></div>
   <div id="page-portfolio-detail" class="p-6 fade-in hidden"></div>
   <div id="page-team" class="p-6 fade-in hidden"></div>
@@ -125,6 +134,12 @@ setTimeout(function(){
   <div id="page-investors" class="p-6 fade-in hidden"></div>
   <div id="page-industries" class="p-6 fade-in hidden"></div>
 </main>
+
+<!-- TASK DRAWER (slide-over) -->
+<div id="task-drawer-root" class="fixed inset-0 z-[70] hidden">
+  <div id="task-drawer-backdrop" class="absolute inset-0 bg-slate-900/30 opacity-0 transition-opacity duration-200" onclick="closeTaskDrawer()"></div>
+  <aside id="task-drawer" class="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl translate-x-full transition-transform duration-200 ease-out flex flex-col" role="dialog" aria-modal="true" aria-label="Dettaglio task"></aside>
+</div>
 
 <!-- NOTIFICATIONS PANEL -->
 <div id="notif-panel" class="hidden fixed top-16 left-64 ml-2 z-[80] w-96 max-h-[70vh] bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col">
@@ -402,6 +417,7 @@ async function _sbLoadAll() {
   const seen = new Set();
   const perDealRows = [];
   const perTeamRows = [];
+  const perTaskRows = [];
   (data || []).forEach(row => {
     seen.add(row.key);
     if (row.value == null) return;
@@ -416,6 +432,13 @@ async function _sbLoadAll() {
       perTeamRows.push({ id: row.key.slice(5), value: row.value, updated_at: row.updated_at });
       return;
     }
+    // Per-task rows (the only cloud representation of tasks)
+    if (row.key.startsWith('task_')) {
+      perTaskRows.push({ id: row.key.slice(5), value: row.value });
+      return;
+    }
+    // Tasks are never stored as a blob in the cloud; ignore any stray one
+    if (row.key === TASKS_KEY) return;
 
     // Non-deal keys: if this key has an unconfirmed local write, don't overwrite
     if (localStorage.getItem('_dirty_' + row.key)) {
@@ -523,8 +546,37 @@ async function _sbLoadAll() {
     }
   }
 
+  // Assemble tasks: cloud rows are authoritative; a local write not yet confirmed (dirty) wins.
+  // Deletions are tombstones ({_deleted:true}) because anon clients cannot DELETE rows.
+  {
+    const localTasks = (function(){
+      try { const v = JSON.parse(localStorage.getItem(TASKS_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch(_) { return []; }
+    })();
+    const localById = new Map();
+    localTasks.forEach(t => { if (t && t.id) localById.set(t.id, t); });
+    const out = [];
+    const cloudIds = new Set();
+    perTaskRows.forEach(r => {
+      cloudIds.add(r.id);
+      const local = localById.get(r.id);
+      if (localStorage.getItem('_dirty_task_' + r.id)) {
+        if (local && !local._deleted) { out.push(local); _sbSync('task_' + r.id, local); }
+        else _sbSync('task_' + r.id, { id: r.id, _deleted: true, updatedAt: new Date().toISOString() });
+        return;
+      }
+      if (r.value && !r.value._deleted) out.push(r.value);
+    });
+    // Tasks known only locally are never dropped: push them up.
+    localTasks.forEach(t => {
+      if (!t || !t.id || t._deleted || cloudIds.has(t.id)) return;
+      out.push(t);
+      _sbSync('task_' + t.id, t);
+    });
+    localStorage.setItem(TASKS_KEY, JSON.stringify(out));
+  }
+
   // Bootstrap: for keys entirely absent on cloud, seed from local so other browsers can hydrate.
-  const CRITICAL = ['dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries'];
+  const CRITICAL =['dealflow_team','dealflow_investors','dealflow_portfolio','dealflow_industries'];
   for (const k of CRITICAL) {
     if (seen.has(k)) continue;
     const raw = localStorage.getItem(k);
@@ -544,6 +596,7 @@ async function _sbLoadAll() {
 // DATA MODEL & STORAGE
 // ============================================================
 const STORAGE_KEY = 'dealflow_demo';
+const TASKS_KEY = 'dealflow_tasks';
 
 const DEMO_DEALS = [
   {
@@ -850,7 +903,7 @@ function stageBadge(stage) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const pages = ['dashboard', 'pipeline', 'new', 'portfolio', 'portfolio-detail', 'team', 'investors', 'industries', 'settings'];
+const pages = ['dashboard', 'pipeline', 'new', 'tasks', 'portfolio', 'portfolio-detail', 'team', 'investors', 'industries', 'settings'];
 
 function toggleBlock(blockId, chevronId) {
   const block = document.getElementById(blockId);
@@ -864,6 +917,7 @@ const PAGE_TO_PERM = {
   dashboard: null,               // always accessible
   pipeline: 'pipeline',
   new: 'pipeline',
+  tasks: 'tasks',
   portfolio: 'portfolio',
   'portfolio-detail': 'portfolio',
   team: 'team',
@@ -893,6 +947,7 @@ function navigate(page, dealId) {
     case 'dashboard':        renderDashboard(); break;
     case 'pipeline':         renderPipeline(); break;
     case 'new':              renderForm(null); break;
+    case 'tasks':            renderTasks(); break;
     case 'portfolio':        renderPortfolio(); break;
     case 'portfolio-detail': renderPortfolioDetail(dealId); break;
     case 'team':             renderTeam(); break;
@@ -917,6 +972,7 @@ function applyReadonlyToPage(page) {
     // Disable form controls
     el.querySelectorAll('input, textarea, select').forEach(x => {
       if (x.type === 'button' || x.type === 'submit' || x.type === 'reset') return;
+      if (x.hasAttribute('data-ro-keep')) return; // search/filter controls stay usable in read-only
       x.setAttribute('disabled', 'disabled');
     });
     el.querySelectorAll('[contenteditable="true"]').forEach(x => x.setAttribute('contenteditable', 'false'));
@@ -946,7 +1002,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -3575,7 +3631,7 @@ function renderTasksList() {
       </select>
       <input type="date" value="${esc(t.dueDate||'')}" onchange="formTasks[${i}].dueDate=this.value; persistTasksOnDeal()" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300">
       <select onchange="formTasks[${i}].status=this.value; persistTasksOnDeal(); renderTasksList()" class="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300">
-        ${['To do','In progress','Done'].map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
+        ${['To do','In progress','Blocked','Done'].map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
       </select>
       <select onchange="formTasks[${i}].priority=this.value; persistTasksOnDeal()" class="border border-slate-200 rounded px-2 py-1 text-sm ${prCol} focus:outline-none focus:ring-1 focus:ring-indigo-300">
         ${['High','Med','Low'].map(p => `<option value="${p}" ${t.priority===p?'selected':''}>${p}</option>`).join('')}
@@ -3710,7 +3766,7 @@ function renderCriterionTasks(key) {
       </select>
       <input type="date" value="${esc(t.dueDate||'')}" onchange="updateCriterionTask('${t.id}','dueDate',this.value)" class="border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300">
       <select onchange="updateCriterionTask('${t.id}','status',this.value); renderCriterionTasks('${key}')" class="border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300">
-        ${['To do','In progress','Done'].map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
+        ${['To do','In progress','Blocked','Done'].map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
       </select>
       <select onchange="updateCriterionTask('${t.id}','priority',this.value)" class="border border-slate-200 rounded px-2 py-1 text-xs ${prCol} focus:outline-none focus:ring-1 focus:ring-indigo-300">
         ${['High','Med','Low'].map(p => `<option value="${p}" ${t.priority===p?'selected':''}>${p}</option>`).join('')}
@@ -3984,6 +4040,7 @@ function isAdminMember(m) {
 // Access-level & per-section permissions
 const PERM_SECTIONS = [
   { key: 'pipeline',   label: 'Pipeline' },
+  { key: 'tasks',      label: 'Task' },
   { key: 'portfolio',  label: 'Portfolio' },
   { key: 'investors',  label: 'Investitori' },
   { key: 'team',       label: 'Team' },
@@ -3992,10 +4049,10 @@ const PERM_SECTIONS = [
 ];
 const PERM_LEVELS = ['edit','view','none'];
 function _defaultPermissions() {
-  return { pipeline:'edit', portfolio:'view', investors:'edit', team:'view', industries:'edit', settings:'edit' };
+  return { pipeline:'edit', tasks:'edit', portfolio:'view', investors:'edit', team:'view', industries:'edit', settings:'edit' };
 }
 function _adminPermissions() {
-  return { pipeline:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' };
+  return { pipeline:'edit', tasks:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' };
 }
 function userPermission(section) {
   const u = currentUser();
@@ -4007,7 +4064,8 @@ function userPermission(section) {
     if (rec) m = rec;
   } catch(_) {}
   if (isAdminMember(m)) return 'edit';
-  const p = (m.permissions || _defaultPermissions())[section];
+  // Sections added after a user's permissions were saved fall back to the default for that section.
+  const p = (m.permissions || {})[section] || _defaultPermissions()[section];
   return p || 'view';
 }
 function canView(section)  { return userPermission(section) !== 'none'; }
@@ -4066,6 +4124,7 @@ function addNotification(n) {
     title: n.title,
     body: n.body,
     dealId: n.dealId || null,
+    taskId: n.taskId || null,
     criterion: n.criterion || null,
     read: false,
     timestamp: new Date().toISOString()
@@ -4134,13 +4193,14 @@ function emailNotify(notif) {
   const member = team.find(m => m.id === notif.userId);
   if (!member || !member.email) return;
   const appBase = window.location.origin + window.location.pathname;
-  const ctaUrl = notif.dealId ? appBase + '?deal=' + notif.dealId : appBase;
+  const ctaUrl = notif.taskId ? appBase + '?task=' + encodeURIComponent(notif.taskId)
+               : notif.dealId ? appBase + '?deal=' + notif.dealId : appBase;
   const firstName = (member.name || '').split(' ')[0];
   sendBrevoEmail(
     member.email,
     member.name,
     'DealFlow: ' + notif.title,
-    _emailHtml(notif.title, notif.body, 'Apri deal', ctaUrl, firstName)
+    _emailHtml(esc(notif.title), esc(notif.body), notif.taskId ? 'Apri task' : 'Apri deal', ctaUrl, firstName)
   );
 }
 
@@ -4206,7 +4266,10 @@ function onNotifClick(id) {
   saveNotifications(list);
   refreshNotifBadge();
   closeNotifPanel();
-  if (n.dealId) {
+  if (n.taskId && loadTasks().some(t => t.id === n.taskId)) {
+    navigate('tasks');
+    openTaskDrawer('g:' + n.taskId);
+  } else if (n.dealId) {
     if (deals.findIndex(d => d.id === n.dealId) >= 0 || loadDeals().some(d => d.id === n.dealId)) {
       editDeal(n.dealId);
     }
@@ -4239,6 +4302,977 @@ document.addEventListener('click', function(e) {
   if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
   panel.classList.add('hidden');
 });
+
+// ============================================================
+// TASKS — team task manager (list / board / people) + slide-over detail
+// ============================================================
+// Storage: localStorage[TASKS_KEY] is a cache; the cloud holds one row per task
+// ('task_<id>'). Deletions are tombstones because anon clients cannot DELETE rows.
+const TASK_STATUSES = [
+  { key: 'To do',       label: 'Da fare',    dot: 'bg-slate-400',   pill: 'bg-slate-100 text-slate-700',     ring: 'ring-slate-300' },
+  { key: 'In progress', label: 'In corso',   dot: 'bg-blue-500',    pill: 'bg-blue-50 text-blue-700',        ring: 'ring-blue-300' },
+  { key: 'Blocked',     label: 'Bloccato',   dot: 'bg-rose-500',    pill: 'bg-rose-50 text-rose-700',        ring: 'ring-rose-300' },
+  { key: 'Done',        label: 'Completato', dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-700',  ring: 'ring-emerald-300' }
+];
+const TASK_PRIORITIES = [ { key: 'High', label: 'Alta' }, { key: 'Med', label: 'Media' }, { key: 'Low', label: 'Bassa' } ];
+const TASK_GROUPS = [
+  { key: 'overdue', label: 'In ritardo',        accent: 'text-rose-600',    dot: 'bg-rose-500' },
+  { key: 'today',   label: 'Oggi',              accent: 'text-amber-600',   dot: 'bg-amber-500' },
+  { key: 'week',    label: 'Prossimi 7 giorni', accent: 'text-indigo-600',  dot: 'bg-indigo-500' },
+  { key: 'later',   label: 'Più avanti',        accent: 'text-slate-600',   dot: 'bg-slate-400' },
+  { key: 'none',    label: 'Senza scadenza',    accent: 'text-slate-500',   dot: 'bg-slate-300' },
+  { key: 'done',    label: 'Completati',        accent: 'text-emerald-600', dot: 'bg-emerald-500' }
+];
+const _PRIO_RANK = { High: 0, Med: 1, Low: 2 };
+const _TI_PATHS = {
+  list: 'M4 6h16M4 12h16M4 18h10',
+  board: 'M4 5h4v14H4V5zm6 0h4v9h-4V5zm6 0h4v6h-4V5z',
+  people: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-2a4 4 0 100-8 4 4 0 000 8zm6 4a4 4 0 10-3-7.75',
+  plus: 'M12 5v14M5 12h14',
+  search: 'M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z',
+  cal: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+  folder: 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z',
+  clip: 'M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13',
+  user: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+  flag: 'M3 21V4m0 0h13l-2 4 2 4H3',
+  status: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+  check: 'M5 13l4 4L19 7',
+  trash: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
+  x: 'M6 18L18 6M6 6l12 12',
+  chevron: 'M19 9l-7 7-7-7',
+  upload: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12',
+  alert: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  inbox: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'
+};
+function _ti(name, cls) {
+  return `<svg class="${cls || 'w-4 h-4'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="${_TI_PATHS[name]}"/></svg>`;
+}
+
+let taskView = 'list';
+try { taskView = localStorage.getItem('ui_taskView') || 'list'; } catch(_) {}
+let taskFilter = { q: '', assignee: '', status: '', due: '', dealId: '', includeDeal: true };
+const _taskGroupCollapsed = { done: true };
+let _taskDraft = null;
+let _dragTaskUid = null;
+let _taskTeamIdx = null;
+let _tdSavedTimer = null;
+
+function _tasksCanEdit() { return canEdit('tasks'); }
+
+// ---------- storage ----------
+function loadTasks() {
+  try {
+    const v = JSON.parse(localStorage.getItem(TASKS_KEY) || '[]');
+    return Array.isArray(v) ? v.filter(t => t && t.id && !t._deleted) : [];
+  } catch(_) { return []; }
+}
+function _upsertTask(task) {
+  const list = loadTasks();
+  task.updatedAt = new Date().toISOString();
+  const i = list.findIndex(t => t.id === task.id);
+  if (i >= 0) list[i] = task; else list.unshift(task);
+  localStorage.setItem(TASKS_KEY, JSON.stringify(list));
+  _sbSync('task_' + task.id, task);
+}
+function _deleteTaskRecord(id) {
+  const list = loadTasks();
+  const t = list.find(x => x.id === id);
+  localStorage.setItem(TASKS_KEY, JSON.stringify(list.filter(x => x.id !== id)));
+  const key = 'task_' + id;
+  // Drop any debounced edit still queued for this task, otherwise it would resurrect it
+  if (_syncTimers[key]) { clearTimeout(_syncTimers[key]); delete _syncTimers[key]; }
+  delete _syncPending[key];
+  _sbSync(key, { id, _deleted: true, updatedAt: new Date().toISOString() });
+  ((t && t.attachments) || []).forEach(a => { if (a.path) deleteFileFromSupabase(a.path); });
+}
+function _updateDealTask(dealId, taskId, patch) {
+  const list = loadDeals();
+  const d = list.find(x => x.id === dealId);
+  const t = d && (d.tasks || []).find(x => x.id === taskId);
+  if (!t) return;
+  Object.assign(t, patch);
+  d.updatedAt = new Date().toISOString();
+  saveDeals(list);
+  deals = list;
+}
+function _newTaskObject(over) {
+  const me = currentUser();
+  const now = new Date().toISOString();
+  return Object.assign({
+    id: 'gt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    title: '', description: '', assignee: '', dueDate: '', priority: 'Med', status: 'To do',
+    dealId: taskFilter.dealId || '', attachments: [],
+    createdBy: me ? me.id : '', createdByName: me ? me.name : '',
+    createdAt: now, updatedAt: now, completedAt: null
+  }, over || {});
+}
+
+// Global tasks + (optionally) tasks created inside the deal forms, in one shape.
+function _allTasks(includeDeal) {
+  const dealList = loadDeals();
+  const dealById = new Map(dealList.map(d => [d.id, d]));
+  const out = loadTasks().map(t => ({
+    ...t, uid: 'g:' + t.id, _source: 'global',
+    _dealName: t.dealId && dealById.get(t.dealId) ? dealById.get(t.dealId).company : ''
+  }));
+  if (includeDeal) {
+    dealList.forEach(d => (d.tasks || []).forEach(t => {
+      if (!t || !t.id || !(t.title || '').trim()) return;
+      out.push({
+        id: t.id, uid: 'd:' + d.id + ':' + t.id, _source: 'deal',
+        title: t.title, description: '', assignee: t.assignee || '', dueDate: t.dueDate || '',
+        priority: t.priority || 'Med', status: t.status || 'To do',
+        dealId: d.id, _dealName: d.company || '', _criterion: t.criterion || '', attachments: []
+      });
+    }));
+  }
+  return out;
+}
+function _findTaskByUid(uid) { return _allTasks(true).find(t => t.uid === uid) || null; }
+
+function _applyTaskPatch(t, patch) {
+  if (patch.status !== undefined) patch.completedAt = patch.status === 'Done' ? new Date().toISOString() : null;
+  if (t._source === 'global') {
+    const stored = loadTasks().find(x => x.id === t.id);
+    if (stored) _upsertTask({ ...stored, ...patch });
+  } else {
+    const dealPatch = {};
+    ['title', 'assignee', 'dueDate', 'priority', 'status'].forEach(k => { if (patch[k] !== undefined) dealPatch[k] = patch[k]; });
+    _updateDealTask(t.dealId, t.id, dealPatch);
+  }
+}
+
+// ---------- helpers ----------
+function _parseYmd(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || '');
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+}
+function _ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function _startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+function _dueDiff(t) { const d = _parseYmd(t.dueDate); return d ? Math.round((d - _startOfToday()) / 86400000) : null; }
+function _dueBucket(t) {
+  if (t.status === 'Done') return 'done';
+  const diff = _dueDiff(t);
+  if (diff === null) return 'none';
+  if (diff < 0) return 'overdue';
+  if (diff === 0) return 'today';
+  return diff <= 7 ? 'week' : 'later';
+}
+function _fmtDue(t) {
+  const d = _parseYmd(t.dueDate);
+  if (!d) return '';
+  const diff = _dueDiff(t);
+  if (diff === 0) return 'Oggi';
+  if (diff === 1) return 'Domani';
+  if (diff === -1) return 'Ieri';
+  if (diff > 1 && diff < 7) return d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('it-IT', sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function _dueChip(t) {
+  if (!t.dueDate || !_parseYmd(t.dueDate)) return '';
+  const diff = _dueDiff(t);
+  let cls = 'bg-slate-100 text-slate-600';
+  if (t.status === 'Done') cls = 'bg-slate-50 text-slate-400';
+  else if (diff < 0) cls = 'bg-rose-50 text-rose-700';
+  else if (diff <= 1) cls = 'bg-amber-50 text-amber-700';
+  return `<span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md whitespace-nowrap ${cls}" title="Scadenza: ${esc(_parseYmd(t.dueDate).toLocaleDateString('it-IT'))}">${_ti('cal', 'w-3.5 h-3.5')}${esc(_fmtDue(t))}</span>`;
+}
+function _prioIcon(p) {
+  const meta = TASK_PRIORITIES.find(x => x.key === p) || TASK_PRIORITIES[1];
+  const lvl = meta.key === 'High' ? 3 : meta.key === 'Low' ? 1 : 2;
+  const col = meta.key === 'High' ? '#f43f5e' : meta.key === 'Low' ? '#94a3b8' : '#f59e0b';
+  const bar = (i, h) => `<rect x="${1 + i * 5}" y="${14 - h}" width="3" height="${h}" rx="1" fill="${i < lvl ? col : '#e2e8f0'}"/>`;
+  return `<svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" role="img" aria-label="Priorità ${meta.label}"><title>Priorità ${meta.label}</title>${bar(0, 6)}${bar(1, 9)}${bar(2, 12)}</svg>`;
+}
+function _taskStatusMeta(s) { return TASK_STATUSES.find(x => x.key === s) || TASK_STATUSES[0]; }
+function _stripHtml(html) {
+  if (!html) return '';
+  try { return (new DOMParser().parseFromString(String(html), 'text/html').body.textContent || '').replace(/\s+/g, ' ').trim(); }
+  catch(_) { return String(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
+}
+function _taskSort(a, b) {
+  const da = a.dueDate || '9999-99-99', db = b.dueDate || '9999-99-99';
+  if (da !== db) return da < db ? -1 : 1;
+  const pa = _PRIO_RANK[a.priority] ?? 1, pb = _PRIO_RANK[b.priority] ?? 1;
+  if (pa !== pb) return pa - pb;
+  return (a.title || '').localeCompare(b.title || '');
+}
+function _memberById(id) {
+  if (!id) return null;
+  if (!_taskTeamIdx) _taskTeamIdx = new Map(loadTeam().map(m => [m.id, m]));
+  return _taskTeamIdx.get(id) || null;
+}
+function _shortName(m) {
+  const parts = (m && m.name || '').trim().split(/\s+/);
+  return parts.length > 1 ? parts[0] + ' ' + parts[parts.length - 1][0] + '.' : (parts[0] || '?');
+}
+const _AV_COLORS = ['bg-indigo-100 text-indigo-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-800', 'bg-rose-100 text-rose-700', 'bg-sky-100 text-sky-700', 'bg-violet-100 text-violet-700', 'bg-teal-100 text-teal-700', 'bg-orange-100 text-orange-700'];
+function _avatarHtml(m, size) {
+  size = size || 'w-6 h-6 text-[10px]';
+  if (!m) return `<span class="${size} rounded-full border border-dashed border-slate-300 text-slate-400 flex items-center justify-center flex-shrink-0" title="Non assegnato">${_ti('user', 'w-3/5 h-3/5')}</span>`;
+  let h = 0;
+  for (const c of String(m.id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const initials = (m.name || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const inner = m.photo ? `<img src="${esc(m.photo)}" class="w-full h-full object-cover" alt="">` : esc(initials);
+  return `<span class="${size} ${m.photo ? '' : _AV_COLORS[h % _AV_COLORS.length]} rounded-full flex items-center justify-center font-semibold overflow-hidden flex-shrink-0 ring-2 ring-white" title="${esc(m.name)}">${inner}</span>`;
+}
+function _autoGrow(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  if (el.scrollHeight) el.style.height = el.scrollHeight + 'px'; // 0 while hidden: keep 'auto'
+}
+function _defaultAssignee() {
+  const me = currentUser();
+  const f = taskFilter.assignee;
+  if (f === '__me') return me ? me.id : '';
+  return f && f !== '__none' ? f : '';
+}
+function _notifyTaskAssigned(title, assigneeId, dueDate, taskId, dealId) {
+  const me = currentUser();
+  if (!assigneeId || (me && me.id === assigneeId)) return;
+  const due = _parseYmd(dueDate);
+  addNotification({
+    userId: assigneeId,
+    type: 'task_assigned',
+    title: 'Nuovo task assegnato',
+    body: `${me ? me.name : 'Un collega'} ti ha assegnato "${title || 'senza titolo'}"${due ? ' (scadenza ' + due.toLocaleDateString('it-IT') + ')' : ''}.`,
+    taskId: taskId || null,
+    dealId: dealId || null
+  });
+}
+
+// ---------- filtering ----------
+function _filteredTasks(opts) {
+  opts = opts || {};
+  const f = taskFilter;
+  const me = currentUser();
+  const q = (f.q || '').trim().toLowerCase();
+  return _allTasks(f.includeDeal).filter(t => {
+    if (q) {
+      const hay = ((t.title || '') + ' ' + _stripHtml(t.description) + ' ' + (t._dealName || '')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (!opts.ignoreAssignee) {
+      if (f.assignee === '__me') { if (!me || t.assignee !== me.id) return false; }
+      else if (f.assignee === '__none') { if (t.assignee && _memberById(t.assignee)) return false; }
+      else if (f.assignee && t.assignee !== f.assignee) return false;
+    }
+    if (f.dealId && t.dealId !== f.dealId) return false;
+    if (!opts.ignoreStatus && f.status && t.status !== f.status) return false;
+    if (!opts.ignoreDue && f.due) {
+      const b = _dueBucket(t);
+      if (f.due === 'week') { if (b !== 'today' && b !== 'week') return false; }
+      else if (b !== f.due) return false;
+    }
+    return true;
+  });
+}
+
+// ---------- page ----------
+function setTaskView(v) {
+  taskView = v;
+  try { localStorage.setItem('ui_taskView', v); } catch(_) {}
+  renderTasks();
+}
+function setTaskFilter(k, v) {
+  taskFilter[k] = v;
+  if (k === 'q') _renderTasksBody(); else renderTasks();
+}
+function applyTaskQuickFilter(kind) {
+  taskFilter.status = kind === 'done' ? 'Done' : '';
+  taskFilter.due = kind === 'overdue' ? 'overdue' : kind === 'week' ? 'week' : '';
+  renderTasks();
+}
+function resetTaskFilters() {
+  taskFilter = { q: '', assignee: '', status: '', due: '', dealId: '', includeDeal: taskFilter.includeDeal };
+  renderTasks();
+}
+function showPersonTasks(id) {
+  taskFilter.assignee = id;
+  setTaskView('list');
+}
+function toggleTaskGroup(key) {
+  _taskGroupCollapsed[key] = !_isTaskGroupCollapsed(key);
+  _renderTasksBody();
+}
+function _isTaskGroupCollapsed(key) {
+  if (key === 'done' && taskFilter.status === 'Done') return false;
+  return !!_taskGroupCollapsed[key];
+}
+
+function renderTasks() {
+  const el = document.getElementById('page-tasks');
+  if (!el) return;
+  _taskTeamIdx = null;
+  const me = currentUser();
+  const editable = _tasksCanEdit();
+  const team = loadTeam().filter(m => m.status !== 'Inactive');
+  const dealList = loadDeals().slice().sort((a, b) => (a.company || '').localeCompare(b.company || ''));
+  const views = [['list', 'Lista'], ['board', 'Board'], ['people', 'Persone']];
+  const selCls = 'text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300';
+  const chipBase = 'inline-flex items-center gap-1.5 py-1 rounded-full text-xs font-medium border transition whitespace-nowrap flex-shrink-0';
+  const chipCls = active => active ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50';
+  const quickAssignee = _defaultAssignee();
+
+  el.innerHTML = `
+  <div class="max-w-7xl mx-auto">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Task</h1>
+        <p class="text-sm text-slate-500 mt-0.5">Assegna, pianifica e segui le attività del team</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="inline-flex bg-slate-200/70 rounded-lg p-0.5" role="tablist" aria-label="Vista">
+          ${views.map(([k, l]) => `<button type="button" role="tab" aria-selected="${taskView === k}" onclick="setTaskView('${k}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${taskView === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">${_ti(k)}${l}</button>`).join('')}
+        </div>
+        ${editable ? `<button type="button" onclick="openTaskDrawer(null)" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition">${_ti('plus')}Nuovo task</button>` : ''}
+      </div>
+    </div>
+
+    <div id="tasks-stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4"></div>
+
+    <div class="bg-white border border-slate-200 rounded-xl p-3 mb-5 space-y-3 shadow-sm">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative flex-1 min-w-[12rem]">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">${_ti('search')}</span>
+          <input id="tasks-search" data-ro-keep type="search" value="${esc(taskFilter.q)}" oninput="setTaskFilter('q', this.value)" placeholder="Cerca per titolo, descrizione o progetto…" class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+        <select data-ro-keep onchange="setTaskFilter('status', this.value)" class="${selCls}" aria-label="Stato">
+          <option value="">Tutti gli stati</option>
+          ${TASK_STATUSES.map(s => `<option value="${s.key}" ${taskFilter.status === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+        <select data-ro-keep onchange="setTaskFilter('due', this.value)" class="${selCls}" aria-label="Scadenza">
+          ${[['', 'Tutte le scadenze'], ['overdue', 'In ritardo'], ['today', 'Oggi'], ['week', 'Prossimi 7 giorni'], ['none', 'Senza scadenza']].map(([v, l]) => `<option value="${v}" ${taskFilter.due === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+        <select data-ro-keep onchange="setTaskFilter('dealId', this.value)" class="${selCls} max-w-[14rem]" aria-label="Progetto">
+          <option value="">Tutti i progetti</option>
+          ${dealList.map(d => `<option value="${esc(d.id)}" ${taskFilter.dealId === d.id ? 'selected' : ''}>${esc(d.company)}</option>`).join('')}
+        </select>
+        <label class="inline-flex items-center gap-2 text-xs text-slate-600 px-1 cursor-pointer select-none" title="Mostra anche i task creati nelle schede progetto della pipeline">
+          <input data-ro-keep type="checkbox" ${taskFilter.includeDeal ? 'checked' : ''} onchange="setTaskFilter('includeDeal', this.checked)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+          Includi task delle schede progetto
+        </label>
+      </div>
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <button type="button" onclick="setTaskFilter('assignee','')" class="${chipBase} px-3 ${chipCls(!taskFilter.assignee)}">Tutti</button>
+        ${me ? `<button type="button" onclick="setTaskFilter('assignee','__me')" class="${chipBase} px-3 ${chipCls(taskFilter.assignee === '__me')}">I miei task</button>` : ''}
+        <span class="w-px h-5 bg-slate-200 mx-1 flex-shrink-0"></span>
+        ${team.map(m => `<button type="button" onclick="setTaskFilter('assignee','${esc(m.id)}')" title="${esc(m.name)}" class="${chipBase} pl-1 pr-3 ${chipCls(taskFilter.assignee === m.id)}">${_avatarHtml(m, 'w-5 h-5 text-[9px]')}${esc(_shortName(m))}</button>`).join('')}
+        <button type="button" onclick="setTaskFilter('assignee','__none')" class="${chipBase} pl-1 pr-3 ${chipCls(taskFilter.assignee === '__none')}">${_avatarHtml(null, 'w-5 h-5 text-[9px]')}Non assegnati</button>
+      </div>
+    </div>
+
+    ${taskView === 'list' && editable ? `
+    <div class="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 mb-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-200 focus-within:border-indigo-300 transition">
+      <span class="text-slate-400">${_ti('plus')}</span>
+      <input id="task-quick-title" type="text" placeholder="Aggiungi velocemente un task e premi Invio…" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddTask();}" class="flex-1 min-w-[10rem] text-sm border-0 p-1 focus:ring-0 focus:outline-none">
+      <select id="task-quick-assignee" class="text-xs border border-slate-200 rounded-md px-2 py-1.5 text-slate-600 bg-white" aria-label="Responsabile">
+        <option value="">Responsabile…</option>
+        ${team.map(m => `<option value="${esc(m.id)}" ${quickAssignee === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+      </select>
+      <input id="task-quick-due" type="date" class="text-xs border border-slate-200 rounded-md px-2 py-1 text-slate-600" aria-label="Scadenza">
+      <button type="button" onclick="quickAddTask()" class="text-xs font-medium bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 rounded-md transition">Aggiungi</button>
+    </div>` : ''}
+
+    <div id="tasks-content"></div>
+  </div>`;
+  _renderTasksBody();
+  if (!editable) applyReadonlyToPage('tasks');
+  refreshTasksNavBadge();
+}
+
+function _renderTasksBody() {
+  const statsEl = document.getElementById('tasks-stats');
+  const contentEl = document.getElementById('tasks-content');
+  if (!statsEl || !contentEl) return;
+  _taskTeamIdx = null;
+  statsEl.innerHTML = _renderTaskStats(_filteredTasks({ ignoreStatus: true, ignoreDue: true }));
+  contentEl.innerHTML = taskView === 'board' ? _renderTaskBoard(_filteredTasks())
+                      : taskView === 'people' ? _renderTaskPeople()
+                      : _renderTaskList(_filteredTasks());
+}
+
+function _refreshTasksPageIfVisible() {
+  const el = document.getElementById('page-tasks');
+  if (el && !el.classList.contains('hidden')) _renderTasksBody();
+  refreshTasksNavBadge();
+}
+
+function refreshTasksNavBadge() {
+  const b = document.getElementById('nav-tasks-badge');
+  if (!b) return;
+  const me = currentUser();
+  const mine = me ? _allTasks(true).filter(t => t.assignee === me.id && t.status !== 'Done') : [];
+  if (!mine.length) { b.className = 'hidden'; b.textContent = ''; return; }
+  const overdue = mine.some(t => _dueBucket(t) === 'overdue');
+  b.textContent = mine.length > 99 ? '99+' : String(mine.length);
+  b.title = overdue ? 'Hai task in ritardo' : 'I tuoi task aperti';
+  b.className = 'text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center ' + (overdue ? 'bg-rose-500 text-white' : 'bg-slate-600 text-slate-100');
+}
+
+function _renderTaskStats(scope) {
+  const open = scope.filter(t => t.status !== 'Done');
+  const overdue = open.filter(t => _dueBucket(t) === 'overdue').length;
+  const soon = open.filter(t => ['today', 'week'].includes(_dueBucket(t))).length;
+  const done = scope.length - open.length;
+  const active = taskFilter.status === 'Done' ? 'done'
+               : taskFilter.due === 'overdue' ? 'overdue'
+               : taskFilter.due === 'week' ? 'week'
+               : (!taskFilter.due && !taskFilter.status) ? 'open' : '';
+  const card = (kind, label, value, tone, icon) => `
+    <button type="button" onclick="applyTaskQuickFilter('${kind}')" class="text-left bg-white rounded-xl border p-4 transition hover:shadow-sm ${active === kind ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'}">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-xs font-medium text-slate-500">${label}</span>
+        <span class="w-7 h-7 rounded-lg flex items-center justify-center ${tone}">${_ti(icon)}</span>
+      </div>
+      <div class="text-2xl font-bold text-slate-800 mt-2 tabular-nums">${value}</div>
+    </button>`;
+  return card('open', 'Task aperti', open.length, 'bg-indigo-50 text-indigo-600', 'inbox')
+       + card('overdue', 'In ritardo', overdue, overdue ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-400', 'alert')
+       + card('week', 'In scadenza · 7 giorni', soon, 'bg-amber-50 text-amber-600', 'clock')
+       + card('done', 'Completati', done, 'bg-emerald-50 text-emerald-600', 'status');
+}
+
+function _taskEmptyState() {
+  const filtered = taskFilter.q || taskFilter.assignee || taskFilter.status || taskFilter.due || taskFilter.dealId;
+  return `
+  <div class="bg-white border border-dashed border-slate-300 rounded-xl py-14 px-6 text-center">
+    <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">${_ti('inbox', 'w-6 h-6')}</div>
+    <div class="text-sm font-semibold text-slate-700">${filtered ? 'Nessun task corrisponde ai filtri' : 'Ancora nessun task'}</div>
+    <p class="text-xs text-slate-500 mt-1">${filtered ? 'Prova a modificare o azzerare i filtri.' : 'Crea il primo task e assegnalo a un membro del team.'}</p>
+    ${filtered
+      ? `<button type="button" onclick="resetTaskFilters()" class="mt-4 text-xs font-medium text-indigo-600 hover:text-indigo-800">Azzera filtri</button>`
+      : (_tasksCanEdit() ? `<button type="button" onclick="openTaskDrawer(null)" class="mt-4 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('plus', 'w-3.5 h-3.5')}Nuovo task</button>` : '')}
+  </div>`;
+}
+
+// ---------- list view ----------
+function _renderTaskList(tasks) {
+  if (!tasks.length) return _taskEmptyState();
+  const groups = {};
+  tasks.forEach(t => { const b = _dueBucket(t); (groups[b] = groups[b] || []).push(t); });
+  return TASK_GROUPS.filter(g => groups[g.key]).map(g => {
+    const list = groups[g.key].sort(_taskSort);
+    const collapsed = _isTaskGroupCollapsed(g.key);
+    return `
+    <section class="mb-5">
+      <button type="button" onclick="toggleTaskGroup('${g.key}')" aria-expanded="${!collapsed}" class="flex items-center gap-2 mb-2 px-1 text-sm font-semibold ${g.accent} hover:opacity-80">
+        <span class="transition-transform ${collapsed ? '-rotate-90' : ''}">${_ti('chevron')}</span>
+        <span class="w-2 h-2 rounded-full ${g.dot}"></span>${g.label}
+        <span class="text-xs font-medium text-slate-500 bg-slate-200/70 rounded-full px-2 py-0.5">${list.length}</span>
+      </button>
+      ${collapsed ? '' : `<div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden shadow-sm">${list.map(_taskRowHtml).join('')}</div>`}
+    </section>`;
+  }).join('');
+}
+
+function _taskRowHtml(t) {
+  const done = t.status === 'Done';
+  const st = _taskStatusMeta(t.status);
+  const desc = _stripHtml(t.description);
+  const att = (t.attachments || []).length;
+  return `
+  <div class="task-row group flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors" onclick="openTaskDrawer('${esc(t.uid)}')">
+    <button type="button" onclick="event.stopPropagation(); toggleTaskDoneByUid('${esc(t.uid)}')" title="${done ? 'Riapri' : 'Segna come completato'}"
+      class="task-check ${done ? 'is-done bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 text-emerald-600 hover:border-emerald-500 hover:bg-emerald-50'} w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition">
+      ${_ti('check', 'w-3 h-3')}
+    </button>
+    ${_prioIcon(t.priority)}
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-sm font-medium truncate ${done ? 'line-through text-slate-400' : 'text-slate-800'}">${esc(t.title || '(senza titolo)')}</span>
+        ${(t.status === 'In progress' || t.status === 'Blocked') ? `<span class="text-[11px] font-medium px-1.5 py-0.5 rounded ${st.pill} flex-shrink-0">${st.label}</span>` : ''}
+      </div>
+      ${desc ? `<div class="text-xs text-slate-500 truncate mt-0.5">${esc(desc)}</div>` : ''}
+    </div>
+    ${t._dealName ? `<span class="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md max-w-[11rem]" title="${t._source === 'deal' ? 'Task dalla scheda progetto' : 'Progetto'}: ${esc(t._dealName)}">${_ti('folder', 'w-3 h-3 flex-shrink-0')}<span class="truncate">${esc(t._dealName)}</span></span>` : ''}
+    ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${att} allegat${att === 1 ? 'o' : 'i'}">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
+    ${_dueChip(t)}
+    ${_avatarHtml(_memberById(t.assignee), 'w-7 h-7 text-[11px]')}
+  </div>`;
+}
+
+function quickAddTask() {
+  if (!_tasksCanEdit()) return;
+  const titleEl = document.getElementById('task-quick-title');
+  const title = ((titleEl && titleEl.value) || '').trim();
+  if (!title) { if (titleEl) titleEl.focus(); return; }
+  const task = _newTaskObject({
+    title,
+    assignee: (document.getElementById('task-quick-assignee') || {}).value || '',
+    dueDate: (document.getElementById('task-quick-due') || {}).value || ''
+  });
+  _upsertTask(task);
+  _notifyTaskAssigned(task.title, task.assignee, task.dueDate, task.id, task.dealId);
+  titleEl.value = '';
+  titleEl.focus();
+  _refreshTasksPageIfVisible();
+}
+
+function toggleTaskDoneByUid(uid) {
+  if (!_tasksCanEdit()) return;
+  const t = _findTaskByUid(uid);
+  if (!t) return;
+  _applyTaskPatch(t, { status: t.status === 'Done' ? 'To do' : 'Done' });
+  _refreshTasksPageIfVisible();
+}
+
+// ---------- board view ----------
+function _renderTaskBoard(tasks) {
+  const editable = _tasksCanEdit();
+  return `<div class="flex gap-4 overflow-x-auto pb-4">${TASK_STATUSES.map(s => {
+    const list = tasks.filter(t => (t.status || 'To do') === s.key).sort(_taskSort);
+    return `
+    <div data-task-col class="flex-1 min-w-[15rem] bg-slate-100/80 rounded-xl border border-slate-200 flex flex-col max-h-[calc(100vh-18rem)] min-h-[14rem] transition"
+      ${editable ? `ondragover="taskDragOver(event)" ondragleave="taskDragLeave(event)" ondrop="taskDrop(event,'${s.key}')"` : ''}>
+      <div class="px-3 pt-3 pb-2 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full ${s.dot}"></span>
+          <span class="text-sm font-semibold text-slate-700">${s.label}</span>
+          <span class="text-xs text-slate-500 bg-white border border-slate-200 rounded-full px-2">${list.length}</span>
+        </div>
+        ${editable ? `<button type="button" onclick="openTaskDrawer(null,'${s.key}')" title="Nuovo task in «${s.label}»" class="w-7 h-7 rounded-md text-slate-400 hover:bg-white hover:text-slate-700 flex items-center justify-center transition">${_ti('plus')}</button>` : ''}
+      </div>
+      <div class="flex-1 overflow-y-auto px-2 pb-2 space-y-2">
+        ${list.map(t => _taskCardHtml(t, editable)).join('') || `<div class="text-xs text-slate-400 text-center py-8 mx-1 border-2 border-dashed border-slate-200 rounded-lg">${editable ? 'Trascina qui un task' : 'Nessun task'}</div>`}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function _taskCardHtml(t, editable) {
+  const desc = _stripHtml(t.description);
+  const att = (t.attachments || []).length;
+  const done = t.status === 'Done';
+  return `
+  <div ${editable ? `draggable="true" ondragstart="taskDragStart(event,'${esc(t.uid)}')" ondragend="taskDragEnd(event)"` : ''} onclick="openTaskDrawer('${esc(t.uid)}')"
+    class="bg-white rounded-lg border border-slate-200 p-3 shadow-sm hover:shadow-md hover:border-slate-300 cursor-pointer transition">
+    <div class="flex items-start gap-2">
+      <span class="mt-0.5">${_prioIcon(t.priority)}</span>
+      <div class="text-sm font-medium leading-snug flex-1 min-w-0 break-words ${done ? 'line-through text-slate-400' : 'text-slate-800'}">${esc(t.title || '(senza titolo)')}</div>
+    </div>
+    ${desc ? `<p class="text-xs text-slate-500 mt-1.5 line-clamp-2">${esc(desc)}</p>` : ''}
+    ${t._dealName ? `<div class="mt-2"><span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md max-w-full">${_ti('folder', 'w-3 h-3 flex-shrink-0')}<span class="truncate">${esc(t._dealName)}</span></span></div>` : ''}
+    <div class="flex items-center gap-2 mt-3">
+      ${_dueChip(t)}
+      ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
+      <span class="flex-1"></span>
+      ${_avatarHtml(_memberById(t.assignee), 'w-6 h-6 text-[10px]')}
+    </div>
+  </div>`;
+}
+
+function taskDragStart(e, uid) {
+  if (!_tasksCanEdit()) { e.preventDefault(); return; }
+  _dragTaskUid = uid;
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', uid); } catch(_) {}
+  e.currentTarget.classList.add('opacity-50', 'rotate-1');
+}
+function taskDragEnd(e) {
+  e.currentTarget.classList.remove('opacity-50', 'rotate-1');
+  document.querySelectorAll('[data-task-col]').forEach(c => c.classList.remove('task-col-over'));
+  _dragTaskUid = null;
+}
+function taskDragOver(e) {
+  if (!_dragTaskUid) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('task-col-over');
+}
+function taskDragLeave(e) {
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  e.currentTarget.classList.remove('task-col-over');
+}
+function taskDrop(e, status) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('task-col-over');
+  const uid = _dragTaskUid;
+  _dragTaskUid = null;
+  if (!uid || !_tasksCanEdit()) return;
+  const t = _findTaskByUid(uid);
+  if (!t || t.status === status) return;
+  _applyTaskPatch(t, { status });
+  _refreshTasksPageIfVisible();
+}
+
+// ---------- people view ----------
+function _renderTaskPeople() {
+  const tasks = _filteredTasks({ ignoreAssignee: true });
+  const team = loadTeam().filter(m => m.status !== 'Inactive');
+  const me = currentUser();
+  const unassigned = tasks.filter(t => !t.assignee || !_memberById(t.assignee));
+  let people = team.map(m => ({ id: m.id, m }));
+  if (unassigned.length) people.push({ id: '__none', m: null });
+  const f = taskFilter.assignee;
+  if (f === '__me') people = people.filter(p => me && p.id === me.id);
+  else if (f) people = people.filter(p => p.id === f);
+  if (!people.length) return _taskEmptyState();
+
+  const rows = people.map(p => {
+    const mine = p.id === '__none' ? unassigned : tasks.filter(t => t.assignee === p.id);
+    const open = mine.filter(t => t.status !== 'Done').sort(_taskSort);
+    const overdue = open.filter(t => _dueBucket(t) === 'overdue').length;
+    const done = mine.length - open.length;
+    return { p, open, overdue, done, pct: mine.length ? Math.round(done / mine.length * 100) : 0 };
+  }).sort((a, b) =>
+    (a.p.id === '__none') - (b.p.id === '__none') ||
+    b.overdue - a.overdue || b.open.length - a.open.length ||
+    ((a.p.m && a.p.m.name) || '').localeCompare((b.p.m && b.p.m.name) || ''));
+
+  return `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">${rows.map(r => {
+    const m = r.p.m;
+    return `
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+      <div class="p-4 flex items-center gap-3">
+        ${_avatarHtml(m, 'w-11 h-11 text-sm')}
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-slate-800 truncate">${m ? esc(m.name) : 'Non assegnati'}</div>
+          <div class="text-xs text-slate-500 truncate">${m ? esc(m.role || '') : 'Task senza responsabile'}</div>
+        </div>
+        <button type="button" onclick="showPersonTasks('${esc(r.p.id)}')" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">Vedi tutti →</button>
+      </div>
+      <div class="grid grid-cols-3 border-y border-slate-100 divide-x divide-slate-100 text-center">
+        <div class="py-2.5"><div class="text-lg font-bold text-slate-800 tabular-nums">${r.open.length}</div><div class="text-[11px] text-slate-500">Aperti</div></div>
+        <div class="py-2.5"><div class="text-lg font-bold tabular-nums ${r.overdue ? 'text-rose-600' : 'text-slate-800'}">${r.overdue}</div><div class="text-[11px] text-slate-500">In ritardo</div></div>
+        <div class="py-2.5"><div class="text-lg font-bold text-slate-800 tabular-nums">${r.done}</div><div class="text-[11px] text-slate-500">Completati</div></div>
+      </div>
+      <div class="px-4 pt-3">
+        <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1"><span>Avanzamento</span><span class="font-medium text-slate-600 tabular-nums">${r.pct}%</span></div>
+        <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 rounded-full transition-all" style="width:${r.pct}%"></div></div>
+      </div>
+      <div class="p-2 pt-3 flex-1">
+        ${r.open.slice(0, 5).map(t => `
+          <div onclick="openTaskDrawer('${esc(t.uid)}')" class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+            <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 ${_taskStatusMeta(t.status).dot}" title="${_taskStatusMeta(t.status).label}"></span>
+            <span class="flex-1 min-w-0 text-sm text-slate-700 truncate">${esc(t.title || '(senza titolo)')}</span>
+            ${_dueChip(t)}
+          </div>`).join('') || '<div class="text-xs text-slate-400 text-center py-5">Nessun task aperto</div>'}
+        ${r.open.length > 5 ? `<button type="button" onclick="showPersonTasks('${esc(r.p.id)}')" class="w-full text-xs text-slate-500 hover:text-indigo-600 py-1.5">+ altri ${r.open.length - 5}</button>` : ''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ---------- detail drawer ----------
+function openTaskDrawer(uid, presetStatus) {
+  if (uid) {
+    const t = _findTaskByUid(uid);
+    if (!t) return;
+    if (t._source === 'global') {
+      const stored = loadTasks().find(x => x.id === t.id);
+      if (!stored) return;
+      _taskDraft = { uid, source: 'global', isNew: false, data: JSON.parse(JSON.stringify(stored)) };
+    } else {
+      _taskDraft = { uid, source: 'deal', isNew: false, data: {
+        id: t.id, title: t.title, assignee: t.assignee, dueDate: t.dueDate, priority: t.priority,
+        status: t.status, dealId: t.dealId, _dealName: t._dealName, _criterion: t._criterion } };
+    }
+  } else {
+    if (!_tasksCanEdit()) return;
+    const data = _newTaskObject({ assignee: _defaultAssignee(), status: presetStatus || 'To do' });
+    _taskDraft = { uid: 'g:' + data.id, source: 'global', isNew: true, data };
+  }
+  _renderTaskDrawer();
+  const root = document.getElementById('task-drawer-root');
+  root.classList.remove('hidden');
+  void root.offsetWidth; // commit the hidden→visible change so the slide-in transition runs
+  document.getElementById('task-drawer-backdrop').classList.remove('opacity-0');
+  document.getElementById('task-drawer').classList.remove('translate-x-full');
+  _autoGrow(document.getElementById('td-title'));
+  if (_taskDraft.isNew) setTimeout(() => { const ti = document.getElementById('td-title'); if (ti) ti.focus(); }, 200);
+}
+
+function _hideTaskDrawerUi() {
+  const root = document.getElementById('task-drawer-root');
+  if (!root) return;
+  document.getElementById('task-drawer-backdrop').classList.add('opacity-0');
+  document.getElementById('task-drawer').classList.add('translate-x-full');
+  setTimeout(() => { if (!_taskDraft) root.classList.add('hidden'); }, 200);
+}
+
+function closeTaskDrawer() {
+  const d = _taskDraft;
+  if (d && d.isNew) {
+    if ((d.data.title || '').trim() && !confirm('Vuoi scartare questo nuovo task?')) return;
+    (d.data.attachments || []).forEach(a => { if (a.path) deleteFileFromSupabase(a.path); });
+  }
+  _taskDraft = null;
+  _hideTaskDrawerUi();
+  _refreshTasksPageIfVisible();
+}
+
+document.addEventListener('keydown', e => {
+  if (!_taskDraft) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeTaskDrawer(); }
+  else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && _taskDraft.isNew) { e.preventDefault(); createTaskFromDraft(); }
+});
+
+function _renderTaskDrawer() {
+  const d = _taskDraft;
+  if (!d) return;
+  _taskTeamIdx = null;
+  const t = d.data;
+  const editable = _tasksCanEdit();
+  const isDeal = d.source === 'deal';
+  const dis = editable ? '' : 'disabled';
+  const done = t.status === 'Done';
+  const team = loadTeam().filter(m => m.status !== 'Inactive' || m.id === t.assignee);
+  const dealList = loadDeals().slice().sort((a, b) => (a.company || '').localeCompare(b.company || ''));
+  const fmtTs = iso => iso ? new Date(iso).toLocaleString('it-IT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const propLabel = (icon, label) => `<div class="flex items-center gap-2 text-slate-500 text-sm py-2">${_ti(icon)}<span>${label}</span></div>`;
+  const inputCls = 'text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50 disabled:text-slate-500';
+  const creator = t.createdByName || ((_memberById(t.createdBy) || {}).name) || '';
+
+  document.getElementById('task-drawer').innerHTML = `
+    <div class="flex items-center justify-between gap-3 px-5 h-14 border-b border-slate-100 flex-shrink-0">
+      <div class="flex items-center gap-2 min-w-0 text-xs text-slate-500">
+        ${isDeal
+          ? `<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-medium flex-shrink-0">${_ti('folder', 'w-3 h-3')}Scheda progetto</span><span class="truncate">${esc(t._dealName)}</span>`
+          : `<span class="font-medium text-slate-600">${d.isNew ? 'Nuovo task' : 'Task'}</span>`}
+        <span id="td-saved" class="inline-flex items-center gap-1 text-emerald-600 opacity-0 transition-opacity">${_ti('check', 'w-3.5 h-3.5')}Salvato</span>
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        ${!d.isNew && editable ? `<button type="button" onclick="taskDrawerSet('status','${done ? 'To do' : 'Done'}',true)" class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition ${done ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50'}">${_ti('check', 'w-3.5 h-3.5')}${done ? 'Completato' : 'Segna come completato'}</button>` : ''}
+        ${isDeal ? `<button type="button" onclick="taskDrawerOpenDeal()" class="text-xs font-medium px-2.5 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Apri scheda</button>` : ''}
+        ${!d.isNew && !isDeal && editable ? `<button type="button" onclick="taskDrawerDelete()" title="Elimina task" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50">${_ti('trash')}</button>` : ''}
+        <button type="button" onclick="closeTaskDrawer()" title="Chiudi (Esc)" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">${_ti('x', 'w-5 h-5')}</button>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-6 py-6 space-y-7">
+      <textarea id="td-title" rows="1" ${dis} placeholder="Titolo del task"
+        oninput="taskDrawerSet('title', this.value); _autoGrow(this)" onkeydown="if(event.key==='Enter' && !event.metaKey && !event.ctrlKey){event.preventDefault();}"
+        class="w-full text-xl font-semibold text-slate-800 placeholder-slate-300 border-0 p-0 resize-none focus:ring-0 focus:outline-none bg-transparent leading-snug">${esc(t.title)}</textarea>
+
+      <div class="grid grid-cols-[8.5rem_1fr] gap-x-3 items-start">
+        ${propLabel('status', 'Stato')}
+        <div class="flex flex-wrap gap-1.5 py-1.5">
+          ${TASK_STATUSES.map(s => `<button type="button" ${dis} onclick="taskDrawerSet('status','${s.key}',true)" class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition ${t.status === s.key ? s.pill + ' border-transparent ring-1 ' + s.ring : 'border-slate-200 text-slate-500 hover:bg-slate-50'}"><span class="w-1.5 h-1.5 rounded-full ${s.dot}"></span>${s.label}</button>`).join('')}
+        </div>
+
+        ${propLabel('user', 'Responsabile')}
+        <div class="flex items-center gap-2 py-1">
+          ${_avatarHtml(_memberById(t.assignee), 'w-7 h-7 text-[11px]')}
+          <select ${dis} onchange="taskDrawerSet('assignee', this.value, true)" class="${inputCls} flex-1 min-w-0">
+            <option value="">— Non assegnato —</option>
+            ${team.map(m => `<option value="${esc(m.id)}" ${t.assignee === m.id ? 'selected' : ''}>${esc(m.name)}${m.role ? ' · ' + esc(m.role) : ''}</option>`).join('')}
+          </select>
+        </div>
+
+        ${propLabel('cal', 'Scadenza')}
+        <div class="py-1 space-y-1.5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <input type="date" ${dis} value="${esc(t.dueDate || '')}" onchange="taskDrawerSet('dueDate', this.value, true)" class="${inputCls}">
+            ${_dueChip(t)}
+          </div>
+          ${editable ? `<div class="flex flex-wrap gap-1">
+            ${[['Oggi', 0], ['Domani', 1], ['Tra 1 settimana', 7], ['Tra 2 settimane', 14]].map(([l, n]) => `<button type="button" onclick="taskDrawerSetDueIn(${n})" class="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200">${l}</button>`).join('')}
+            ${t.dueDate ? `<button type="button" onclick="taskDrawerSet('dueDate','',true)" class="text-[11px] px-2 py-0.5 rounded-md text-slate-400 hover:text-rose-600">Rimuovi</button>` : ''}
+          </div>` : ''}
+        </div>
+
+        ${propLabel('flag', 'Priorità')}
+        <div class="flex flex-wrap gap-1.5 py-1.5">
+          ${TASK_PRIORITIES.map(p => `<button type="button" ${dis} onclick="taskDrawerSet('priority','${p.key}',true)" class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition ${t.priority === p.key ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}">${_prioIcon(p.key)}${p.label}</button>`).join('')}
+        </div>
+
+        ${propLabel('folder', 'Progetto')}
+        <div class="py-1">
+          ${isDeal
+            ? `<div class="text-sm text-slate-700 py-1.5">${esc(t._dealName)}${t._criterion ? `<span class="text-slate-400"> · ${esc(_conceptFieldLabel(t._criterion))}</span>` : ''}</div>`
+            : `<select ${dis} onchange="taskDrawerSet('dealId', this.value, true)" class="${inputCls} w-full">
+                <option value="">— Nessun progetto —</option>
+                ${dealList.map(x => `<option value="${esc(x.id)}" ${t.dealId === x.id ? 'selected' : ''}>${esc(x.company)}</option>`).join('')}
+              </select>`}
+        </div>
+      </div>
+
+      ${isDeal ? `<p class="text-xs text-slate-500 bg-amber-50/60 border border-amber-100 rounded-lg px-3 py-2">Questo task è stato creato nella scheda progetto. Descrizione e allegati si gestiscono dalla scheda.</p>` : `
+      <div>
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Descrizione</div>
+        ${editable
+          ? richTextEditor('td-desc', t.description || '', 'Aggiungi dettagli, contesto, link…', "taskDrawerSet('description', arguments[0])")
+          : `<div class="text-sm text-slate-700 leading-relaxed">${t.description ? _rtSanitizeStored(t.description) : '<span class="text-slate-400">Nessuna descrizione</span>'}</div>`}
+      </div>
+
+      <div>
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Allegati <span id="td-att-count" class="text-slate-400 font-medium normal-case">(${(t.attachments || []).length})</span></div>
+        ${editable ? `
+        <label ondragover="event.preventDefault(); this.classList.add('border-indigo-400','bg-indigo-50/50')" ondragleave="this.classList.remove('border-indigo-400','bg-indigo-50/50')"
+          ondrop="event.preventDefault(); this.classList.remove('border-indigo-400','bg-indigo-50/50'); taskDrawerUpload(event.dataTransfer.files)"
+          class="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-slate-200 rounded-xl py-5 cursor-pointer hover:border-indigo-300 hover:bg-slate-50 transition text-center">
+          <span class="text-slate-400">${_ti('upload', 'w-6 h-6')}</span>
+          <span class="text-sm text-slate-600"><span class="text-indigo-600 font-medium">Carica file</span> o trascinali qui</span>
+          <input type="file" multiple class="hidden" onchange="taskDrawerUpload(this.files); this.value=''">
+        </label>` : ''}
+        <div id="td-att-list" class="mt-2 space-y-1.5">${_taskAttachmentsHtml(t, editable)}</div>
+      </div>
+
+      ${d.isNew ? '' : `
+      <div class="pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-0.5">
+        ${creator ? `<div>Creato da <span class="text-slate-500">${esc(creator)}</span>${t.createdAt ? ' · ' + fmtTs(t.createdAt) : ''}</div>` : ''}
+        ${t.updatedAt ? `<div>Ultima modifica: ${fmtTs(t.updatedAt)}</div>` : ''}
+        ${done && t.completedAt ? `<div>Completato: ${fmtTs(t.completedAt)}</div>` : ''}
+      </div>`}`}
+    </div>
+
+    ${d.isNew ? `
+    <div class="flex items-center justify-between gap-2 px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex-shrink-0">
+      <span class="text-[11px] text-slate-400 hidden sm:inline">Ctrl/⌘ + Invio per creare</span>
+      <div class="flex items-center gap-2 ml-auto">
+        <button type="button" onclick="closeTaskDrawer()" class="px-4 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100">Annulla</button>
+        <button type="button" onclick="createTaskFromDraft()" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Crea task</button>
+      </div>
+    </div>` : ''}`;
+  _autoGrow(document.getElementById('td-title'));
+}
+
+function _taskAttachmentsHtml(t, editable) {
+  const list = t.attachments || [];
+  if (!list.length) return editable ? '' : '<div class="text-xs text-slate-400">Nessun allegato</div>';
+  return list.map((a, i) => {
+    const safeUrl = /^https?:\/\//i.test(a.url || '') ? a.url : '';
+    const ext = ((a.name || '').includes('.') ? a.name.split('.').pop() : 'file').toUpperCase().slice(0, 4);
+    const meta = [fmtBytes(a.size || 0), a.uploadedBy, a.uploadedAt ? new Date(a.uploadedAt).toLocaleDateString('it-IT') : ''].filter(Boolean).map(esc).join(' · ');
+    return `
+    <div class="flex items-center gap-3 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50">
+      <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">${esc(ext)}</div>
+      <div class="flex-1 min-w-0">
+        ${safeUrl
+          ? `<a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-slate-700 hover:text-indigo-600 truncate block">${esc(a.name)}</a>`
+          : `<span class="text-sm font-medium text-slate-700 truncate block">${esc(a.name)}</span>`}
+        <div class="text-[11px] text-slate-400 truncate">${meta}</div>
+      </div>
+      ${editable ? `<button type="button" onclick="taskDrawerRemoveAttachment(${i})" title="Rimuovi allegato" class="p-1.5 rounded-md text-slate-300 hover:text-rose-600 hover:bg-rose-50">${_ti('x')}</button>` : ''}
+    </div>`;
+  }).join('');
+}
+function _renderTaskAttachments() {
+  const d = _taskDraft;
+  if (!d) return;
+  const listEl = document.getElementById('td-att-list');
+  const countEl = document.getElementById('td-att-count');
+  if (listEl) listEl.innerHTML = _taskAttachmentsHtml(d.data, _tasksCanEdit());
+  if (countEl) countEl.textContent = '(' + (d.data.attachments || []).length + ')';
+}
+
+function _persistDraft() {
+  const d = _taskDraft;
+  if (!d || d.isNew) return;
+  if (d.source === 'global') {
+    d.data.updatedAt = new Date().toISOString();
+    _upsertTask(JSON.parse(JSON.stringify(d.data)));
+  } else {
+    const x = d.data;
+    _updateDealTask(x.dealId, x.id, { title: x.title, assignee: x.assignee, dueDate: x.dueDate, priority: x.priority, status: x.status });
+  }
+}
+function _flashTaskSaved() {
+  const el = document.getElementById('td-saved');
+  if (!el) return;
+  el.classList.remove('opacity-0');
+  clearTimeout(_tdSavedTimer);
+  _tdSavedTimer = setTimeout(() => el.classList.add('opacity-0'), 1400);
+}
+
+function taskDrawerSet(field, value, rerender) {
+  const d = _taskDraft;
+  if (!d || !_tasksCanEdit()) return;
+  const prevAssignee = d.data.assignee;
+  d.data[field] = value;
+  if (field === 'status') d.data.completedAt = value === 'Done' ? new Date().toISOString() : null;
+  if (!d.isNew) {
+    _persistDraft();
+    if (field === 'assignee' && value && value !== prevAssignee) {
+      _notifyTaskAssigned(d.data.title, value, d.data.dueDate, d.source === 'global' ? d.data.id : null, d.data.dealId);
+    }
+  }
+  if (rerender) { _renderTaskDrawer(); _refreshTasksPageIfVisible(); }
+  if (!d.isNew) _flashTaskSaved();
+}
+function taskDrawerSetDueIn(days) {
+  const dt = _startOfToday();
+  dt.setDate(dt.getDate() + days);
+  taskDrawerSet('dueDate', _ymd(dt), true);
+}
+function taskDrawerOpenDeal() {
+  const dealId = _taskDraft && _taskDraft.data.dealId;
+  _taskDraft = null;
+  _hideTaskDrawerUi();
+  if (dealId) openDeal(dealId);
+}
+function taskDrawerDelete() {
+  const d = _taskDraft;
+  if (!d || d.isNew || d.source !== 'global' || !_tasksCanEdit()) return;
+  const nAtt = (d.data.attachments || []).length;
+  if (!confirm('Eliminare definitivamente questo task' + (nAtt ? ' e i suoi ' + nAtt + ' allegati' : '') + '?')) return;
+  _deleteTaskRecord(d.data.id);
+  _taskDraft = null;
+  _hideTaskDrawerUi();
+  _refreshTasksPageIfVisible();
+}
+function createTaskFromDraft() {
+  const d = _taskDraft;
+  if (!d || !d.isNew || !_tasksCanEdit()) return;
+  const title = (d.data.title || '').trim();
+  if (!title) {
+    const ti = document.getElementById('td-title');
+    if (ti) { ti.placeholder = 'Il titolo è obbligatorio'; ti.classList.add('placeholder-rose-400'); ti.focus(); }
+    return;
+  }
+  const now = new Date().toISOString();
+  const task = JSON.parse(JSON.stringify(Object.assign(d.data, { title, createdAt: now })));
+  d.isNew = false; // attachments now belong to a saved task: closing must not delete them
+  _upsertTask(task);
+  _notifyTaskAssigned(task.title, task.assignee, task.dueDate, task.id, task.dealId);
+  _taskDraft = null;
+  _hideTaskDrawerUi();
+  _refreshTasksPageIfVisible();
+}
+
+async function taskDrawerUpload(fileList) {
+  const d = _taskDraft;
+  if (!d || d.source !== 'global' || !_tasksCanEdit() || !fileList || !fileList.length) return;
+  const taskId = d.data.id;
+  const me = currentUser();
+  for (const file of Array.from(fileList)) {
+    const lid = 'td-up-' + Math.random().toString(36).slice(2, 8);
+    const listEl = document.getElementById('td-att-list');
+    if (listEl) listEl.insertAdjacentHTML('afterbegin', `<div id="${lid}" class="flex items-center gap-2 text-xs text-slate-500 px-3 py-2 rounded-lg bg-slate-50"><span class="animate-spin w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full"></span>Caricamento ${esc(file.name)}…</div>`);
+    try {
+      const { path, url } = await uploadFileToSupabase(file, 'tasks/' + taskId);
+      const att = { name: file.name, size: file.size, type: file.type, url, path, uploadedAt: new Date().toISOString(), uploadedBy: me ? me.name : '' };
+      if (_taskDraft && _taskDraft.data.id === taskId) {
+        _taskDraft.data.attachments = (_taskDraft.data.attachments || []).concat(att);
+        if (!_taskDraft.isNew) { _persistDraft(); _flashTaskSaved(); }
+      } else {
+        // Drawer was closed mid-upload: attach to the stored task, or discard if it was never created
+        const stored = loadTasks().find(t => t.id === taskId);
+        if (stored) { stored.attachments = (stored.attachments || []).concat(att); _upsertTask(stored); _refreshTasksPageIfVisible(); }
+        else deleteFileFromSupabase(path);
+      }
+    } catch (err) {
+      alert('Errore caricamento "' + file.name + '": ' + err.message);
+    } finally {
+      const l = document.getElementById(lid);
+      if (l) l.remove();
+      if (_taskDraft && _taskDraft.data.id === taskId) _renderTaskAttachments();
+    }
+  }
+}
+function taskDrawerRemoveAttachment(i) {
+  const d = _taskDraft;
+  if (!d || !_tasksCanEdit()) return;
+  const a = (d.data.attachments || [])[i];
+  if (!a || !confirm('Rimuovere l\'allegato "' + a.name + '"?')) return;
+  if (a.path) deleteFileFromSupabase(a.path);
+  d.data.attachments.splice(i, 1);
+  if (!d.isNew) { _persistDraft(); _flashTaskSaved(); }
+  _renderTaskAttachments();
+}
 
 // Generate task_due_soon notifications at app start (dedup by task id + date marker)
 function generateDueSoonNotifications() {
@@ -4276,6 +5310,26 @@ function generateDueSoonNotifications() {
       dedup.add(key);
       changed = true;
     });
+  });
+  loadTasks().forEach(t => {
+    if (!t.dueDate || !t.assignee || t.status === 'Done') return;
+    const due = _parseYmd(t.dueDate);
+    if (!due || due < today || due > horizon) return;
+    const key = `${t.id}|${todayStr}`;
+    if (dedup.has(key)) return;
+    if (userSettings(t.assignee).tasksDueSoon === false) return;
+    existing.unshift({
+      id: 'n-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+      userId: t.assignee,
+      type: 'task_due_soon',
+      title: 'Task in scadenza',
+      body: `Il task "${t.title||'(senza titolo)'}" scade il ${due.toLocaleDateString('it-IT')}.`,
+      dealId: t.dealId || null, taskId: t.id, criterion: null,
+      read: false, timestamp: new Date().toISOString(),
+      _dedupKey: key
+    });
+    dedup.add(key);
+    changed = true;
   });
   if (changed) {
     if (existing.length > 200) existing.length = 200;
@@ -6816,6 +7870,7 @@ function savePrivileges(e, memberId) {
 function applyPermissionsToSidebar() {
   const map = {
     'nav-pipeline':   'pipeline',
+    'nav-tasks':      'tasks',
     'nav-portfolio':  'portfolio',
     'nav-investors':  'investors',
     'nav-team':       'team',
@@ -6962,6 +8017,14 @@ function showApp() {
   generateDueSoonNotifications();
   refreshNotifBadge();
   renderPipeline();
+  refreshTasksNavBadge();
+  // Deep link from task emails: ?task=<id>
+  const taskParam = new URLSearchParams(window.location.search).get('task');
+  if (taskParam && canView('tasks')) {
+    window.history.replaceState({}, '', window.location.pathname);
+    navigate('tasks');
+    if (loadTasks().some(t => t.id === taskParam)) openTaskDrawer('g:' + taskParam);
+  }
 }
 
 // ============================================================
@@ -7029,7 +8092,7 @@ function showApp() {
       if (m.accessLevel !== 'superadmin') { m.accessLevel = 'superadmin'; _teamMigrated = true; }
     }
     if (!m.permissions) {
-      m.permissions = m.accessLevel === 'admin' ? { pipeline:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' } : { pipeline:'edit', portfolio:'view', investors:'edit', team:'view', industries:'edit', settings:'edit' };
+      m.permissions = m.accessLevel === 'admin' ? _adminPermissions() : _defaultPermissions();
       _teamMigrated = true;
     }
     // Force settings to 'edit' for non-admins (notifications must remain editable)
