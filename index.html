@@ -345,6 +345,20 @@ try {
 // clobber unconfirmed local data with stale cloud state.
 const _syncTimers = {};
 const _syncPending = {};
+// Last JSON pushed (or loaded) per per-row key, so list saves only upload records that
+// actually changed. Otherwise a tab left open with stale data would re-upload records
+// that were deleted elsewhere and bring them back.
+const _lastPushedJson = {};
+
+// Rows are never hard-deleted (anon clients have no DELETE permission): a tombstone is
+// what tells every browser the record is gone. Only explicit user deletions call this.
+function _sbTombstone(key) {
+  if (_syncTimers[key]) { clearTimeout(_syncTimers[key]); delete _syncTimers[key]; }
+  delete _syncPending[key];
+  delete _lastPushedJson[key];
+  _sbSync(key, { id: key.slice(key.indexOf('_') + 1), _deleted: true, updatedAt: new Date().toISOString() });
+}
+
 async function _sbSync(key, value) {
   try { localStorage.setItem('_dirty_' + key, String(Date.now())); } catch(_) {}
   _syncPending[key] = value;
@@ -490,14 +504,17 @@ async function _sbLoadAll() {
     perDealRows.forEach(r => {
       seenIds.add(r.id);
       const local = localById.get(r.id);
+      const deleted = !!(r.value && r.value._deleted);
+      if (localStorage.getItem('_dirty_deal_' + r.id)) {
+        // Unconfirmed local edit wins and is re-pushed. With no local copy we never infer a
+        // deletion (the local list may just be stale): keep what the cloud has.
+        if (local) { merged.push(local); _sbSync('deal_' + r.id, local); return; }
+        localStorage.removeItem('_dirty_deal_' + r.id);
+      }
+      if (deleted) return; // deleted here or on another browser
       const cloudUpd = r.updated_at ? Date.parse(r.updated_at) : 0;
       const localUpd = local && local.updatedAt ? Date.parse(local.updatedAt) : 0;
-      // Prefer newer; if local is dirty for this deal, prefer local
-      if (localStorage.getItem('_dirty_deal_' + r.id) || localUpd > cloudUpd) {
-        merged.push(local || r.value);
-      } else {
-        merged.push(r.value);
-      }
+      merged.push(local && localUpd > cloudUpd ? local : r.value);
     });
     // Include local-only deals not yet on cloud (fresh creates)
     localArr.forEach(d => {
@@ -508,7 +525,7 @@ async function _sbLoadAll() {
       }
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-    try { localStorage.setItem('_dealIds', JSON.stringify(merged.map(d => d.id))); } catch(_) {}
+    merged.forEach(d => { _lastPushedJson['deal_' + d.id] = JSON.stringify(d); });
   }
 
   // Assemble team from per-member rows (authoritative). If any team_* row exists,
@@ -526,19 +543,23 @@ async function _sbLoadAll() {
     legacyBlob.forEach(m => { if (m && m.id) byId.set(m.id, m); });
     // Layer 2: local (medium)
     localArr.forEach(m => { if (m && m.id) byId.set(m.id, m); });
-    // Layer 3: per-team rows (authoritative)
+    // Layer 3: per-team rows (authoritative; a tombstone removes the member)
+    const localTeamById = new Map(localArr.filter(m => m && m.id).map(m => [m.id, m]));
     perTeamRows.forEach(r => {
+      if (localStorage.getItem('_dirty_team_' + r.id)) {
+        const loc = localTeamById.get(r.id);
+        if (loc) { byId.set(r.id, loc); _sbSync('team_' + r.id, loc); return; } // unpushed local edit
+        localStorage.removeItem('_dirty_team_' + r.id);
+      }
+      if (r.value && r.value._deleted) { byId.delete(r.id); return; }
       const existing = byId.get(r.id);
       const cloudUpd = r.updated_at ? Date.parse(r.updated_at) : 0;
       const existingUpd = existing && existing.updatedAt ? Date.parse(existing.updatedAt) : 0;
-      if (localStorage.getItem('_dirty_team_' + r.id) && existing) {
-        return; // keep local (unpushed)
-      }
       if (cloudUpd >= existingUpd) byId.set(r.id, r.value);
     });
     const merged = Array.from(byId.values());
     localStorage.setItem('dealflow_team', JSON.stringify(merged));
-    try { localStorage.setItem('_teamIds', JSON.stringify(merged.map(m => m.id))); } catch(_) {}
+    merged.forEach(m => { _lastPushedJson['team_' + m.id] = JSON.stringify(m); });
     // Seed per-member rows for anyone in local/legacy but not yet stored per-row
     if (_sb) {
       const perMemberIds = new Set(perTeamRows.map(r => r.id));
@@ -560,9 +581,9 @@ async function _sbLoadAll() {
       cloudIds.add(r.id);
       const local = localById.get(r.id);
       if (localStorage.getItem('_dirty_task_' + r.id)) {
-        if (local && !local._deleted) { out.push(local); _sbSync('task_' + r.id, local); }
-        else _sbSync('task_' + r.id, { id: r.id, _deleted: true, updatedAt: new Date().toISOString() });
-        return;
+        // Unconfirmed local edit wins; without a local copy never infer a deletion.
+        if (local && !local._deleted) { out.push(local); _sbSync('task_' + r.id, local); return; }
+        localStorage.removeItem('_dirty_task_' + r.id);
       }
       if (r.value && !r.value._deleted) out.push(r.value);
     });
@@ -815,29 +836,18 @@ function loadDeals() {
 // - Cloud: each deal is its own row (key = 'deal_<id>') so parallel edits on
 //   different deals never overwrite each other. The blob is also written for
 //   backward compatibility but the per-deal rows are the source of truth on load.
+// - Deletions are never inferred from a shorter list: only confirmDelete writes a tombstone.
 function saveDeals(deals) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
-  // Blob write (backward compat) — heavily debounced
   _sbSync(STORAGE_KEY, deals);
-  // Per-deal writes — track ids we've seen to detect deletions
-  try {
-    const ids = new Set();
-    deals.forEach(d => {
-      if (!d || !d.id) return;
-      ids.add(d.id);
-      _sbSync('deal_' + d.id, d);
-    });
-    // Deletion: any deal_id previously known but no longer present → remove from cloud
-    const prevIdsRaw = localStorage.getItem('_dealIds');
-    let prevIds = [];
-    if (prevIdsRaw) { try { prevIds = JSON.parse(prevIdsRaw); } catch(_) {} }
-    prevIds.forEach(pid => {
-      if (!ids.has(pid) && _sb) {
-        _sb.from('app_data').delete().eq('key', 'deal_' + pid).then(() => {}, ()=>{});
-      }
-    });
-    localStorage.setItem('_dealIds', JSON.stringify(Array.from(ids)));
-  } catch(_) {}
+  deals.forEach(d => {
+    if (!d || !d.id) return;
+    const key = 'deal_' + d.id;
+    const json = JSON.stringify(d);
+    if (_lastPushedJson[key] === json) return;
+    _lastPushedJson[key] = json;
+    _sbSync(key, d);
+  });
 }
 
 function _stampDealUpdated(dealId) {
@@ -3436,6 +3446,7 @@ function confirmDelete(id) {
   if (confirm(`Eliminare il deal "${d.company}"? L'operazione non è reversibile.`)) {
     const newDeals = deals.filter(x => x.id !== id);
     saveDeals(newDeals);
+    _sbTombstone('deal_' + id);
     deals = newDeals;
     renderPipeline();
   }
@@ -4379,11 +4390,7 @@ function _deleteTaskRecord(id) {
   const list = loadTasks();
   const t = list.find(x => x.id === id);
   localStorage.setItem(TASKS_KEY, JSON.stringify(list.filter(x => x.id !== id)));
-  const key = 'task_' + id;
-  // Drop any debounced edit still queued for this task, otherwise it would resurrect it
-  if (_syncTimers[key]) { clearTimeout(_syncTimers[key]); delete _syncTimers[key]; }
-  delete _syncPending[key];
-  _sbSync(key, { id, _deleted: true, updatedAt: new Date().toISOString() });
+  _sbTombstone('task_' + id);
   ((t && t.attachments) || []).forEach(a => { if (a.path) deleteFileFromSupabase(a.path); });
 }
 function _updateDealTask(dealId, taskId, patch) {
@@ -5752,6 +5759,7 @@ function removeDemoDeals() {
     const filtered = list.filter(d => !['deal-001','deal-002','deal-003'].includes(d.id));
     localStorage.setItem('dealflow_demo', JSON.stringify(filtered));
     _sbSync('dealflow_demo', filtered);
+    list.filter(d => !filtered.includes(d)).forEach(d => _sbTombstone('deal_' + d.id));
     alert('Rimossi ' + (before - filtered.length) + ' deal demo. La pagina si ricarica.');
     location.reload();
   } catch(e) {
@@ -7551,31 +7559,21 @@ function loadTeam() {
 }
 // Team sync: each member is its own cloud row (key = 'team_<id>') so parallel
 // edits and additions across browsers never overwrite each other.
+// Deletions are never inferred from a shorter list: only deleteTeamMember writes a tombstone.
 function saveTeam(t) {
   const now = new Date().toISOString();
   const stamped = (t || []).map(m => ({ ...m, updatedAt: m.updatedAt || now }));
   localStorage.setItem(TEAM_KEY, JSON.stringify(stamped));
   // Legacy blob (keep for backward-compat only)
   _sbSync(TEAM_KEY, stamped);
-  // Per-member rows (source of truth going forward)
-  try {
-    const seenIds = new Set();
-    stamped.forEach(m => {
-      if (!m || !m.id) return;
-      seenIds.add(m.id);
-      _sbSync('team_' + m.id, m);
-    });
-    // Deletions
-    const prevIdsRaw = localStorage.getItem('_teamIds');
-    let prevIds = [];
-    if (prevIdsRaw) { try { prevIds = JSON.parse(prevIdsRaw); } catch(_) {} }
-    prevIds.forEach(pid => {
-      if (!seenIds.has(pid) && _sb) {
-        _sb.from('app_data').delete().eq('key', 'team_' + pid).then(() => {}, () => {});
-      }
-    });
-    localStorage.setItem('_teamIds', JSON.stringify(Array.from(seenIds)));
-  } catch(_) {}
+  stamped.forEach(m => {
+    if (!m || !m.id) return;
+    const key = 'team_' + m.id;
+    const json = JSON.stringify(m);
+    if (_lastPushedJson[key] === json) return;
+    _lastPushedJson[key] = json;
+    _sbSync(key, m);
+  });
 }
 
 function renderTeam() {
@@ -7970,6 +7968,7 @@ function deleteTeamMember(id) {
   if (!m) return;
   if (confirm(`Eliminare il membro "${m.name}"?`)) {
     saveTeam(team.filter(x => x.id !== id));
+    _sbTombstone('team_' + id);
     renderTeam();
   }
 }
