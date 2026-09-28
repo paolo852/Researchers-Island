@@ -355,7 +355,8 @@ const _lastPushedJson = {};
 const ROW_COLLECTIONS = {
   dealflow_investors:  'inv_',
   dealflow_portfolio:  'port_',
-  dealflow_industries: 'ind_'
+  dealflow_industries: 'ind_',
+  dealflow_task_comments: 'tcom_'
 };
 function _saveRowCollection(blobKey, list) {
   const prefix = ROW_COLLECTIONS[blobKey];
@@ -418,7 +419,7 @@ window.addEventListener('beforeunload', () => {
         },
         body: JSON.stringify({ key: k, value: val, updated_at: new Date().toISOString() }),
         keepalive: true
-      });
+      }).catch(() => {});
     } catch(_) {}
   });
 });
@@ -444,6 +445,43 @@ async function deleteFileFromSupabase(path) {
 // Cloud is the source of truth. Every startup pulls the current state from Supabase
 // into localStorage. Writes still go up via _sbSync in real time. localStorage is
 // just an offline cache so reads stay synchronous — but whatever is in the cloud wins.
+// Merge cloud rows of a row collection into its local cache: rows are authoritative,
+// tombstones remove records, an unconfirmed local edit wins, and records known only
+// locally are kept and pushed. With no rows yet, seed them from local + the legacy list.
+function _assembleRowCollection(blobKey, prefix, rows, legacyList) {
+  const localArr = (function(){
+    try { const v = JSON.parse(localStorage.getItem(blobKey) || '[]'); return Array.isArray(v) ? v : []; } catch(_) { return []; }
+  })();
+  let out;
+  if (!rows.length) {
+    const byId = new Map();
+    (legacyList || []).forEach(x => { if (x && x.id) byId.set(x.id, x); });
+    localArr.forEach(x => { if (x && x.id) byId.set(x.id, x); });
+    if (!byId.size) return;
+    out = Array.from(byId.values());
+    out.forEach(x => _sbSync(prefix + x.id, x));
+  } else {
+    const localById = new Map(localArr.filter(x => x && x.id).map(x => [x.id, x]));
+    const seenIds = new Set();
+    out = [];
+    rows.forEach(r => {
+      seenIds.add(r.id);
+      const local = localById.get(r.id);
+      if (localStorage.getItem('_dirty_' + prefix + r.id)) {
+        if (local) { out.push(local); _sbSync(prefix + r.id, local); return; }
+        localStorage.removeItem('_dirty_' + prefix + r.id);
+      }
+      if (r.value && !r.value._deleted) out.push(r.value);
+    });
+    localArr.forEach(x => { if (x && x.id && !seenIds.has(x.id)) { out.push(x); _sbSync(prefix + x.id, x); } });
+    // Keep the local ordering; new records go last
+    const order = new Map(localArr.map((x, i) => [x && x.id, i]));
+    out.sort((a, b) => (order.has(a.id) ? order.get(a.id) : 1e9) - (order.has(b.id) ? order.get(b.id) : 1e9));
+  }
+  localStorage.setItem(blobKey, JSON.stringify(out));
+  out.forEach(x => { _lastPushedJson[prefix + x.id] = JSON.stringify(x); });
+}
+
 async function _sbLoadAll() {
   if (!_sb) return;
   const { data, error } = await _sb.from('app_data').select('key, value, updated_at');
@@ -622,43 +660,10 @@ async function _sbLoadAll() {
     localStorage.setItem(TASKS_KEY, JSON.stringify(out));
   }
 
-  // Investors / portfolio / industries: per-record rows are authoritative, tombstones remove
-  // records, an unconfirmed local edit wins, and records known only locally are kept and pushed.
+  // Row collections (investors, portfolio, industries, task comments)
   for (const [blobKey, prefix] of Object.entries(ROW_COLLECTIONS)) {
-    const rows = perCollectionRows[prefix];
-    const localArr = (function(){
-      try { const v = JSON.parse(localStorage.getItem(blobKey) || '[]'); return Array.isArray(v) ? v : []; } catch(_) { return []; }
-    })();
-    let out;
-    if (!rows.length) {
-      // First load after switching to per-record rows: seed them from local + the legacy cloud list
-      const legacy = (data || []).find(r => r.key === blobKey);
-      const byId = new Map();
-      ((legacy && Array.isArray(legacy.value)) ? legacy.value : []).forEach(x => { if (x && x.id) byId.set(x.id, x); });
-      localArr.forEach(x => { if (x && x.id) byId.set(x.id, x); });
-      if (!byId.size) continue; // nothing anywhere yet
-      out = Array.from(byId.values());
-      out.forEach(x => _sbSync(prefix + x.id, x));
-    } else {
-      const localById = new Map(localArr.filter(x => x && x.id).map(x => [x.id, x]));
-      const seenIds = new Set();
-      out = [];
-      rows.forEach(r => {
-        seenIds.add(r.id);
-        const local = localById.get(r.id);
-        if (localStorage.getItem('_dirty_' + prefix + r.id)) {
-          if (local) { out.push(local); _sbSync(prefix + r.id, local); return; }
-          localStorage.removeItem('_dirty_' + prefix + r.id);
-        }
-        if (r.value && !r.value._deleted) out.push(r.value);
-      });
-      localArr.forEach(x => { if (x && x.id && !seenIds.has(x.id)) { out.push(x); _sbSync(prefix + x.id, x); } });
-      // Keep the local ordering; new records go last
-      const order = new Map(localArr.map((x, i) => [x && x.id, i]));
-      out.sort((a, b) => (order.has(a.id) ? order.get(a.id) : 1e9) - (order.has(b.id) ? order.get(b.id) : 1e9));
-    }
-    localStorage.setItem(blobKey, JSON.stringify(out));
-    out.forEach(x => { _lastPushedJson[prefix + x.id] = JSON.stringify(x); });
+    const legacy = (data || []).find(r => r.key === blobKey);
+    _assembleRowCollection(blobKey, prefix, perCollectionRows[prefix], legacy && Array.isArray(legacy.value) ? legacy.value : []);
   }
 
   // Bootstrap: for keys entirely absent on cloud, seed from local so other browsers can hydrate.
@@ -4051,7 +4056,8 @@ const NOTIF_TYPE_TO_SETTING = {
   task_due_soon: 'tasksDueSoon',
   deal_stage_change: 'stageChange',
   new_deal: 'newDeal',
-  field_updated: 'fieldUpdates'
+  field_updated: 'fieldUpdates',
+  task_comment: 'taskComments'
 };
 function loadNotifications() {
   try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch(e) { return []; }
@@ -4059,7 +4065,7 @@ function loadNotifications() {
 function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); _sbSync(NOTIF_KEY, list); }
 function userSettings(userId) {
   // Note: fieldUpdates default is FALSE — subscription must be opt-in per user.
-  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, fieldUpdates:false, emailNotifs:true };
+  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, fieldUpdates:false, taskComments:true, emailNotifs:true };
   try {
     const raw = localStorage.getItem('dealflow_settings_' + userId);
     if (!raw) return def;
@@ -4309,7 +4315,7 @@ function renderNotifList() {
     return;
   }
   const typeIcon = {
-    mention: '@', task_assigned: '✓', task_due_soon: '⏰', deal_stage_change: '⇄', new_deal: '★'
+    mention: '@', task_assigned: '✓', task_due_soon: '⏰', task_comment: '✎', deal_stage_change: '⇄', new_deal: '★'
   };
   el.innerHTML = list.slice(0, 50).map(n => {
     const ts = new Date(n.timestamp);
@@ -4419,6 +4425,7 @@ const _TI_PATHS = {
   upload: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12',
   alert: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  chat: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
   inbox: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'
 };
 function _ti(name, cls) {
@@ -4456,6 +4463,12 @@ function _deleteTaskRecord(id) {
   const t = list.find(x => x.id === id);
   localStorage.setItem(TASKS_KEY, JSON.stringify(list.filter(x => x.id !== id)));
   _sbTombstone('task_' + id);
+  const comments = loadTaskComments();
+  const gone = comments.filter(c => c.taskUid === 'g:' + id);
+  if (gone.length) {
+    _saveRowCollection(TASK_COMMENTS_KEY, comments.filter(c => c.taskUid !== 'g:' + id));
+    gone.forEach(c => _sbTombstone('tcom_' + c.id));
+  }
   ((t && t.attachments) || []).forEach(a => { if (a.path) deleteFileFromSupabase(a.path); });
 }
 function _updateDealTask(dealId, taskId, patch) {
@@ -4760,6 +4773,8 @@ function _renderTasksBody() {
   const contentEl = document.getElementById('tasks-content');
   if (!statsEl || !contentEl) return;
   _taskTeamIdx = null;
+  _taskCommentCounts = {};
+  loadTaskComments().forEach(c => { if (!c.removed) _taskCommentCounts[c.taskUid] = (_taskCommentCounts[c.taskUid] || 0) + 1; });
   statsEl.innerHTML = _renderTaskStats(_filteredTasks({ ignoreStatus: true, ignoreDue: true }));
   contentEl.innerHTML = taskView === 'board' ? _renderTaskBoard(_filteredTasks())
                       : taskView === 'people' ? _renderTaskPeople()
@@ -4861,6 +4876,7 @@ function _taskRowHtml(t) {
     </div>
     ${t._dealName ? `<span class="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md max-w-[11rem]" title="${t._source === 'deal' ? 'Task dalla scheda progetto' : 'Progetto'}: ${esc(t._dealName)}">${_ti('folder', 'w-3 h-3 flex-shrink-0')}<span class="truncate">${esc(t._dealName)}</span></span>` : ''}
     ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${att} allegat${att === 1 ? 'o' : 'i'}">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
+    ${_taskCommentBadge(t)}
     ${_dueChip(t)}
     ${_avatarHtml(_memberById(t.assignee), 'w-7 h-7 text-[11px]')}
   </div>`;
@@ -4930,6 +4946,7 @@ function _taskCardHtml(t, editable) {
     <div class="flex items-center gap-2 mt-3">
       ${_dueChip(t)}
       ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
+      ${_taskCommentBadge(t)}
       <span class="flex-1"></span>
       ${_avatarHtml(_memberById(t.assignee), 'w-6 h-6 text-[10px]')}
     </div>
@@ -5055,9 +5072,14 @@ function openTaskDrawer(uid, presetStatus) {
   document.getElementById('task-drawer').classList.remove('translate-x-full');
   _autoGrow(document.getElementById('td-title'));
   if (_taskDraft.isNew) setTimeout(() => { const ti = document.getElementById('td-title'); if (ti) ti.focus(); }, 200);
+  clearInterval(_commentPollTimer);
+  _taskReplyTo = null;
+  if (!_taskDraft.isNew) { _pullTaskComments(); _commentPollTimer = setInterval(_pullTaskComments, 15000); }
 }
 
 function _hideTaskDrawerUi() {
+  clearInterval(_commentPollTimer);
+  _taskReplyTo = null;
   const root = document.getElementById('task-drawer-root');
   if (!root) return;
   document.getElementById('task-drawer-backdrop').classList.add('opacity-0');
@@ -5067,6 +5089,8 @@ function _hideTaskDrawerUi() {
 
 function closeTaskDrawer() {
   const d = _taskDraft;
+  const unsent = ((document.getElementById('td-comment-input') || {}).value || '').trim();
+  if (unsent && !confirm('Hai un commento non inviato. Chiudere comunque?')) return;
   if (d && d.isNew) {
     if ((d.data.title || '').trim() && !confirm('Vuoi scartare questo nuovo task?')) return;
     (d.data.attachments || []).forEach(a => { if (a.path) deleteFileFromSupabase(a.path); });
@@ -5097,6 +5121,7 @@ function _renderTaskDrawer() {
   const propLabel = (icon, label) => `<div class="flex items-center gap-2 text-slate-500 text-sm py-2">${_ti(icon)}<span>${label}</span></div>`;
   const inputCls = 'text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50 disabled:text-slate-500';
   const creator = t.createdByName || ((_memberById(t.createdBy) || {}).name) || '';
+  const pendingComment = (document.getElementById('td-comment-input') || {}).value || '';
 
   document.getElementById('task-drawer').innerHTML = `
     <div class="flex items-center justify-between gap-3 px-5 h-14 border-b border-slate-100 flex-shrink-0">
@@ -5189,6 +5214,8 @@ function _renderTaskDrawer() {
         ${t.updatedAt ? `<div>Ultima modifica: ${fmtTs(t.updatedAt)}</div>` : ''}
         ${done && t.completedAt ? `<div>Completato: ${fmtTs(t.completedAt)}</div>` : ''}
       </div>`}`}
+
+      ${_taskCommentsSectionHtml(d)}
     </div>
 
     ${d.isNew ? `
@@ -5200,6 +5227,9 @@ function _renderTaskDrawer() {
       </div>
     </div>` : ''}`;
   _autoGrow(document.getElementById('td-title'));
+  const ci = document.getElementById('td-comment-input');
+  if (ci && pendingComment) ci.value = pendingComment;
+  _renderTaskComments();
 }
 
 function _taskAttachmentsHtml(t, editable) {
@@ -5346,6 +5376,205 @@ function taskDrawerRemoveAttachment(i) {
   _renderTaskAttachments();
 }
 
+// ---------- task comments (threaded: comment + replies) ----------
+// Each comment is its own cloud row ('tcom_<id>') so people writing at the same time never
+// overwrite each other. Replies point to a top-level comment via parentId (one level deep).
+const TASK_COMMENTS_KEY = 'dealflow_task_comments';
+let _taskReplyTo = null;
+let _commentPollTimer = null;
+let _taskCommentCounts = {};
+
+function loadTaskComments() {
+  try {
+    const v = JSON.parse(localStorage.getItem(TASK_COMMENTS_KEY) || '[]');
+    return Array.isArray(v) ? v.filter(c => c && c.id && !c._deleted) : [];
+  } catch(_) { return []; }
+}
+function _commentsFor(uid) {
+  return loadTaskComments().filter(c => c.taskUid === uid).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+}
+function _taskCommentBadge(t) {
+  const n = _taskCommentCounts[t.uid] || 0;
+  return n ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${n} comment${n === 1 ? 'o' : 'i'}">${_ti('chat', 'w-3.5 h-3.5')}${n}</span>` : '';
+}
+function _relTime(iso) {
+  const d = new Date(iso);
+  const s = Math.round((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return 'adesso';
+  if (s < 3600) return Math.floor(s / 60) + ' min fa';
+  if (s < 86400) return Math.floor(s / 3600) + ' h fa';
+  if (s < 7 * 86400) return Math.floor(s / 86400) + ' g fa';
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+}
+
+function _taskCommentsSectionHtml(d) {
+  const me = currentUser();
+  if (d.isNew) {
+    return `<div><div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Commenti</div><p class="text-xs text-slate-400">Potrai commentare dopo aver creato il task.</p></div>`;
+  }
+  return `
+  <div>
+    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Commenti <span id="td-com-count" class="text-slate-400 font-medium normal-case"></span></div>
+    <div id="td-comments" class="space-y-4"></div>
+    ${me ? `
+    <div class="mt-4 flex gap-3">
+      ${_avatarHtml(_memberById(me.id) || me, 'w-8 h-8 text-[11px]')}
+      <div class="flex-1 min-w-0">
+        <div id="td-reply-chip"></div>
+        <div class="border border-slate-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-indigo-200 focus-within:border-indigo-300 transition">
+          <textarea id="td-comment-input" rows="2" placeholder="Scrivi un commento…"
+            onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();postTaskComment();}" oninput="_autoGrow(this)"
+            class="w-full resize-none border-0 bg-transparent px-3 pt-2.5 text-sm focus:ring-0 focus:outline-none"></textarea>
+          <div class="flex items-center justify-between gap-2 px-3 pb-2">
+            <span class="text-[11px] text-slate-400">Invio per inviare · Maiusc+Invio per andare a capo</span>
+            <button type="button" onclick="postTaskComment()" class="text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg">Invia</button>
+          </div>
+        </div>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function _renderTaskComments() {
+  const d = _taskDraft;
+  const el = document.getElementById('td-comments');
+  if (!d || !el) return;
+  const me = currentUser();
+  const canModerate = isAdminMember(me);
+  const all = _commentsFor(d.uid);
+  const byId = new Map(all.map(c => [c.id, c]));
+  const top = all.filter(c => !c.parentId || !byId.has(c.parentId));
+  const countEl = document.getElementById('td-com-count');
+  if (countEl) countEl.textContent = '(' + all.filter(c => !c.removed).length + ')';
+
+  const one = c => {
+    const author = _memberById(c.authorId) || { id: c.authorId || c.authorName, name: c.authorName || '?' };
+    const canDelete = !c.removed && me && (c.authorId === me.id || canModerate);
+    return `
+    <div class="flex gap-3">
+      ${_avatarHtml(author, 'w-8 h-8 text-[11px]')}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-slate-800">${esc(author.name)}</span>
+          <span class="text-[11px] text-slate-400" title="${esc(new Date(c.at).toLocaleString('it-IT'))}">${esc(_relTime(c.at))}</span>
+        </div>
+        ${c.removed
+          ? '<div class="text-sm italic text-slate-400 mt-0.5">Commento eliminato</div>'
+          : `<div class="text-sm text-slate-700 whitespace-pre-wrap break-words mt-0.5 leading-relaxed">${esc(c.text)}</div>`}
+        <div class="flex items-center gap-3 mt-1 text-xs">
+          ${!c.removed && me ? `<button type="button" onclick="taskCommentReply('${esc(c.id)}')" class="font-medium text-slate-500 hover:text-indigo-600">Rispondi</button>` : ''}
+          ${canDelete ? `<button type="button" onclick="taskCommentDelete('${esc(c.id)}')" class="text-slate-400 hover:text-rose-600">Elimina</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  el.innerHTML = top.length ? top.map(c => {
+    const replies = all.filter(r => r.parentId === c.id);
+    return `<div>${one(c)}${replies.length ? `<div class="ml-11 mt-3 pl-4 border-l-2 border-slate-100 space-y-3">${replies.map(one).join('')}</div>` : ''}</div>`;
+  }).join('') : '<div class="text-xs text-slate-400">Nessun commento. Avvia la conversazione.</div>';
+
+  const chip = document.getElementById('td-reply-chip');
+  if (chip) chip.innerHTML = _taskReplyTo
+    ? `<div class="inline-flex items-center gap-1.5 text-xs bg-indigo-50 text-indigo-700 rounded-md px-2 py-1 mb-2">In risposta a <b>${esc(_taskReplyTo.name)}</b>
+        <button type="button" onclick="taskCommentCancelReply()" class="text-indigo-400 hover:text-indigo-700" title="Annulla risposta">${_ti('x', 'w-3.5 h-3.5')}</button></div>`
+    : '';
+}
+
+function taskCommentReply(commentId) {
+  const c = loadTaskComments().find(x => x.id === commentId);
+  if (!c) return;
+  const name = (_memberById(c.authorId) || {}).name || c.authorName || '';
+  _taskReplyTo = { id: c.parentId || c.id, name };
+  _renderTaskComments();
+  const ta = document.getElementById('td-comment-input');
+  if (!ta) return;
+  // Replying to a reply stays in the same thread: address the person explicitly
+  if (c.parentId && name && !ta.value.startsWith('@')) ta.value = '@' + name.split(' ')[0] + ' ' + ta.value;
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+function taskCommentCancelReply() { _taskReplyTo = null; _renderTaskComments(); }
+
+function postTaskComment() {
+  const d = _taskDraft;
+  const me = currentUser();
+  const ta = document.getElementById('td-comment-input');
+  if (!d || d.isNew || !me || !ta) return;
+  const text = ta.value.trim();
+  if (!text) { ta.focus(); return; }
+  const c = {
+    id: 'tc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    taskUid: d.uid, authorId: me.id, authorName: me.name, text,
+    at: new Date().toISOString(), parentId: _taskReplyTo ? _taskReplyTo.id : null
+  };
+  _saveRowCollection(TASK_COMMENTS_KEY, loadTaskComments().concat(c));
+  _notifyTaskComment(d, c);
+  _taskReplyTo = null;
+  ta.value = '';
+  _autoGrow(ta);
+  _renderTaskComments();
+  _refreshTasksPageIfVisible();
+  const list = document.getElementById('td-comments');
+  if (list && list.lastElementChild) list.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function taskCommentDelete(commentId) {
+  const me = currentUser();
+  const list = loadTaskComments();
+  const c = list.find(x => x.id === commentId);
+  if (!c || !me || (c.authorId !== me.id && !isAdminMember(me))) return;
+  if (!confirm('Eliminare questo commento?')) return;
+  if (list.some(x => x.parentId === c.id)) {
+    // Keep the thread readable: the replies stay, the parent shows as deleted
+    c.removed = true;
+    c.text = '';
+    _saveRowCollection(TASK_COMMENTS_KEY, list);
+  } else {
+    _saveRowCollection(TASK_COMMENTS_KEY, list.filter(x => x.id !== c.id));
+    _sbTombstone('tcom_' + c.id);
+  }
+  _renderTaskComments();
+  _refreshTasksPageIfVisible();
+}
+
+// Pull new comments from the cloud while a task is open (the thread refreshes by itself)
+async function _pullTaskComments() {
+  if (!_sb || !_taskDraft) return;
+  try {
+    const { data, error } = await _sb.from('app_data').select('key, value').like('key', 'tcom_%');
+    if (error || !data) return;
+    const before = localStorage.getItem(TASK_COMMENTS_KEY);
+    _assembleRowCollection(TASK_COMMENTS_KEY, 'tcom_', data.filter(r => r.key.startsWith('tcom_')).map(r => ({ id: r.key.slice(5), value: r.value })), []);
+    if (localStorage.getItem(TASK_COMMENTS_KEY) !== before) { _renderTaskComments(); _refreshTasksPageIfVisible(); }
+  } catch(_) {}
+}
+
+// Notify everyone involved: assignee, creator, earlier participants (never the author)
+function _notifyTaskComment(d, c) {
+  const me = currentUser();
+  const t = d.data;
+  const thread = _commentsFor(d.uid);
+  const parent = c.parentId ? thread.find(x => x.id === c.parentId) : null;
+  const recipients = new Set();
+  if (t.assignee) recipients.add(t.assignee);
+  if (t.createdBy) recipients.add(t.createdBy);
+  thread.forEach(x => { if (x.authorId) recipients.add(x.authorId); });
+  if (me) recipients.delete(me.id);
+  const snippet = c.text.length > 160 ? c.text.slice(0, 160) + '…' : c.text;
+  recipients.forEach(uid => {
+    if (!_memberById(uid)) return;
+    addNotification({
+      userId: uid,
+      type: 'task_comment',
+      title: parent && parent.authorId === uid ? `${me.name} ha risposto al tuo commento` : `Nuovo commento su "${t.title || 'task'}"`,
+      body: `${me.name}: ${snippet}`,
+      taskId: d.source === 'global' ? t.id : null,
+      dealId: t.dealId || null
+    });
+  });
+}
+
 // Generate task_due_soon notifications at app start (dedup by task id + date marker)
 function generateDueSoonNotifications() {
   const today = new Date();
@@ -5483,6 +5712,7 @@ function renderSettings() {
         <h2 class="text-base font-semibold text-slate-700 mb-2">Notifiche in-app</h2>
         ${row('mentions','@menzioni','Ricevi una notifica quando un membro ti menziona in un commento')}
         ${row('tasksAssigned','Task assegnati','Ricevi una notifica quando ti viene assegnato un task')}
+        ${row('taskComments','Commenti sui task','Ricevi una notifica quando qualcuno commenta o risponde su un task che ti riguarda')}
         ${row('tasksDueSoon','Task in scadenza','Avvisi per i task con scadenza nei prossimi 3 giorni')}
         ${row('stageChange','Cambio stage deal','Avvisi quando cambia lo stage di un deal a cui partecipi')}
         ${row('newDeal','Nuovi deal','Avvisi quando viene creato un nuovo deal')}
