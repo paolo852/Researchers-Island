@@ -5717,10 +5717,21 @@ const CANTERA_PHASES = [
   }
 ];
 const CANTERA_HYP_STATUSES = ['Da testare', 'Validata', 'Falsificata', 'Non conclusiva'];
+const CANTERA_SECTORS = [
+  ['Medtech', 'bg-blue-50 text-blue-700'], ['Biotech', 'bg-fuchsia-50 text-fuchsia-700'], ['Cleantech', 'bg-emerald-50 text-emerald-700'],
+  ['Agritech', 'bg-lime-50 text-lime-700'], ['Food', 'bg-orange-50 text-orange-700'], ['Aerospace', 'bg-indigo-50 text-indigo-700'],
+  ['Energia', 'bg-yellow-50 text-yellow-800'], ['Nuovi materiali', 'bg-stone-100 text-stone-700'], ['Quantum', 'bg-purple-50 text-purple-700'],
+  ['Robotica', 'bg-cyan-50 text-cyan-700'], ['Digital / ICT', 'bg-sky-50 text-sky-700']
+];
+function _cSectorBadge(sector) {
+  if (!sector) return '';
+  const known = CANTERA_SECTORS.find(([n]) => n.toLowerCase() === String(sector).toLowerCase());
+  return `<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${known ? known[1] : 'bg-slate-100 text-slate-700'}">${esc(sector)}</span>`;
+}
 
 let canteraOpenId = null;
 let canteraPhaseView = null;
-let canteraFilter = { q: '', status: 'active' };
+let canteraFilter = { q: '', status: 'active', sector: '' };
 let _canteraPollTimer = null;
 let _canteraModalEditId = null;
 let _canteraSig = '';
@@ -5970,6 +5981,12 @@ function renderCantera() {
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">${_ti('search')}</span>
         <input id="cn-search" data-ro-keep type="search" value="${esc(canteraFilter.q)}" oninput="setCanteraFilter('q', this.value)" placeholder="Cerca un'idea…" class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300">
       </div>
+      ${(() => {
+        const used = [...new Set(loadCantera().map(x => x.sector).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        if (!used.length) return '';
+        return `<select data-ro-keep onchange="setCanteraFilter('sector', this.value)" aria-label="Settore" class="text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="">Tutti i settori</option>${used.map(x => `<option ${canteraFilter.sector === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`;
+      })()}
       <div class="inline-flex bg-slate-100 rounded-lg p-0.5 flex-wrap">
         ${statuses.map(([k, l]) => `<button type="button" onclick="setCanteraFilter('status','${k}')" class="px-3 py-1.5 rounded-md text-xs font-medium transition ${canteraFilter.status === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">${l}</button>`).join('')}
       </div>
@@ -6007,7 +6024,8 @@ function _renderCanteraGrid() {
   const q = (canteraFilter.q || '').trim().toLowerCase();
   const st = canteraFilter.status;
   const list = all.filter(p => {
-    if (q && !((p.title || '') + ' ' + (p.oneLiner || '')).toLowerCase().includes(q)) return false;
+    if (q && !((p.title || '') + ' ' + (p.oneLiner || '') + ' ' + (p.sector || '')).toLowerCase().includes(q)) return false;
+    if (canteraFilter.sector && p.sector !== canteraFilter.sector) return false;
     if (st === 'active') return p.status === 'active';
     if (st === 'review') return p.status === 'active' && p.phases[p.currentPhase].state === 'review';
     if (st === 'completed' || st === 'stopped') return p.status === st;
@@ -6025,7 +6043,7 @@ function _renderCanteraGrid() {
     <button type="button" onclick="openCanteraProject('${esc(p.id)}')" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 transition">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <div class="font-medium text-slate-800 truncate">${esc(p.title)}</div>
+          <div class="flex items-center gap-2 min-w-0"><span class="font-medium text-slate-800 truncate">${esc(p.title)}</span>${_cSectorBadge(p.sector)}</div>
           ${p.oneLiner ? `<div class="text-xs text-slate-500 truncate mt-0.5">${esc(p.oneLiner)}</div>` : ''}
         </div>
         ${_cStatusPill(p)}
@@ -6158,6 +6176,19 @@ function openCanteraModal(editId, presetOwner, focusDates) {
         <input id="cn-m-oneliner" maxlength="200" value="${esc(p ? p.oneLiner || '' : '')}" placeholder="Cosa fa e per chi" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
       </div>
       <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Settore applicativo *</label>
+        ${(() => {
+          const cur = p ? p.sector || '' : '';
+          const custom = cur && !CANTERA_SECTORS.some(([n]) => n === cur);
+          return `<select id="cn-m-sector" required onchange="document.getElementById('cn-m-sector-custom').classList.toggle('hidden', this.value !== '__custom__'); if (this.value === '__custom__') document.getElementById('cn-m-sector-custom').focus();" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <option value="">— Seleziona settore —</option>
+            ${CANTERA_SECTORS.map(([n]) => `<option ${n === cur ? 'selected' : ''}>${n}</option>`).join('')}
+            <option value="__custom__" ${custom ? 'selected' : ''}>Altro…</option>
+          </select>
+          <input id="cn-m-sector-custom" maxlength="40" value="${custom ? esc(cur) : ''}" placeholder="Scrivi il settore" class="${custom ? '' : 'hidden'} mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">`;
+        })()}
+      </div>
+      <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Responsabile</label>
         <select id="cn-m-owner" ${admin ? '' : 'disabled'} class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50">
           ${team.map(m => `<option value="${esc(m.id)}" ${m.id === owner ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
@@ -6203,6 +6234,9 @@ function saveCanteraModal(e) {
   const me = currentUser();
   const title = document.getElementById('cn-m-title').value.trim();
   const oneLiner = document.getElementById('cn-m-oneliner').value.trim();
+  const sectorSel = document.getElementById('cn-m-sector').value;
+  const sector = sectorSel === '__custom__' ? document.getElementById('cn-m-sector-custom').value.trim() : sectorSel;
+  if (!sector) { const c = document.getElementById(sectorSel === '__custom__' ? 'cn-m-sector-custom' : 'cn-m-sector'); c.focus(); c.classList.add('ring-2', 'ring-rose-200'); return; }
   const ownerSel = document.getElementById('cn-m-owner');
   const ownerId = isAdminMember(me) ? ownerSel.value : (_canteraModalEditId ? _canteraGet(_canteraModalEditId).ownerId : me.id);
   if (!title) return;
@@ -6213,7 +6247,7 @@ function saveCanteraModal(e) {
     const p = _canteraGet(_canteraModalEditId);
     if (!p || !_cCanEditProject(p)) return;
     const prevOwner = p.ownerId;
-    Object.assign(p, { title, oneLiner, ownerId, plan });
+    Object.assign(p, { title, oneLiner, sector, ownerId, plan });
     _saveCanteraProject(p);
     if (ownerId !== prevOwner) _cNotify([ownerId], `Ti è stata affidata l'idea "${title}"`, `${me.name} ti ha nominato responsabile in La Cantera.`, p);
     closeCanteraModal();
@@ -6225,7 +6259,7 @@ function saveCanteraModal(e) {
   const p = {
     id: 'cnt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     title, oneLiner, ownerId, createdBy: me.id, createdByName: me.name, createdAt: now, updatedAt: now,
-    status: 'active', currentPhase: 1, plan,
+    status: 'active', currentPhase: 1, plan, sector,
     phases: { 1: { state: 'active', startedAt: now, data: {} }, 2: { state: 'locked', data: {} }, 3: { state: 'locked', data: {} } },
     history: []
   };
@@ -6273,7 +6307,7 @@ function canteraSelectPhase(n) {
   _renderCanteraProject();
 }
 function _cSignature(p) {
-  return JSON.stringify([p.status, p.currentPhase, p.title, p.oneLiner, p.ownerId, p.plan || null, [1, 2, 3].map(n => p.phases[n].state), (p.history || []).length]);
+  return JSON.stringify([p.status, p.currentPhase, p.title, p.oneLiner, p.sector || '', p.ownerId, p.plan || null, [1, 2, 3].map(n => p.phases[n].state), (p.history || []).length]);
 }
 
 function _renderCanteraProject() {
@@ -6328,7 +6362,7 @@ function _renderCanteraProject() {
     <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 mb-1.5 flex-wrap">${_cStatusPill(p)}<span class="text-xs text-slate-400">Creata il ${_cFmtDate(p.createdAt)}</span></div>
+          <div class="flex items-center gap-2 mb-1.5 flex-wrap">${_cStatusPill(p)}${_cSectorBadge(p.sector)}<span class="text-xs text-slate-400">Creata il ${_cFmtDate(p.createdAt)}</span></div>
           <h1 class="text-2xl font-bold text-slate-800 break-words">${esc(p.title)}</h1>
           ${p.oneLiner ? `<p class="text-slate-600 mt-1">${esc(p.oneLiner)}</p>` : ''}
           <div class="flex items-center gap-2 mt-3 text-sm text-slate-600">${_avatarHtml(owner, 'w-7 h-7 text-[11px]')}<span>${owner ? esc(owner.name) : 'Responsabile non più nel team'}</span></div>
