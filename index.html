@@ -84,6 +84,11 @@ setTimeout(function(){
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
       Dashboard
     </button>
+    <button onclick="canteraOpenId = null; navigate('cantera')" id="nav-cantera" class="sidebar-link w-full text-left">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      <span class="flex-1">La Cantera</span>
+      <span id="nav-cantera-badge" class="hidden"></span>
+    </button>
     <button onclick="navigate('pipeline')" id="nav-pipeline" class="sidebar-link w-full text-left active">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Pipeline
@@ -127,6 +132,7 @@ setTimeout(function(){
   <div id="page-pipeline" class="p-6 fade-in"></div>
   <div id="page-new" class="p-6 fade-in hidden"></div>
   <div id="page-tasks" class="p-6 fade-in hidden"></div>
+  <div id="page-cantera" class="p-6 fade-in hidden"></div>
   <div id="page-portfolio" class="p-6 fade-in hidden"></div>
   <div id="page-portfolio-detail" class="p-6 fade-in hidden"></div>
   <div id="page-team" class="p-6 fade-in hidden"></div>
@@ -304,6 +310,10 @@ setTimeout(function(){
   </div>
 </div>
 
+<div id="cantera-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-10" onclick="if(event.target===this) closeCanteraModal()">
+  <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl"><div id="cantera-modal-body"></div></div>
+</div>
+
 <div id="privileges-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-8">
   <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
     <div id="privileges-modal-body"></div>
@@ -356,7 +366,9 @@ const ROW_COLLECTIONS = {
   dealflow_investors:  'inv_',
   dealflow_portfolio:  'port_',
   dealflow_industries: 'ind_',
-  dealflow_task_comments: 'tcom_'
+  dealflow_task_comments: 'tcom_',
+  dealflow_cantera: 'cnt_',
+  dealflow_cantera_msgs: 'cmsg_'
 };
 function _saveRowCollection(blobKey, list) {
   const prefix = ROW_COLLECTIONS[blobKey];
@@ -983,7 +995,7 @@ function stageBadge(stage) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const pages = ['dashboard', 'pipeline', 'new', 'tasks', 'portfolio', 'portfolio-detail', 'team', 'investors', 'industries', 'settings'];
+const pages = ['dashboard', 'cantera', 'pipeline', 'new', 'tasks', 'portfolio', 'portfolio-detail', 'team', 'investors', 'industries', 'settings'];
 
 function toggleBlock(blockId, chevronId) {
   const block = document.getElementById(blockId);
@@ -998,6 +1010,7 @@ const PAGE_TO_PERM = {
   pipeline: 'pipeline',
   new: 'pipeline',
   tasks: 'tasks',
+  cantera: 'cantera',
   portfolio: 'portfolio',
   'portfolio-detail': 'portfolio',
   team: 'team',
@@ -1007,6 +1020,7 @@ const PAGE_TO_PERM = {
 };
 
 function navigate(page, dealId) {
+  if (page !== 'cantera') { canteraOpenId = null; clearInterval(_canteraPollTimer); }
   // permission gate: block if user cannot view this section
   const permKey = PAGE_TO_PERM[page];
   if (permKey && typeof canView === 'function' && !canView(permKey)) {
@@ -1028,6 +1042,7 @@ function navigate(page, dealId) {
     case 'pipeline':         renderPipeline(); break;
     case 'new':              renderForm(null); break;
     case 'tasks':            renderTasks(); break;
+    case 'cantera':          renderCantera(); break;
     case 'portfolio':        renderPortfolio(); break;
     case 'portfolio-detail': renderPortfolioDetail(dealId); break;
     case 'team':             renderTeam(); break;
@@ -1082,7 +1097,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -4057,7 +4072,8 @@ const NOTIF_TYPE_TO_SETTING = {
   deal_stage_change: 'stageChange',
   new_deal: 'newDeal',
   field_updated: 'fieldUpdates',
-  task_comment: 'taskComments'
+  task_comment: 'taskComments',
+  cantera: 'cantera'
 };
 function loadNotifications() {
   try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch(e) { return []; }
@@ -4065,7 +4081,7 @@ function loadNotifications() {
 function saveNotifications(list) { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); _sbSync(NOTIF_KEY, list); }
 function userSettings(userId) {
   // Note: fieldUpdates default is FALSE — subscription must be opt-in per user.
-  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, fieldUpdates:false, taskComments:true, emailNotifs:true };
+  const def = { mentions:true, tasksAssigned:true, tasksDueSoon:true, stageChange:true, newDeal:true, fieldUpdates:false, taskComments:true, cantera:true, emailNotifs:true };
   try {
     const raw = localStorage.getItem('dealflow_settings_' + userId);
     if (!raw) return def;
@@ -4123,6 +4139,7 @@ function isAdminMember(m) {
 const PERM_SECTIONS = [
   { key: 'pipeline',   label: 'Pipeline' },
   { key: 'tasks',      label: 'Task' },
+  { key: 'cantera',    label: 'La Cantera' },
   { key: 'portfolio',  label: 'Portfolio' },
   { key: 'investors',  label: 'Investitori' },
   { key: 'team',       label: 'Team' },
@@ -4131,10 +4148,10 @@ const PERM_SECTIONS = [
 ];
 const PERM_LEVELS = ['edit','view','none'];
 function _defaultPermissions() {
-  return { pipeline:'edit', tasks:'edit', portfolio:'view', investors:'edit', team:'view', industries:'edit', settings:'edit' };
+  return { pipeline:'edit', tasks:'edit', cantera:'edit', portfolio:'view', investors:'edit', team:'view', industries:'edit', settings:'edit' };
 }
 function _adminPermissions() {
-  return { pipeline:'edit', tasks:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' };
+  return { pipeline:'edit', tasks:'edit', cantera:'edit', portfolio:'edit', investors:'edit', team:'edit', industries:'edit', settings:'edit' };
 }
 function userPermission(section) {
   const u = currentUser();
@@ -4207,6 +4224,7 @@ function addNotification(n) {
     body: n.body,
     dealId: n.dealId || null,
     taskId: n.taskId || null,
+    canteraId: n.canteraId || null,
     criterion: n.criterion || null,
     read: false,
     timestamp: new Date().toISOString()
@@ -4275,14 +4293,15 @@ function emailNotify(notif) {
   const member = team.find(m => m.id === notif.userId);
   if (!member || !member.email) return;
   const appBase = window.location.origin + window.location.pathname;
-  const ctaUrl = notif.taskId ? appBase + '?task=' + encodeURIComponent(notif.taskId)
+  const ctaUrl = notif.canteraId ? appBase + '?cantera=' + encodeURIComponent(notif.canteraId)
+               : notif.taskId ? appBase + '?task=' + encodeURIComponent(notif.taskId)
                : notif.dealId ? appBase + '?deal=' + notif.dealId : appBase;
   const firstName = (member.name || '').split(' ')[0];
   sendBrevoEmail(
     member.email,
     member.name,
     'DealFlow: ' + notif.title,
-    _emailHtml(esc(notif.title), esc(notif.body), notif.taskId ? 'Apri task' : 'Apri deal', ctaUrl, firstName)
+    _emailHtml(esc(notif.title), esc(notif.body), notif.canteraId ? 'Apri idea' : notif.taskId ? 'Apri task' : 'Apri deal', ctaUrl, firstName)
   );
 }
 
@@ -4315,7 +4334,7 @@ function renderNotifList() {
     return;
   }
   const typeIcon = {
-    mention: '@', task_assigned: '✓', task_due_soon: '⏰', task_comment: '✎', deal_stage_change: '⇄', new_deal: '★'
+    mention: '@', task_assigned: '✓', task_due_soon: '⏰', task_comment: '✎', cantera: '◆', deal_stage_change: '⇄', new_deal: '★'
   };
   el.innerHTML = list.slice(0, 50).map(n => {
     const ts = new Date(n.timestamp);
@@ -4348,7 +4367,9 @@ function onNotifClick(id) {
   saveNotifications(list);
   refreshNotifBadge();
   closeNotifPanel();
-  if (n.taskId && loadTasks().some(t => t.id === n.taskId)) {
+  if (n.canteraId && _canteraGet(n.canteraId)) {
+    openCanteraProject(n.canteraId);
+  } else if (n.taskId && loadTasks().some(t => t.id === n.taskId)) {
     navigate('tasks');
     openTaskDrawer('g:' + n.taskId);
   } else if (n.dealId) {
@@ -4426,6 +4447,11 @@ const _TI_PATHS = {
   alert: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
   chat: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
+  lock: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+  send: 'M12 19l9 2-9-18-9 18 9-2zm0 0v-8',
+  back: 'M15 19l-7-7 7-7',
+  edit: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
+  bulb: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
   inbox: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'
 };
 function _ti(name, cls) {
@@ -5575,6 +5601,1098 @@ function _notifyTaskComment(d, c) {
   });
 }
 
+// ============================================================
+// LA CANTERA — product ideas of the PM team through a 3-phase stage gate
+// ============================================================
+// Each idea is one cloud row ('cnt_<id>'); chat messages are separate rows ('cmsg_<id>')
+// so people writing at the same time never overwrite each other.
+// Gate rule: the idea owner submits a phase, the Venture Building team (admins) decides:
+// Go (next phase unlocks), request changes (phase reopens) or stop.
+const CANTERA_KEY = 'dealflow_cantera';
+const CANTERA_MSGS_KEY = 'dealflow_cantera_msgs';
+const CANTERA_PHASES = [
+  {
+    n: 1, name: 'Product Concept', short: 'Concept', weeks: 3,
+    question: 'Quale prodotto sviluppare e per chi',
+    output: 'Product concept brief con ipotesi di valore falsificabili, 1-2 domini applicativi, shortlist di archetipi di end-user e tesi di "why now".',
+    sections: [
+      { key: 'problem', label: 'Problema e opportunità', type: 'text', required: true,
+        help: 'Quale problema risolve l\'idea e per chi? Descrivi il contesto, quanto è sentito il problema e perché le soluzioni di oggi non bastano.',
+        placeholder: 'Es. I gestori delle reti idriche individuano le perdite solo dopo…' },
+      { key: 'hypotheses', label: 'Ipotesi di valore falsificabili', type: 'list', required: true, min: 2, keyCol: 'statement', rowLabel: 'Ipotesi', addLabel: 'Aggiungi ipotesi',
+        help: 'Ogni ipotesi deve poter risultare falsa. Formato consigliato: "Crediamo che [archetipo] [abbia questo problema / pagherebbe per…]. Sapremo di avere ragione se [segnale misurabile con soglia]". Servono almeno 2 ipotesi.',
+        columns: [
+          { key: 'statement', label: 'Ipotesi', type: 'textarea', placeholder: 'Crediamo che…' },
+          { key: 'signal', label: 'Segnale e soglia di validazione', type: 'textarea', placeholder: 'Es. almeno 6 responsabili su 10 confermano il problema e…' }
+        ] },
+      { key: 'domains', label: 'Domini applicativi (1-2)', type: 'list', required: true, min: 1, max: 2, keyCol: 'name', rowLabel: 'Dominio', addLabel: 'Aggiungi dominio',
+        help: 'Scegli al massimo due ambiti in cui la tecnologia crea più valore. Concentrarsi fa parte del lavoro: gli altri ambiti restano nel cassetto.',
+        columns: [
+          { key: 'name', label: 'Dominio', type: 'input', placeholder: 'Es. Monitoraggio reti idriche' },
+          { key: 'why', label: 'Perché questo dominio', type: 'textarea' }
+        ] },
+      { key: 'archetypes', label: 'Shortlist archetipi di end-user', type: 'list', required: true, min: 2, keyCol: 'name', rowLabel: 'Archetipo', addLabel: 'Aggiungi archetipo',
+        help: 'Chi usa il prodotto e chi decide l\'acquisto: 2-4 archetipi concreti (ruolo + contesto), non segmenti generici. Li incontrerai nella Fase 2.',
+        columns: [
+          { key: 'name', label: 'Archetipo', type: 'input', placeholder: 'Es. Responsabile manutenzione di una utility medio-grande' },
+          { key: 'role', label: 'Ruolo nell\'acquisto', type: 'select', options: ['Utilizzatore', 'Decisore', 'Influenzatore', 'Pagatore'] },
+          { key: 'context', label: 'Contesto e problema principale', type: 'textarea' }
+        ] },
+      { key: 'whyNow', label: 'Tesi di "why now"', type: 'text', required: true,
+        help: 'Perché adesso è il momento giusto: maturità della tecnologia, normative in arrivo, costi in calo, cambiamenti di mercato. Cita dati e fonti.' },
+      { key: 'assets', label: 'Asset di partenza', type: 'text', required: false,
+        help: 'Tecnologia, brevetti, competenze o dati da cui parte l\'idea (gruppo di ricerca, TRL attuale, risultati già ottenuti).' }
+    ]
+  },
+  {
+    n: 2, name: 'Proof of Pull', short: 'Pull', weeks: 4,
+    question: 'Il problema è reale e qualcuno lo vuole risolto con noi?',
+    output: 'Evidenza di validazione da end-user qualificati, conferma del problema e segnali di pull (LOI, interesse a pilot).',
+    sections: [
+      { key: 'plan', label: 'Piano di validazione', type: 'text', required: false,
+        help: 'Quali archetipi incontrerai, quanti e con quali domande chiave. Obiettivo consigliato: almeno 10 conversazioni, di cui la maggior parte qualificate.' },
+      { key: 'interviews', label: 'Interazioni con end-user', type: 'list', required: true, min: 5, keyCol: 'who', minWhere: { col: 'qualified', min: 3, label: 'qualificate' }, rowLabel: 'Interazione', addLabel: 'Aggiungi interazione',
+        help: 'Registra ogni conversazione. "Qualificata" = la persona corrisponde a un archetipo e ha esperienza diretta o potere decisionale sul problema. Servono almeno 5 interazioni, di cui 3 qualificate.',
+        columns: [
+          { key: 'who', label: 'Persona / organizzazione', type: 'input' },
+          { key: 'date', label: 'Data', type: 'date' },
+          { key: 'archetype', label: 'Archetipo', type: 'select', optionsFrom: 'archetypes' },
+          { key: 'confirmed', label: 'Problema confermato', type: 'select', options: ['Sì', 'Parzialmente', 'No'] },
+          { key: 'qualified', label: 'Interlocutore qualificato', type: 'check' },
+          { key: 'notes', label: 'Insight principali', type: 'textarea' }
+        ] },
+      { key: 'hypothesisCheck', label: 'Esito delle ipotesi', type: 'hypotheses', required: true,
+        help: 'Per ogni ipotesi della Fase 1 indica se è validata o falsificata e con quale evidenza. Un\'ipotesi falsificata è un risultato utile, non un fallimento.' },
+      { key: 'pullSignals', label: 'Segnali di pull', type: 'list', required: true, min: 1, keyCol: 'counterpart', rowLabel: 'Segnale', addLabel: 'Aggiungi segnale',
+        help: 'Impegni concreti, non complimenti: lettere d\'intenti (LOI), richieste di pilot, disponibilità a co-sviluppare, accesso a dati o siti, budget dedicato.',
+        columns: [
+          { key: 'counterpart', label: 'Controparte', type: 'input' },
+          { key: 'type', label: 'Tipo', type: 'select', options: ['LOI', 'Interesse a pilot', 'Co-sviluppo', 'Pre-ordine', 'Accesso a dati / sito', 'Altro'] },
+          { key: 'status', label: 'Stato', type: 'select', options: ['Discusso', 'Proposto', 'Firmato / confermato'] },
+          { key: 'notes', label: 'Dettagli', type: 'textarea' }
+        ] },
+      { key: 'synthesis', label: 'Sintesi della validazione', type: 'text', required: true,
+        help: 'Cosa hai imparato, quali assunzioni sono cambiate, quali archetipo e dominio emergono come prioritari per la Fase 3.' }
+    ]
+  },
+  {
+    n: 3, name: 'Proof of Feasibility', short: 'Feasibility', weeks: 3,
+    question: 'Possiamo costruirlo e finanziarlo?',
+    output: 'Development plan tecnico (traiettoria TRL, milestone, risorse), funding roadmap con le call pubbliche reali mappate e scenario equity.',
+    sections: [
+      { key: 'trl', label: 'Traiettoria TRL', type: 'trl', required: true,
+        help: 'TRL attuale e TRL target a fine piano, con la giustificazione del livello attuale (test eseguiti, ambiente, risultati).' },
+      { key: 'milestones', label: 'Milestone tecniche', type: 'list', required: true, min: 3, keyCol: 'title', rowLabel: 'Milestone', addLabel: 'Aggiungi milestone',
+        help: 'Tappe verificabili con un deliverable concreto (prototipo, test in ambiente rilevante, certificazione). Almeno 3 milestone.',
+        columns: [
+          { key: 'title', label: 'Milestone', type: 'input' },
+          { key: 'date', label: 'Data prevista', type: 'date' },
+          { key: 'trl', label: 'TRL raggiunto', type: 'number' },
+          { key: 'deliverable', label: 'Deliverable / criterio di successo', type: 'textarea' }
+        ] },
+      { key: 'resources', label: 'Risorse necessarie', type: 'text', required: true,
+        help: 'Team (FTE e competenze), partner tecnici, infrastrutture e budget stimato per ogni tappa.' },
+      { key: 'funding', label: 'Funding roadmap', type: 'list', required: true, min: 2, keyCol: 'name', rowLabel: 'Fonte', addLabel: 'Aggiungi fonte',
+        help: 'Mappa fonti reali con scadenze e importi veri: call pubbliche (EIC Pathfinder/Transition, Horizon Europe, PNRR, bandi regionali), grant, equity, corporate.',
+        columns: [
+          { key: 'name', label: 'Call / fonte', type: 'input', placeholder: 'Es. EIC Transition 2027' },
+          { key: 'type', label: 'Tipo', type: 'select', options: ['Call pubblica', 'Grant / premio', 'Equity', 'Corporate / partner', 'Debito agevolato'] },
+          { key: 'amount', label: 'Importo (€)', type: 'number' },
+          { key: 'deadline', label: 'Scadenza', type: 'date' },
+          { key: 'status', label: 'Stato', type: 'select', options: ['Mappata', 'In preparazione', 'Sottomessa', 'Ottenuta'] },
+          { key: 'link', label: 'Link al bando', type: 'input' }
+        ] },
+      { key: 'equity', label: 'Scenario equity', type: 'text', required: true,
+        help: 'Veicolo ipotizzato (spin-off, NewCo), primo round (importo e valutazione pre-money), diluizione e cap table indicativa tra fondatori, università e investitori.' },
+      { key: 'risks', label: 'Rischi principali e mitigazioni', type: 'text', required: false,
+        help: 'Rischi tecnici, regolatori e di mercato che possono fermare il progetto, con la contromossa prevista.' }
+    ]
+  }
+];
+const CANTERA_HYP_STATUSES = ['Da testare', 'Validata', 'Falsificata', 'Non conclusiva'];
+
+let canteraOpenId = null;
+let canteraPhaseView = null;
+let canteraFilter = { q: '', status: 'active' };
+let _canteraPollTimer = null;
+let _canteraModalEditId = null;
+let _canteraSig = '';
+let _canteraShownPhase = null;
+
+// ---------- storage & helpers ----------
+function loadCantera() {
+  try { const v = JSON.parse(localStorage.getItem(CANTERA_KEY) || '[]'); return Array.isArray(v) ? v.filter(p => p && p.id && !p._deleted) : []; }
+  catch(_) { return []; }
+}
+function loadCanteraMsgs() {
+  try { const v = JSON.parse(localStorage.getItem(CANTERA_MSGS_KEY) || '[]'); return Array.isArray(v) ? v.filter(m => m && m.id && !m._deleted) : []; }
+  catch(_) { return []; }
+}
+function _canteraGet(id) { return loadCantera().find(p => p.id === id) || null; }
+function _saveCanteraProject(p) {
+  p.updatedAt = new Date().toISOString();
+  const list = loadCantera();
+  const i = list.findIndex(x => x.id === p.id);
+  if (i >= 0) list[i] = p; else list.unshift(p);
+  _saveRowCollection(CANTERA_KEY, list);
+}
+function _cPhase(n) { return CANTERA_PHASES[n - 1]; }
+function _cVbTeam() { return loadTeam().filter(m => m.status !== 'Inactive' && isAdminMember(m)); }
+function _cCanEditProject(p) {
+  const me = currentUser();
+  return !!me && canEdit('cantera') && (isAdminMember(me) || p.ownerId === me.id);
+}
+function _cCanEditPhase(p, n) { return _cCanEditProject(p) && p.status === 'active' && p.phases[n].state === 'active'; }
+function _cCanCreateFor(memberId) {
+  const me = currentUser();
+  return !!me && canEdit('cantera') && (isAdminMember(me) || memberId === me.id);
+}
+function _cHistory(p, n, action, note) {
+  const me = currentUser();
+  p.history = p.history || [];
+  p.history.push({ at: new Date().toISOString(), by: me ? me.name : '', byId: me ? me.id : '', phase: n, action, note: note || '' });
+}
+function _cNotify(userIds, title, body, p) {
+  const me = currentUser();
+  new Set(userIds).forEach(uid => {
+    if (!uid || (me && uid === me.id) || !_memberById(uid)) return;
+    addNotification({ userId: uid, type: 'cantera', title, body, canteraId: p.id });
+  });
+}
+function _cFmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
+
+// Elapsed time inside a phase (stops counting while the phase sits at the gate)
+function _cTimebox(p, n) {
+  const ph = p.phases[n];
+  if (!ph || !ph.startedAt) return null;
+  const weeks = _cPhase(n).weeks;
+  const total = weeks * 7;
+  const start = new Date(ph.startedAt);
+  const end = ph.state === 'passed' && ph.decidedAt ? new Date(ph.decidedAt)
+            : ph.state === 'review' && ph.submittedAt ? new Date(ph.submittedAt) : new Date();
+  const elapsed = Math.max(0, Math.floor((end - start) / 86400000));
+  return {
+    total, elapsed, weeks,
+    week: Math.min(weeks, Math.floor(elapsed / 7) + 1),
+    overdue: elapsed > total, lateBy: Math.max(0, elapsed - total),
+    pct: Math.min(100, Math.round(elapsed / total * 100)),
+    deadline: new Date(start.getTime() + total * 86400000)
+  };
+}
+
+// ---------- template completeness ----------
+function _cRowFilled(r, sec) { return !!(r && String(r[sec.keyCol] || '').trim()); }
+function _cSectionStatus(p, n, sec) {
+  const data = p.phases[n].data || {};
+  const v = data[sec.key];
+  if (sec.type === 'text') return { done: _stripHtml(v || '').length >= 10 };
+  if (sec.type === 'trl') return { done: !!(v && v.current && v.target) };
+  if (sec.type === 'hypotheses') {
+    const hyps = ((p.phases[1].data || {}).hypotheses || []).filter(h => _cRowFilled(h, { keyCol: 'statement' }));
+    const checks = v || {};
+    const decided = hyps.filter(h => checks[h.id] && checks[h.id].status && checks[h.id].status !== 'Da testare').length;
+    return { done: hyps.length > 0 && decided === hyps.length, count: decided, need: hyps.length };
+  }
+  const rows = (v || []).filter(r => _cRowFilled(r, sec));
+  let done = rows.length >= (sec.min || 1);
+  let extra = null;
+  if (sec.minWhere) {
+    const k = rows.filter(r => r[sec.minWhere.col]).length;
+    extra = { count: k, need: sec.minWhere.min, label: sec.minWhere.label };
+    done = done && k >= sec.minWhere.min;
+  }
+  return { done, count: rows.length, need: sec.min || 1, extra };
+}
+function _cPhaseProgress(p, n) {
+  const req = _cPhase(n).sections.filter(s => s.required);
+  const done = req.filter(s => _cSectionStatus(p, n, s).done).length;
+  return { done, total: req.length, complete: done === req.length };
+}
+
+// ---------- visual pieces ----------
+function _cNode(state, n, big) {
+  const size = big ? 'w-10 h-10 text-sm' : 'w-7 h-7 text-xs';
+  const ic = big ? 'w-4 h-4' : 'w-3.5 h-3.5';
+  const base = `${size} rounded-full flex items-center justify-center font-bold flex-shrink-0`;
+  if (state === 'passed') return `<span class="${base} bg-emerald-500 text-white" title="Fase ${n} superata">${_ti('check', ic)}</span>`;
+  if (state === 'active') return `<span class="${base} bg-indigo-600 text-white ring-4 ring-indigo-100" title="Fase ${n} in corso">${n}</span>`;
+  if (state === 'review') return `<span class="${base} bg-amber-500 text-white ring-4 ring-amber-100" title="Fase ${n} al gate">${_ti('clock', ic)}</span>`;
+  if (state === 'stopped') return `<span class="${base} bg-rose-500 text-white" title="Idea fermata">${_ti('x', ic)}</span>`;
+  return `<span class="${base} bg-slate-100 text-slate-400 border border-slate-200" title="Fase ${n} bloccata">${_ti('lock', big ? 'w-4 h-4' : 'w-3 h-3')}</span>`;
+}
+function _cNodeState(p, n) {
+  if (p.status === 'stopped' && n === p.currentPhase) return 'stopped';
+  return p.phases[n].state;
+}
+// Journey indicator: Concept → Pull → Feasibility → final gate
+function _cJourney(p) {
+  const conn = n => {
+    const st = _cNodeState(p, n);
+    let fill = 0, col = 'bg-emerald-500';
+    if (st === 'passed') fill = 100;
+    else if (st === 'active' || st === 'review') {
+      const tb = _cTimebox(p, n);
+      fill = tb ? Math.max(4, tb.pct) : 0;
+      col = st === 'review' ? 'bg-amber-400' : tb && tb.overdue ? 'bg-rose-400' : 'bg-indigo-400';
+    }
+    return `<div class="flex-1 h-1.5 mx-1 rounded-full bg-slate-200 overflow-hidden"><div class="h-full ${col} rounded-full" style="width:${fill}%"></div></div>`;
+  };
+  const done = p.status === 'completed';
+  const flag = `<span class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300 border border-slate-200'}" title="Gate finale">${_ti('flag', 'w-3.5 h-3.5')}</span>`;
+  return `
+    <div class="flex items-center">${_cNode(_cNodeState(p, 1), 1)}${conn(1)}${_cNode(_cNodeState(p, 2), 2)}${conn(2)}${_cNode(_cNodeState(p, 3), 3)}${conn(3)}${flag}</div>
+    <div class="flex justify-between text-[10px] font-medium text-slate-400 mt-1"><span>Concept</span><span>Pull</span><span>Feasibility</span><span>Gate</span></div>`;
+}
+function _cStatusPill(p) {
+  const pill = (label, cls) => `<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}">${label}</span>`;
+  if (p.status === 'completed') return pill('Completata', 'bg-emerald-50 text-emerald-700');
+  if (p.status === 'stopped') return pill('Fermata', 'bg-rose-50 text-rose-700');
+  const n = p.currentPhase;
+  if (p.phases[n].state === 'review') return pill('Al gate ' + n, 'bg-amber-50 text-amber-700');
+  const tb = _cTimebox(p, n);
+  if (tb && tb.overdue) return pill('Fase ' + n + ' · in ritardo', 'bg-rose-50 text-rose-700');
+  return pill('Fase ' + n + (tb ? ' · sett. ' + tb.week + '/' + tb.weeks : ''), 'bg-indigo-50 text-indigo-700');
+}
+
+function refreshCanteraNavBadge() {
+  const b = document.getElementById('nav-cantera-badge');
+  if (!b) return;
+  const me = currentUser();
+  const waiting = me && isAdminMember(me)
+    ? loadCantera().filter(p => p.status === 'active' && p.phases[p.currentPhase].state === 'review').length : 0;
+  if (!waiting) { b.className = 'hidden'; b.textContent = ''; return; }
+  b.textContent = String(waiting);
+  b.title = 'Idee in attesa di decisione al gate';
+  b.className = 'text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-amber-500 text-white';
+}
+
+// ---------- overview: snapshot per person ----------
+function setCanteraFilter(k, v) {
+  canteraFilter[k] = v;
+  if (k === 'q') _renderCanteraGrid(); else renderCantera();
+}
+function toggleCanteraHowTo() {
+  const el = document.getElementById('cn-howto');
+  if (!el) return;
+  const hidden = el.classList.toggle('hidden');
+  try { localStorage.setItem('ui_canteraHowtoHidden', hidden ? '1' : ''); } catch(_) {}
+  const lbl = document.getElementById('cn-howto-label');
+  if (lbl) lbl.textContent = hidden ? 'Mostra come funziona' : 'Nascondi';
+}
+
+function renderCantera() {
+  const el = document.getElementById('page-cantera');
+  if (!el) return;
+  if (canteraOpenId && _canteraGet(canteraOpenId)) { _renderCanteraProject(); return; }
+  canteraOpenId = null;
+  clearInterval(_canteraPollTimer);
+  const me = currentUser();
+  let howtoHidden = false;
+  try { howtoHidden = !!localStorage.getItem('ui_canteraHowtoHidden'); } catch(_) {}
+  const statuses = [['active', 'Idee attive'], ['review', 'In attesa di gate'], ['completed', 'Completate'], ['stopped', 'Fermate'], ['all', 'Tutte']];
+
+  el.innerHTML = `
+  <div class="max-w-7xl mx-auto">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">La Cantera</h1>
+        <p class="text-sm text-slate-500 mt-0.5">Le idee di prodotto del team, dal concept alla fattibilità</p>
+      </div>
+      ${me && _cCanCreateFor(me.id) ? `<button type="button" onclick="openCanteraModal(null)" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition">${_ti('plus')}Nuova idea</button>` : ''}
+    </div>
+
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-sm font-semibold text-slate-700">Il percorso stage-gate</h2>
+        <button type="button" onclick="toggleCanteraHowTo()" class="text-xs text-indigo-600 hover:text-indigo-800"><span id="cn-howto-label">${howtoHidden ? 'Mostra come funziona' : 'Nascondi'}</span></button>
+      </div>
+      <div id="cn-howto" class="${howtoHidden ? 'hidden' : ''} grid grid-cols-1 md:grid-cols-3 gap-3">
+        ${CANTERA_PHASES.map(ph => `
+          <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">${ph.n}</span>
+              <span class="font-semibold text-slate-800">${ph.name}</span>
+              <span class="ml-auto text-[11px] font-medium text-slate-500 bg-slate-100 rounded-full px-2 py-0.5 whitespace-nowrap">${ph.weeks} settimane</span>
+            </div>
+            <p class="text-xs text-slate-700 mt-2.5"><span class="font-semibold">Domanda:</span> ${esc(ph.question)}</p>
+            <p class="text-xs text-slate-500 mt-1 leading-relaxed"><span class="font-semibold text-slate-600">Output:</span> ${esc(ph.output)}</p>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div id="cn-stats" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
+
+    <div class="bg-white border border-slate-200 rounded-xl p-3 mb-5 shadow-sm flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[12rem]">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">${_ti('search')}</span>
+        <input id="cn-search" data-ro-keep type="search" value="${esc(canteraFilter.q)}" oninput="setCanteraFilter('q', this.value)" placeholder="Cerca un'idea…" class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="inline-flex bg-slate-100 rounded-lg p-0.5 flex-wrap">
+        ${statuses.map(([k, l]) => `<button type="button" onclick="setCanteraFilter('status','${k}')" class="px-3 py-1.5 rounded-md text-xs font-medium transition ${canteraFilter.status === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">${l}</button>`).join('')}
+      </div>
+    </div>
+
+    <div id="cn-grid"></div>
+  </div>`;
+  _renderCanteraGrid();
+  if (!canEdit('cantera')) applyReadonlyToPage('cantera');
+  refreshCanteraNavBadge();
+}
+
+function _renderCanteraGrid() {
+  const grid = document.getElementById('cn-grid');
+  const statsEl = document.getElementById('cn-stats');
+  if (!grid || !statsEl) return;
+  _taskTeamIdx = null;
+  const me = currentUser();
+  const all = loadCantera();
+  const team = loadTeam().filter(m => m.status !== 'Inactive');
+  const active = all.filter(p => p.status === 'active');
+  const inReview = active.filter(p => p.phases[p.currentPhase].state === 'review');
+
+  const stat = (label, value, tone, onclick) => `
+    <button type="button" ${onclick ? `onclick="${onclick}"` : 'disabled'} class="text-left bg-white rounded-xl border border-slate-200 p-4 transition ${onclick ? 'hover:border-slate-300 hover:shadow-sm' : 'cursor-default'}">
+      <div class="text-xs font-medium text-slate-500">${label}</div>
+      <div class="text-2xl font-bold mt-1 tabular-nums ${tone}">${value}</div>
+    </button>`;
+  statsEl.innerHTML =
+    stat('Idee attive', active.length, 'text-slate-800', "setCanteraFilter('status','active')") +
+    [1, 2, 3].map(n => stat('Fase ' + n + ' · ' + _cPhase(n).short, active.filter(p => p.currentPhase === n).length, 'text-indigo-600', null)).join('') +
+    stat('In attesa di gate', inReview.length, inReview.length ? 'text-amber-600' : 'text-slate-800', "setCanteraFilter('status','review')");
+
+  const q = (canteraFilter.q || '').trim().toLowerCase();
+  const st = canteraFilter.status;
+  const list = all.filter(p => {
+    if (q && !((p.title || '') + ' ' + (p.oneLiner || '')).toLowerCase().includes(q)) return false;
+    if (st === 'active') return p.status === 'active';
+    if (st === 'review') return p.status === 'active' && p.phases[p.currentPhase].state === 'review';
+    if (st === 'completed' || st === 'stopped') return p.status === st;
+    return true;
+  });
+  const byOwner = new Map();
+  list.forEach(p => { if (!byOwner.has(p.ownerId)) byOwner.set(p.ownerId, []); byOwner.get(p.ownerId).push(p); });
+  const people = team.filter(m => byOwner.has(m.id))
+    .sort((a, b) => byOwner.get(b.id).length - byOwner.get(a.id).length || (a.name || '').localeCompare(b.name || ''));
+  const orphanIds = [...byOwner.keys()].filter(id => !team.some(m => m.id === id));
+  const without = team.filter(m => !byOwner.has(m.id));
+
+  const projectCard = p => `
+    <button type="button" onclick="openCanteraProject('${esc(p.id)}')" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 transition">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-medium text-slate-800 truncate">${esc(p.title)}</div>
+          ${p.oneLiner ? `<div class="text-xs text-slate-500 truncate mt-0.5">${esc(p.oneLiner)}</div>` : ''}
+        </div>
+        ${_cStatusPill(p)}
+      </div>
+      <div class="mt-3">${_cJourney(p)}</div>
+    </button>`;
+  const personCard = (m, projects) => {
+    const sorted = projects.slice().sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    const nActive = projects.filter(p => p.status === 'active').length;
+    return `
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col">
+      <div class="flex items-center gap-3 mb-3">
+        ${_avatarHtml(m, 'w-10 h-10 text-sm')}
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-slate-800 truncate">${m ? esc(m.name) : 'Responsabile non più nel team'}</div>
+          <div class="text-xs text-slate-500">${nActive} idee attive · ${projects.length} totali</div>
+        </div>
+        ${m && _cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">+ Nuova idea</button>` : ''}
+      </div>
+      <div class="space-y-2.5">${sorted.map(projectCard).join('')}</div>
+    </div>`;
+  };
+
+  let html = '';
+  if (!people.length && !orphanIds.length) {
+    html = `<div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 px-6 text-center">
+      <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">${_ti('bulb', 'w-6 h-6')}</div>
+      <div class="text-sm font-semibold text-slate-700">${all.length ? 'Nessuna idea corrisponde ai filtri' : 'La Cantera è ancora vuota'}</div>
+      <p class="text-xs text-slate-500 mt-1">${all.length ? 'Prova a cambiare il filtro o la ricerca.' : 'Ogni persona del team product management può proporre la sua prima idea.'}</p>
+      ${!all.length && me && _cCanCreateFor(me.id) ? `<button type="button" onclick="openCanteraModal(null)" class="mt-4 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
+    </div>`;
+  } else {
+    html = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${people.map(m => personCard(m, byOwner.get(m.id))).join('')}${orphanIds.map(id => personCard(null, byOwner.get(id))).join('')}</div>`;
+  }
+  if (without.length && st !== 'review' && !q) {
+    html += `
+    <div class="mt-5 bg-white border border-slate-200 rounded-2xl p-4">
+      <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Senza idee ${st === 'active' ? 'attive' : 'in questo filtro'}</div>
+      <div class="flex flex-wrap gap-2">
+        ${without.map(m => `
+          <div class="inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-slate-200 bg-slate-50">
+            ${_avatarHtml(m, 'w-6 h-6 text-[10px]')}<span class="text-xs text-slate-700">${esc(m.name)}</span>
+            ${_cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" title="Nuova idea per ${esc(m.name)}" class="w-5 h-5 rounded-full text-indigo-600 hover:bg-indigo-100 flex items-center justify-center">${_ti('plus', 'w-3.5 h-3.5')}</button>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ---------- new / edit idea ----------
+function openCanteraModal(editId, presetOwner) {
+  const me = currentUser();
+  if (!me) return;
+  const p = editId ? _canteraGet(editId) : null;
+  if (p ? !_cCanEditProject(p) : !_cCanCreateFor(presetOwner || me.id)) return;
+  _canteraModalEditId = editId || null;
+  const admin = isAdminMember(me);
+  const owner = p ? p.ownerId : (presetOwner || me.id);
+  const team = loadTeam().filter(m => m.status !== 'Inactive' || m.id === owner);
+  document.getElementById('cantera-modal-body').innerHTML = `
+    <form onsubmit="saveCanteraModal(event)" class="p-6 space-y-4">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">${p ? 'Modifica idea' : 'Nuova idea'}</h2>
+        ${p ? '' : '<p class="text-xs text-slate-500 mt-0.5">L\'idea parte dalla Fase 1 · Product Concept (3 settimane).</p>'}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nome dell'idea *</label>
+        <input id="cn-m-title" required maxlength="120" value="${esc(p ? p.title : '')}" placeholder="Es. Sensore acustico per perdite idriche" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">In una frase</label>
+        <input id="cn-m-oneliner" maxlength="200" value="${esc(p ? p.oneLiner || '' : '')}" placeholder="Cosa fa e per chi" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Responsabile</label>
+        <select id="cn-m-owner" ${admin ? '' : 'disabled'} class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50">
+          ${team.map(m => `<option value="${esc(m.id)}" ${m.id === owner ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeCanteraModal()" class="px-4 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100">Annulla</button>
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">${p ? 'Salva' : 'Crea idea'}</button>
+      </div>
+    </form>`;
+  document.getElementById('cantera-modal-overlay').classList.remove('hidden');
+  setTimeout(() => { const t = document.getElementById('cn-m-title'); if (t) t.focus(); }, 50);
+}
+function closeCanteraModal() {
+  document.getElementById('cantera-modal-overlay').classList.add('hidden');
+  _canteraModalEditId = null;
+}
+document.addEventListener('keydown', e => {
+  const o = document.getElementById('cantera-modal-overlay');
+  if (e.key === 'Escape' && o && !o.classList.contains('hidden')) closeCanteraModal();
+});
+function saveCanteraModal(e) {
+  e.preventDefault();
+  const me = currentUser();
+  const title = document.getElementById('cn-m-title').value.trim();
+  const oneLiner = document.getElementById('cn-m-oneliner').value.trim();
+  const ownerSel = document.getElementById('cn-m-owner');
+  const ownerId = isAdminMember(me) ? ownerSel.value : (_canteraModalEditId ? _canteraGet(_canteraModalEditId).ownerId : me.id);
+  if (!title) return;
+  if (_canteraModalEditId) {
+    const p = _canteraGet(_canteraModalEditId);
+    if (!p || !_cCanEditProject(p)) return;
+    const prevOwner = p.ownerId;
+    Object.assign(p, { title, oneLiner, ownerId });
+    _saveCanteraProject(p);
+    if (ownerId !== prevOwner) _cNotify([ownerId], `Ti è stata affidata l'idea "${title}"`, `${me.name} ti ha nominato responsabile in La Cantera.`, p);
+    closeCanteraModal();
+    renderCantera();
+    return;
+  }
+  if (!_cCanCreateFor(ownerId)) return;
+  const now = new Date().toISOString();
+  const p = {
+    id: 'cnt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    title, oneLiner, ownerId, createdBy: me.id, createdByName: me.name, createdAt: now, updatedAt: now,
+    status: 'active', currentPhase: 1,
+    phases: { 1: { state: 'active', startedAt: now, data: {} }, 2: { state: 'locked', data: {} }, 3: { state: 'locked', data: {} } },
+    history: []
+  };
+  _cHistory(p, 1, 'created');
+  _saveCanteraProject(p);
+  _cNotify([ownerId], `Nuova idea in La Cantera: "${title}"`, `${me.name} ha creato l'idea e te ne ha affidato lo sviluppo.`, p);
+  closeCanteraModal();
+  openCanteraProject(p.id);
+}
+function deleteCanteraProject(id) {
+  const p = _canteraGet(id);
+  if (!p || !_cCanEditProject(p)) return;
+  if (!confirm(`Eliminare definitivamente l'idea "${p.title}" con tutti i contenuti e la chat?`)) return;
+  _saveRowCollection(CANTERA_KEY, loadCantera().filter(x => x.id !== id));
+  _sbTombstone('cnt_' + id);
+  const msgs = loadCanteraMsgs();
+  const gone = msgs.filter(m => m.projectId === id);
+  if (gone.length) {
+    _saveRowCollection(CANTERA_MSGS_KEY, msgs.filter(m => m.projectId !== id));
+    gone.forEach(m => _sbTombstone('cmsg_' + m.id));
+  }
+  canteraOpenId = null;
+  renderCantera();
+}
+
+// ---------- idea page ----------
+function openCanteraProject(id) {
+  const p = _canteraGet(id);
+  if (!p) return;
+  canteraOpenId = id;
+  canteraPhaseView = p.currentPhase;
+  if (document.getElementById('page-cantera').classList.contains('hidden')) navigate('cantera');
+  else renderCantera();
+  document.querySelector('main').scrollTop = 0;
+}
+function closeCanteraProject() {
+  canteraOpenId = null;
+  clearInterval(_canteraPollTimer);
+  renderCantera();
+}
+function canteraSelectPhase(n) {
+  const p = _canteraGet(canteraOpenId);
+  if (!p || p.phases[n].state === 'locked') return;
+  canteraPhaseView = n;
+  _renderCanteraProject();
+}
+function _cSignature(p) {
+  return JSON.stringify([p.status, p.currentPhase, p.title, p.oneLiner, p.ownerId, [1, 2, 3].map(n => p.phases[n].state), (p.history || []).length]);
+}
+
+function _renderCanteraProject() {
+  const el = document.getElementById('page-cantera');
+  const p = _canteraGet(canteraOpenId);
+  if (!p) { canteraOpenId = null; renderCantera(); return; }
+  _taskTeamIdx = null;
+  if (!canteraPhaseView || !p.phases[canteraPhaseView] || p.phases[canteraPhaseView].state === 'locked') canteraPhaseView = p.currentPhase;
+  const pendingChat = (document.getElementById('cn-chat-input') || {}).value || '';
+  const owner = _memberById(p.ownerId);
+  const canEditP = _cCanEditProject(p);
+  const msgCount = n => loadCanteraMsgs().filter(m => m.projectId === p.id && m.phase === n).length;
+
+  const stepCard = n => {
+    const meta = _cPhase(n);
+    const state = _cNodeState(p, n);
+    const ph = p.phases[n];
+    const locked = ph.state === 'locked';
+    const selected = canteraPhaseView === n;
+    const tb = _cTimebox(p, n);
+    let line = '';
+    if (locked) line = `Si sblocca superando il gate ${n - 1}`;
+    else if (ph.state === 'passed') line = `Superata il ${_cFmtDate(ph.decidedAt)}`;
+    else if (ph.state === 'review') line = `Al gate dal ${_cFmtDate(ph.submittedAt)}`;
+    else if (p.status === 'stopped') line = 'Idea fermata';
+    else if (tb) line = tb.overdue ? `In ritardo di ${tb.lateBy} giorni` : `Settimana ${tb.week} di ${tb.weeks} · scade il ${_cFmtDate(tb.deadline)}`;
+    const bar = (ph.state === 'active' || ph.state === 'review') && tb && p.status === 'active'
+      ? `<div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${ph.state === 'review' ? 'bg-amber-400' : tb.overdue ? 'bg-rose-400' : 'bg-indigo-500'}" style="width:${Math.max(4, tb.pct)}%"></div></div>` : '';
+    const mc = msgCount(n);
+    return `
+    <button type="button" ${locked ? 'disabled aria-disabled="true"' : ''} onclick="canteraSelectPhase(${n})"
+      class="text-left rounded-2xl border p-4 transition ${locked ? 'bg-slate-50 border-slate-200 opacity-50 grayscale cursor-not-allowed' : selected ? 'bg-white border-indigo-400 ring-2 ring-indigo-100 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}">
+      <div class="flex items-center gap-3">
+        ${_cNode(state, n, true)}
+        <div class="min-w-0 flex-1">
+          <div class="text-[11px] font-semibold uppercase tracking-wide ${locked ? 'text-slate-400' : 'text-indigo-600'}">Fase ${n} · ${meta.weeks} settimane</div>
+          <div class="font-semibold text-slate-800 truncate">${meta.name}</div>
+        </div>
+        ${mc ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${mc} messaggi">${_ti('chat', 'w-3.5 h-3.5')}${mc}</span>` : ''}
+      </div>
+      <div class="mt-3 text-xs ${tb && tb.overdue && ph.state === 'active' && p.status === 'active' ? 'text-rose-600 font-medium' : 'text-slate-500'}">${line}</div>
+      ${bar}
+    </button>`;
+  };
+
+  el.innerHTML = `
+  <div class="max-w-7xl mx-auto">
+    <button type="button" onclick="closeCanteraProject()" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4">${_ti('back')}La Cantera</button>
+
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-1.5 flex-wrap">${_cStatusPill(p)}<span class="text-xs text-slate-400">Creata il ${_cFmtDate(p.createdAt)}</span></div>
+          <h1 class="text-2xl font-bold text-slate-800 break-words">${esc(p.title)}</h1>
+          ${p.oneLiner ? `<p class="text-slate-600 mt-1">${esc(p.oneLiner)}</p>` : ''}
+          <div class="flex items-center gap-2 mt-3 text-sm text-slate-600">${_avatarHtml(owner, 'w-7 h-7 text-[11px]')}<span>${owner ? esc(owner.name) : 'Responsabile non più nel team'}</span></div>
+        </div>
+        ${canEditP ? `<div class="flex items-center gap-1">
+          <button type="button" onclick="openCanteraModal('${esc(p.id)}')" class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">${_ti('edit', 'w-3.5 h-3.5')}Modifica</button>
+          <button type="button" onclick="deleteCanteraProject('${esc(p.id)}')" title="Elimina idea" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50">${_ti('trash')}</button>
+        </div>` : ''}
+      </div>
+      ${p.status === 'completed' ? `<div class="mt-4 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">Tutti e tre i gate sono stati superati: l'idea è pronta per il passaggio al Venture Building.</div>` : ''}
+      ${p.status === 'stopped' ? `<div class="mt-4 text-sm text-rose-800 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2.5">L'idea è stata fermata al gate ${p.currentPhase}. I contenuti restano consultabili.</div>` : ''}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">${[1, 2, 3].map(stepCard).join('')}</div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5 items-start">
+      <div id="cn-main" class="lg:col-span-2 space-y-4"></div>
+      <div class="space-y-4 lg:sticky lg:top-4">
+        <div id="cn-gate"></div>
+        <div id="cn-chat"></div>
+      </div>
+    </div>
+  </div>`;
+  _renderCanteraMain(p);
+  _renderCanteraGate(p);
+  _renderCanteraChat(p);
+  const ci = document.getElementById('cn-chat-input');
+  if (ci && pendingChat) ci.value = pendingChat;
+  if (!canEdit('cantera')) applyReadonlyToPage('cantera');
+  _canteraSig = _cSignature(p);
+  _canteraShownPhase = p.currentPhase;
+  clearInterval(_canteraPollTimer);
+  _canteraPollTimer = setInterval(_pullCantera, 15000);
+  refreshCanteraNavBadge();
+}
+
+// ---------- phase template ----------
+function _renderCanteraMain(p) {
+  const el = document.getElementById('cn-main');
+  if (!el) return;
+  const n = canteraPhaseView;
+  const meta = _cPhase(n);
+  const ph = p.phases[n];
+  const editable = _cCanEditPhase(p, n);
+  let reason = '';
+  if (!editable) {
+    if (p.status === 'stopped') reason = 'Idea fermata: contenuti in sola lettura.';
+    else if (ph.state === 'review') reason = 'La fase è al gate: i contenuti restano bloccati fino alla decisione del team Venture Building.';
+    else if (ph.state === 'passed') reason = 'Fase superata: contenuti in sola lettura.';
+    else reason = 'Solo il responsabile dell\'idea e il team Venture Building possono compilare questa fase.';
+  }
+  el.innerHTML = `
+    <div class="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-5">
+      <div class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Fase ${n} · ${meta.weeks} settimane · Template guidato</div>
+      <h2 class="text-lg font-bold text-slate-800 mt-1">${meta.name}: ${esc(meta.question)}</h2>
+      <p class="text-sm text-slate-600 mt-2"><span class="font-semibold">Output atteso:</span> ${esc(meta.output)}</p>
+      ${reason ? `<div class="mt-3 inline-flex items-center gap-1.5 text-xs text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-3 py-1.5">${_ti('lock', 'w-3.5 h-3.5')}${reason}</div>` : ''}
+    </div>
+    ${meta.sections.map((sec, i) => `
+      <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="font-semibold text-slate-800">${i + 1}. ${esc(sec.label)}${sec.required ? ' <span class="text-rose-500" title="Richiesto per il gate">*</span>' : ''}</h3>
+          <span id="cn-done-${n}-${sec.key}" class="flex-shrink-0">${_cSectionBadge(p, n, sec)}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1 leading-relaxed">${esc(sec.help)}</p>
+        <div class="mt-3">${_cSectionControl(p, n, sec, editable)}</div>
+      </section>`).join('')}`;
+}
+function _cSectionBadge(p, n, sec) {
+  const s = _cSectionStatus(p, n, sec);
+  const cnt = s.need !== undefined && sec.type !== 'text' && sec.type !== 'trl' ? ` ${s.count}/${s.need}` : '';
+  const extra = s.extra ? ` · ${s.extra.count}/${s.extra.need} ${s.extra.label}` : '';
+  if (s.done) return `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">${_ti('check', 'w-3 h-3')}Completo${cnt}${extra}</span>`;
+  if (!sec.required) return '<span class="text-[11px] text-slate-400">Facoltativo</span>';
+  return `<span class="text-[11px] font-medium text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">Da completare${cnt}${extra}</span>`;
+}
+
+function _cSectionControl(p, n, sec, editable) {
+  const data = p.phases[n].data || {};
+  const v = data[sec.key];
+  const inputCls = 'w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300';
+  const empty = '<div class="text-sm text-slate-400 italic">Non compilato</div>';
+
+  if (sec.type === 'text') {
+    return editable
+      ? richTextEditor('cn-' + n + '-' + sec.key, v || '', sec.placeholder || 'Scrivi qui…', `canteraSetField(${n},'${sec.key}', arguments[0])`)
+      : (v ? `<div class="text-sm text-slate-700 leading-relaxed">${_rtSanitizeStored(v)}</div>` : empty);
+  }
+
+  if (sec.type === 'trl') {
+    const t = v || {};
+    const opts = sel => ['<option value="">—</option>'].concat([1, 2, 3, 4, 5, 6, 7, 8, 9].map(k => `<option value="${k}" ${String(sel) === String(k) ? 'selected' : ''}>TRL ${k}</option>`)).join('');
+    if (!editable) return t.current || t.target
+      ? `<div class="text-sm text-slate-700"><span class="font-semibold">TRL ${esc(t.current || '?')} → TRL ${esc(t.target || '?')}</span>${t.note ? `<p class="mt-1 whitespace-pre-wrap">${esc(t.note)}</p>` : ''}</div>` : empty;
+    return `<div class="grid grid-cols-2 gap-3">
+        <label class="text-xs text-slate-500">TRL attuale<select onchange="canteraTrlSet('current', this.value)" class="${inputCls} mt-1">${opts(t.current)}</select></label>
+        <label class="text-xs text-slate-500">TRL target a fine piano<select onchange="canteraTrlSet('target', this.value)" class="${inputCls} mt-1">${opts(t.target)}</select></label>
+      </div>
+      <label class="block text-xs text-slate-500 mt-3">Giustificazione del TRL attuale
+        <textarea rows="3" oninput="canteraTrlSet('note', this.value)" class="${inputCls} mt-1">${esc(t.note || '')}</textarea></label>`;
+  }
+
+  if (sec.type === 'hypotheses') {
+    const hyps = ((p.phases[1].data || {}).hypotheses || []).filter(h => _cRowFilled(h, { keyCol: 'statement' }));
+    if (!hyps.length) return '<div class="text-sm text-slate-400 italic">Nessuna ipotesi nella Fase 1.</div>';
+    const checks = v || {};
+    const tone = s => s === 'Validata' ? 'bg-emerald-50 text-emerald-700' : s === 'Falsificata' ? 'bg-rose-50 text-rose-700' : s === 'Non conclusiva' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
+    return `<div class="space-y-3">${hyps.map((h, i) => {
+      const c = checks[h.id] || {};
+      return `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/40">
+        <div class="text-xs font-semibold text-slate-500">Ipotesi ${i + 1}</div>
+        <div class="text-sm text-slate-800 mt-0.5 whitespace-pre-wrap">${esc(h.statement)}</div>
+        ${h.signal ? `<div class="text-xs text-slate-500 mt-1"><span class="font-medium">Segnale atteso:</span> ${esc(h.signal)}</div>` : ''}
+        ${editable ? `<div class="grid grid-cols-1 sm:grid-cols-[11rem_1fr] gap-2 mt-2.5">
+            <select onchange="canteraHypSet('${esc(h.id)}','status', this.value)" class="${inputCls}">${CANTERA_HYP_STATUSES.map(s => `<option ${(c.status || 'Da testare') === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+            <textarea rows="2" placeholder="Evidenza raccolta (chi, quanti, cosa è emerso)…" oninput="canteraHypSet('${esc(h.id)}','evidence', this.value)" class="${inputCls}">${esc(c.evidence || '')}</textarea>
+          </div>`
+          : `<div class="mt-2 flex flex-wrap items-start gap-2"><span class="text-[11px] font-semibold px-2 py-0.5 rounded-full ${tone(c.status)}">${esc(c.status || 'Da testare')}</span>${c.evidence ? `<span class="text-sm text-slate-700 whitespace-pre-wrap flex-1 min-w-[12rem]">${esc(c.evidence)}</span>` : ''}</div>`}
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  // list
+  const rows = v || [];
+  const optsFor = c => {
+    if (c.options) return c.options;
+    if (c.optionsFrom === 'archetypes') return ((p.phases[1].data || {}).archetypes || []).map(a => (a.name || '').trim()).filter(Boolean);
+    return [];
+  };
+  if (!editable) {
+    const filled = rows.filter(r => _cRowFilled(r, sec));
+    if (!filled.length) return empty;
+    return `<div class="space-y-2">${filled.map((r, i) => `
+      <div class="border border-slate-200 rounded-xl p-3">
+        <div class="text-xs font-semibold text-slate-500 mb-1">${esc(sec.rowLabel)} ${i + 1}</div>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">${sec.columns.map(c => {
+          let val = r[c.key];
+          if (c.type === 'check') val = val ? 'Sì' : 'No';
+          else if (c.type === 'date' && val) val = (_parseYmd(val) || new Date(val)).toLocaleDateString('it-IT');
+          else if (c.type === 'number' && val !== '' && val != null && c.key === 'amount') val = '€ ' + Number(val).toLocaleString('it-IT');
+          if (val === undefined || val === null || val === '') return '';
+          const isLink = c.key === 'link' && /^https?:\/\//i.test(String(val));
+          return `<div class="${c.type === 'textarea' ? 'sm:col-span-2' : ''}"><dt class="text-[11px] text-slate-400">${esc(c.label)}</dt><dd class="text-sm text-slate-700 whitespace-pre-wrap break-words">${isLink ? `<a href="${esc(val)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">${esc(val)}</a>` : esc(val)}</dd></div>`;
+        }).join('')}</dl>
+      </div>`).join('')}</div>`;
+  }
+  const field = (c, r) => {
+    const val = r[c.key] == null ? '' : r[c.key];
+    const h = `'${esc(sec.key)}','${esc(r.id)}','${esc(c.key)}'`;
+    const lbl = `<span class="block text-[11px] font-medium text-slate-500 mb-0.5">${esc(c.label)}</span>`;
+    if (c.type === 'textarea') return `<label class="sm:col-span-2">${lbl}<textarea rows="2" placeholder="${esc(c.placeholder || '')}" oninput="canteraRowSet(${n},${h}, this.value)" class="${inputCls}">${esc(val)}</textarea></label>`;
+    if (c.type === 'select') {
+      const opts = optsFor(c);
+      if (val && !opts.includes(val)) opts.push(val);
+      return `<label>${lbl}<select onchange="canteraRowSet(${n},${h}, this.value)" class="${inputCls}"><option value="">—</option>${opts.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`;
+    }
+    if (c.type === 'check') return `<label class="flex items-center gap-2 text-sm text-slate-700 sm:pt-5"><input type="checkbox" ${val ? 'checked' : ''} onchange="canteraRowSet(${n},${h}, this.checked)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">${esc(c.label)}</label>`;
+    const type = c.type === 'date' ? 'date' : c.type === 'number' ? 'number' : 'text';
+    return `<label>${lbl}<input type="${type}" value="${esc(val)}" placeholder="${esc(c.placeholder || '')}" ${type === 'date' ? 'onchange' : 'oninput'}="canteraRowSet(${n},${h}, this.value)" class="${inputCls}"></label>`;
+  };
+  const full = sec.max && rows.length >= sec.max;
+  return `<div class="space-y-3">
+    ${rows.map((r, i) => `
+      <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/40">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold text-slate-500">${esc(sec.rowLabel)} ${i + 1}</span>
+          <button type="button" onclick="canteraRemoveRow(${n},'${esc(sec.key)}','${esc(r.id)}')" title="Rimuovi" class="p-1 rounded-md text-slate-300 hover:text-rose-600 hover:bg-rose-50">${_ti('x', 'w-4 h-4')}</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${sec.columns.map(c => field(c, r)).join('')}</div>
+      </div>`).join('')}
+    ${full ? `<p class="text-xs text-slate-400">Massimo ${sec.max} ${sec.max === 1 ? 'elemento' : 'elementi'}.</p>`
+      : `<button type="button" onclick="canteraAddRow(${n},'${esc(sec.key)}')" class="w-full inline-flex items-center justify-center gap-1.5 text-sm font-medium text-indigo-600 border-2 border-dashed border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 rounded-xl py-2.5 transition">${_ti('plus')}${esc(sec.addLabel)}</button>`}
+  </div>`;
+}
+
+// ---------- template editing (autosave) ----------
+function _cEditTarget(n) {
+  const p = _canteraGet(canteraOpenId);
+  if (!p || !_cCanEditPhase(p, n)) return null;
+  p.phases[n].data = p.phases[n].data || {};
+  return p;
+}
+function _cAfterEdit(p, n, sec) {
+  _saveCanteraProject(p);
+  if (sec) { const b = document.getElementById('cn-done-' + n + '-' + sec.key); if (b) b.innerHTML = _cSectionBadge(p, n, sec); }
+  _renderCanteraGate(p);
+}
+function canteraSetField(n, key, val) {
+  const p = _cEditTarget(n);
+  if (!p) return;
+  p.phases[n].data[key] = val;
+  _cAfterEdit(p, n, _cPhase(n).sections.find(s => s.key === key));
+}
+function canteraAddRow(n, key) {
+  const p = _cEditTarget(n);
+  if (!p) return;
+  const sec = _cPhase(n).sections.find(s => s.key === key);
+  const rows = p.phases[n].data[key] = p.phases[n].data[key] || [];
+  if (sec.max && rows.length >= sec.max) return;
+  rows.push({ id: 'r-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) });
+  _cAfterEdit(p, n, sec);
+  _renderCanteraMain(p);
+  const cards = document.querySelectorAll(`#cn-done-${n}-${key}`);
+  const section = cards.length ? cards[0].closest('section') : null;
+  const inputs = section ? section.querySelectorAll('input, textarea, select') : [];
+  const firstOfLast = inputs.length ? [...inputs].slice(-sec.columns.length)[0] : null;
+  if (firstOfLast) firstOfLast.focus();
+}
+function canteraRemoveRow(n, key, rowId) {
+  const p = _cEditTarget(n);
+  if (!p) return;
+  const sec = _cPhase(n).sections.find(s => s.key === key);
+  const rows = p.phases[n].data[key] || [];
+  const r = rows.find(x => x.id === rowId);
+  if (r && Object.keys(r).some(k => k !== 'id' && String(r[k] || '').trim() && r[k] !== false) && !confirm('Rimuovere questo elemento?')) return;
+  p.phases[n].data[key] = rows.filter(x => x.id !== rowId);
+  _cAfterEdit(p, n, sec);
+  _renderCanteraMain(p);
+}
+function canteraRowSet(n, key, rowId, col, val) {
+  const p = _cEditTarget(n);
+  if (!p) return;
+  const r = (p.phases[n].data[key] || []).find(x => x.id === rowId);
+  if (!r) return;
+  r[col] = val;
+  _cAfterEdit(p, n, _cPhase(n).sections.find(s => s.key === key));
+}
+function canteraHypSet(hypId, field, val) {
+  const p = _cEditTarget(2);
+  if (!p) return;
+  const checks = p.phases[2].data.hypothesisCheck = p.phases[2].data.hypothesisCheck || {};
+  checks[hypId] = Object.assign({}, checks[hypId], { [field]: val });
+  _cAfterEdit(p, 2, _cPhase(2).sections.find(s => s.key === 'hypothesisCheck'));
+}
+function canteraTrlSet(field, val) {
+  const p = _cEditTarget(3);
+  if (!p) return;
+  p.phases[3].data.trl = Object.assign({}, p.phases[3].data.trl, { [field]: val });
+  _cAfterEdit(p, 3, _cPhase(3).sections.find(s => s.key === 'trl'));
+}
+
+// ---------- gate panel ----------
+function _renderCanteraGate(p) {
+  const el = document.getElementById('cn-gate');
+  if (!el) return;
+  const me = currentUser();
+  const admin = isAdminMember(me);
+  const n = canteraPhaseView;
+  const meta = _cPhase(n);
+  const ph = p.phases[n];
+  const prog = _cPhaseProgress(p, n);
+  const tb = _cTimebox(p, n);
+  const isOwner = me && p.ownerId === me.id;
+  const pill = { active: ['In corso', 'bg-indigo-50 text-indigo-700'], review: ['In valutazione', 'bg-amber-50 text-amber-700'], passed: ['Superato', 'bg-emerald-50 text-emerald-700'] }[ph.state] || ['', ''];
+  const hist = (p.history || []).filter(h => h.phase === n).slice().reverse();
+  const actionLabel = { created: 'Idea creata', submitted: 'Inviata al gate', withdrawn: 'Ritirata dal gate', approved: 'Gate superato', changes: 'Integrazioni richieste', stopped: 'Idea fermata', reactivated: 'Idea riattivata' };
+  const textareaCls = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300';
+  const missing = meta.sections.filter(s => s.required && !_cSectionStatus(p, n, s).done);
+
+  let actions = '';
+  if (p.status === 'stopped') {
+    actions = admin ? `<button type="button" onclick="canteraReactivate()" class="w-full text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">Riattiva l'idea</button>` : '';
+  } else if (ph.state === 'active' && p.status === 'active') {
+    if (_cCanEditProject(p)) actions = `
+      <textarea id="cn-gate-note" rows="2" placeholder="Nota per il Venture Building (facoltativa)" class="${textareaCls}"></textarea>
+      <button type="button" onclick="canteraSubmitGate()" ${prog.complete ? '' : 'disabled'} title="${prog.complete ? '' : 'Completa prima: ' + esc(missing.map(s => s.label).join(', '))}"
+        class="w-full mt-2 inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-lg transition ${prog.complete ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}">
+        ${_ti('send', 'w-4 h-4')}Invia al gate ${n}</button>
+      ${prog.complete ? '' : '<p class="text-[11px] text-slate-400 mt-1.5 text-center">Completa i requisiti contrassegnati per inviare al gate.</p>'}`;
+    else actions = '<p class="text-xs text-slate-500">La fase è in lavorazione da parte del responsabile dell\'idea.</p>';
+  } else if (ph.state === 'review') {
+    const sub = (p.history || []).filter(h => h.phase === n && h.action === 'submitted').slice(-1)[0];
+    const subNote = sub && sub.note ? `<div class="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3"><span class="font-semibold">Nota di ${esc(sub.by)}:</span> ${esc(sub.note)}</div>` : '';
+    if (admin) actions = subNote + `
+      <textarea id="cn-decision-note" rows="3" placeholder="Motivazione della decisione e indicazioni per il responsabile" class="${textareaCls}"></textarea>
+      <button type="button" onclick="canteraDecide('go')" class="w-full mt-2 inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">${_ti('check', 'w-4 h-4')}${n < 3 ? `Approva · sblocca la Fase ${n + 1}` : 'Approva · idea completata'}</button>
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <button type="button" onclick="canteraDecide('changes')" class="text-xs font-medium px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">Richiedi integrazioni</button>
+        <button type="button" onclick="canteraDecide('stop')" class="text-xs font-medium px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50">Ferma l'idea</button>
+      </div>`;
+    else actions = subNote + `<p class="text-xs text-slate-600">In attesa della decisione del team Venture Building.</p>
+      ${isOwner || _cCanEditProject(p) ? `<button type="button" onclick="canteraWithdraw()" class="mt-2 text-xs font-medium text-slate-500 hover:text-slate-800 underline">Ritira dal gate per modificare</button>` : ''}`;
+  } else if (ph.state === 'passed') {
+    const dec = (p.history || []).filter(h => h.phase === n && h.action === 'approved').slice(-1)[0];
+    actions = `<p class="text-xs text-emerald-700">Superato il ${_cFmtDate(ph.decidedAt)}${ph.decidedBy ? ' · decisione di ' + esc(ph.decidedBy) : ''}.</p>${dec && dec.note ? `<p class="text-xs text-slate-600 mt-1.5">${esc(dec.note)}</p>` : ''}`;
+  }
+
+  el.innerHTML = `
+  <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="font-semibold text-slate-800">Gate ${n} · ${meta.short}</h3>
+      ${pill[0] && p.status === 'active' ? `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-full ${pill[1]}">${pill[0]}</span>` : ''}
+    </div>
+    ${tb && ph.state !== 'passed' && p.status === 'active' ? `
+    <div class="mt-3">
+      <div class="flex justify-between text-[11px] text-slate-500 mb-1"><span>Avviata il ${_cFmtDate(ph.startedAt)}</span><span class="${tb.overdue && ph.state === 'active' ? 'text-rose-600 font-medium' : ''}">${ph.state === 'review' ? 'Timer in pausa al gate' : tb.overdue ? 'In ritardo di ' + tb.lateBy + ' g' : 'Scade il ' + _cFmtDate(tb.deadline)}</span></div>
+      <div class="h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${ph.state === 'review' ? 'bg-amber-400' : tb.overdue ? 'bg-rose-400' : 'bg-indigo-500'}" style="width:${Math.max(4, tb.pct)}%"></div></div>
+    </div>` : ''}
+    <div class="mt-4">
+      <div class="flex items-center justify-between text-xs mb-2"><span class="font-semibold text-slate-600">Requisiti del gate</span><span class="text-slate-500 tabular-nums">${prog.done}/${prog.total}</span></div>
+      <ul class="space-y-1.5">${meta.sections.filter(s => s.required).map(s => {
+        const st = _cSectionStatus(p, n, s);
+        const detail = s.type === 'list' ? ` <span class="text-slate-400">(${st.count}/${s.min || 1}${st.extra ? ', ' + st.extra.count + '/' + st.extra.need + ' ' + st.extra.label : ''})</span>` : s.type === 'hypotheses' && st.need ? ` <span class="text-slate-400">(${st.count}/${st.need})</span>` : '';
+        return `<li class="flex items-start gap-2 text-xs ${st.done ? 'text-slate-700' : 'text-slate-500'}">
+          <span class="mt-px w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${st.done ? 'bg-emerald-500 text-white' : 'border border-slate-300'}">${st.done ? _ti('check', 'w-2.5 h-2.5') : ''}</span>
+          <span>${esc(s.label)}${detail}</span></li>`;
+      }).join('')}</ul>
+    </div>
+    <div class="mt-4 pt-4 border-t border-slate-100">${actions}</div>
+    ${hist.length ? `
+    <div class="mt-4 pt-4 border-t border-slate-100">
+      <div class="text-xs font-semibold text-slate-600 mb-2">Storico</div>
+      <ol class="space-y-2">${hist.map(h => `
+        <li class="text-xs"><div class="text-slate-700"><span class="font-medium">${actionLabel[h.action] || esc(h.action)}</span> · ${esc(h.by)}</div>
+          <div class="text-slate-400">${_cFmtDate(h.at)}</div>${h.note ? `<div class="text-slate-600 mt-0.5 whitespace-pre-wrap">${esc(h.note)}</div>` : ''}</li>`).join('')}</ol>
+    </div>` : ''}
+  </div>`;
+}
+
+function canteraSubmitGate() {
+  const p = _canteraGet(canteraOpenId);
+  const n = canteraPhaseView;
+  if (!p || n !== p.currentPhase || !_cCanEditPhase(p, n)) return;
+  if (!_cPhaseProgress(p, n).complete) return;
+  const note = ((document.getElementById('cn-gate-note') || {}).value || '').trim();
+  const ph = p.phases[n];
+  ph.state = 'review';
+  ph.submittedAt = new Date().toISOString();
+  _cHistory(p, n, 'submitted', note);
+  _saveCanteraProject(p);
+  const me = currentUser();
+  _cNotify(_cVbTeam().map(m => m.id), `Gate ${n} da valutare: "${p.title}"`, `${me.name} ha inviato la Fase ${n} · ${_cPhase(n).name} al gate.${note ? ' Nota: ' + note : ''}`, p);
+  _renderCanteraProject();
+}
+function canteraWithdraw() {
+  const p = _canteraGet(canteraOpenId);
+  const n = canteraPhaseView;
+  if (!p || !_cCanEditProject(p) || p.phases[n].state !== 'review') return;
+  p.phases[n].state = 'active';
+  _cHistory(p, n, 'withdrawn');
+  _saveCanteraProject(p);
+  _renderCanteraProject();
+}
+function canteraDecide(decision) {
+  const me = currentUser();
+  const p = _canteraGet(canteraOpenId);
+  const n = canteraPhaseView;
+  if (!p || !isAdminMember(me) || p.phases[n].state !== 'review') return;
+  const noteEl = document.getElementById('cn-decision-note');
+  const note = ((noteEl || {}).value || '').trim();
+  if (decision !== 'go' && !note) {
+    if (noteEl) { noteEl.focus(); noteEl.placeholder = 'Scrivi la motivazione: è obbligatoria per questa decisione'; noteEl.classList.add('ring-2', 'ring-rose-200'); }
+    return;
+  }
+  const ph = p.phases[n];
+  const now = new Date().toISOString();
+  if (decision === 'go') {
+    ph.state = 'passed';
+    ph.decidedAt = now;
+    ph.decidedBy = me.name;
+    _cHistory(p, n, 'approved', note);
+    if (n < 3) {
+      p.currentPhase = n + 1;
+      p.phases[n + 1].state = 'active';
+      p.phases[n + 1].startedAt = now;
+      canteraPhaseView = n + 1;
+      _cNotify([p.ownerId], `Gate ${n} superato: "${p.title}"`, `${me.name} ha approvato la Fase ${n}. Ora si apre la Fase ${n + 1} · ${_cPhase(n + 1).name} (${_cPhase(n + 1).weeks} settimane).${note ? ' ' + note : ''}`, p);
+    } else {
+      p.status = 'completed';
+      _cNotify([p.ownerId], `"${p.title}" ha superato tutti i gate`, `${me.name} ha approvato la Fase 3: l'idea è pronta per il Venture Building.${note ? ' ' + note : ''}`, p);
+    }
+  } else if (decision === 'changes') {
+    ph.state = 'active';
+    _cHistory(p, n, 'changes', note);
+    _cNotify([p.ownerId], `Integrazioni richieste al gate ${n}: "${p.title}"`, `${me.name}: ${note}`, p);
+  } else if (decision === 'stop') {
+    if (!confirm(`Fermare l'idea "${p.title}"?`)) return;
+    ph.state = 'active';
+    p.status = 'stopped';
+    _cHistory(p, n, 'stopped', note);
+    _cNotify([p.ownerId], `L'idea "${p.title}" è stata fermata`, `${me.name}: ${note}`, p);
+  }
+  _saveCanteraProject(p);
+  _renderCanteraProject();
+}
+function canteraReactivate() {
+  const p = _canteraGet(canteraOpenId);
+  if (!p || !isAdminMember(currentUser()) || p.status !== 'stopped') return;
+  p.status = 'active';
+  _cHistory(p, p.currentPhase, 'reactivated');
+  _saveCanteraProject(p);
+  _renderCanteraProject();
+}
+
+// ---------- chat with the Venture Building team (one thread per phase) ----------
+function _renderCanteraChat(p) {
+  const el = document.getElementById('cn-chat');
+  if (!el) return;
+  const me = currentUser();
+  const n = canteraPhaseView;
+  const vb = _cVbTeam();
+  const msgs = loadCanteraMsgs().filter(m => m.projectId === p.id && m.phase === n).sort((a, b) => (a.at < b.at ? -1 : 1));
+  const vbIds = new Set(vb.map(m => m.id));
+  el.innerHTML = `
+  <div class="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="font-semibold text-slate-800">Chat con il Venture Building</div>
+        <div class="text-xs text-slate-500">Fase ${n} · ${_cPhase(n).name}</div>
+      </div>
+      <div class="flex -space-x-2 flex-shrink-0">${vb.slice(0, 4).map(m => _avatarHtml(m, 'w-7 h-7 text-[10px]')).join('')}${vb.length > 4 ? `<span class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold flex items-center justify-center ring-2 ring-white">+${vb.length - 4}</span>` : ''}</div>
+    </div>
+    <div id="cn-chat-list" class="px-4 py-4 space-y-3 max-h-96 overflow-y-auto">
+      ${msgs.length ? msgs.map(m => {
+        const mine = me && m.authorId === me.id;
+        const author = _memberById(m.authorId) || { id: m.authorId, name: m.authorName || '?' };
+        return `<div class="flex gap-2 ${mine ? 'justify-end' : ''}">
+          ${mine ? '' : _avatarHtml(author, 'w-7 h-7 text-[10px]')}
+          <div class="max-w-[80%] min-w-0">
+            <div class="text-[11px] text-slate-400 mb-0.5 ${mine ? 'text-right' : ''}">${mine ? 'Tu' : esc(author.name)}${!mine && vbIds.has(m.authorId) ? ' · Venture Building' : ''} · ${esc(_relTime(m.at))}</div>
+            <div class="px-3 py-2 text-sm whitespace-pre-wrap break-words ${mine ? 'bg-indigo-600 text-white rounded-2xl rounded-br-md' : 'bg-slate-100 text-slate-800 rounded-2xl rounded-bl-md'}">${esc(m.text)}</div>
+          </div>
+        </div>`;
+      }).join('') : `
+        <div class="text-center py-6">
+          <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-2">${_ti('chat', 'w-5 h-5')}</div>
+          <div class="text-sm font-medium text-slate-700">Avvia una conversazione</div>
+          <p class="text-xs text-slate-500 mt-1">Chiedi un parere, condividi un dubbio o prepara il gate insieme al team Venture Building.</p>
+          ${vb.length ? '' : '<p class="text-xs text-amber-600 mt-2">Nessun membro del team ha ancora il ruolo admin (Venture Building).</p>'}
+        </div>`}
+    </div>
+    ${me ? `
+    <div class="p-3 border-t border-slate-100 flex items-end gap-2">
+      <textarea id="cn-chat-input" data-ro-keep rows="1" placeholder="Scrivi al team Venture Building…"
+        onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();postCanteraMsg();}" oninput="_autoGrow(this)"
+        class="flex-1 resize-none border border-slate-200 rounded-xl px-3 py-2 text-sm max-h-40 focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+      <button type="button" onclick="postCanteraMsg()" title="Invia (Invio)" class="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center flex-shrink-0">${_ti('send', 'w-4 h-4 rotate-90')}</button>
+    </div>` : ''}
+  </div>`;
+  const list = document.getElementById('cn-chat-list');
+  if (list) list.scrollTop = list.scrollHeight;
+}
+function postCanteraMsg() {
+  const me = currentUser();
+  const p = _canteraGet(canteraOpenId);
+  const ta = document.getElementById('cn-chat-input');
+  if (!me || !p || !ta || !canView('cantera')) return;
+  const text = ta.value.trim();
+  if (!text) { ta.focus(); return; }
+  const n = canteraPhaseView;
+  const msg = { id: 'cm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), projectId: p.id, phase: n, authorId: me.id, authorName: me.name, text, at: new Date().toISOString() };
+  _saveRowCollection(CANTERA_MSGS_KEY, loadCanteraMsgs().concat(msg));
+  const snippet = text.length > 160 ? text.slice(0, 160) + '…' : text;
+  _cNotify([p.ownerId].concat(_cVbTeam().map(m => m.id)), `Nuovo messaggio su "${p.title}" · Fase ${n}`, `${me.name}: ${snippet}`, p);
+  ta.value = '';
+  _autoGrow(ta);
+  _renderCanteraChat(p);
+  const ci = document.getElementById('cn-chat-input');
+  if (ci) ci.focus();
+}
+
+// Live refresh while an idea is open: new chat messages and gate decisions from others
+async function _pullCantera() {
+  if (!_sb || !canteraOpenId) return;
+  try {
+    const [a, b] = await Promise.all([
+      _sb.from('app_data').select('key, value').like('key', 'cnt_%'),
+      _sb.from('app_data').select('key, value').like('key', 'cmsg_%')
+    ]);
+    if (a.error || b.error) return;
+    const beforeMsgs = localStorage.getItem(CANTERA_MSGS_KEY);
+    _assembleRowCollection(CANTERA_KEY, 'cnt_', (a.data || []).filter(r => r.key.startsWith('cnt_')).map(r => ({ id: r.key.slice(4), value: r.value })), []);
+    _assembleRowCollection(CANTERA_MSGS_KEY, 'cmsg_', (b.data || []).filter(r => r.key.startsWith('cmsg_')).map(r => ({ id: r.key.slice(5), value: r.value })), []);
+    if (!canteraOpenId) return;
+    const p = _canteraGet(canteraOpenId);
+    if (!p) { closeCanteraProject(); return; }
+    if (_cSignature(p) !== _canteraSig) {
+      if (p.currentPhase !== _canteraShownPhase) canteraPhaseView = p.currentPhase; // a gate was passed elsewhere
+      _renderCanteraProject();
+    }
+    else if (localStorage.getItem(CANTERA_MSGS_KEY) !== beforeMsgs) {
+      const pending = (document.getElementById('cn-chat-input') || {}).value || '';
+      _renderCanteraChat(p);
+      const ci = document.getElementById('cn-chat-input');
+      if (ci && pending) ci.value = pending;
+    }
+    refreshCanteraNavBadge();
+  } catch(_) {}
+}
+
 // Generate task_due_soon notifications at app start (dedup by task id + date marker)
 function generateDueSoonNotifications() {
   const today = new Date();
@@ -5713,6 +6831,7 @@ function renderSettings() {
         ${row('mentions','@menzioni','Ricevi una notifica quando un membro ti menziona in un commento')}
         ${row('tasksAssigned','Task assegnati','Ricevi una notifica quando ti viene assegnato un task')}
         ${row('taskComments','Commenti sui task','Ricevi una notifica quando qualcuno commenta o risponde su un task che ti riguarda')}
+        ${row('cantera','La Cantera','Richieste di gate, decisioni del Venture Building e messaggi nella chat delle idee')}
         ${row('tasksDueSoon','Task in scadenza','Avvisi per i task con scadenza nei prossimi 3 giorni')}
         ${row('stageChange','Cambio stage deal','Avvisi quando cambia lo stage di un deal a cui partecipi')}
         ${row('newDeal','Nuovi deal','Avvisi quando viene creato un nuovo deal')}
@@ -8165,6 +9284,7 @@ function applyPermissionsToSidebar() {
   const map = {
     'nav-pipeline':   'pipeline',
     'nav-tasks':      'tasks',
+    'nav-cantera':    'cantera',
     'nav-portfolio':  'portfolio',
     'nav-investors':  'investors',
     'nav-team':       'team',
@@ -8320,6 +9440,13 @@ function showApp() {
     navigate('tasks');
     if (loadTasks().some(t => t.id === taskParam)) openTaskDrawer('g:' + taskParam);
   }
+  // Deep link from La Cantera emails: ?cantera=<id>
+  const canteraParam = new URLSearchParams(window.location.search).get('cantera');
+  if (canteraParam && canView('cantera')) {
+    window.history.replaceState({}, '', window.location.pathname);
+    if (_canteraGet(canteraParam)) openCanteraProject(canteraParam); else navigate('cantera');
+  }
+  refreshCanteraNavBadge();
 }
 
 // ============================================================
