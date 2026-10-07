@@ -5617,6 +5617,7 @@ const CANTERA_MSGS_KEY = 'dealflow_cantera_msgs';
 const CANTERA_PHASES = [
   {
     n: 1, name: 'Product Concept', short: 'Concept', weeks: 3,
+    color: { card: 'bg-sky-50 border-sky-200', bar: 'bg-sky-500', num: 'bg-sky-500', title: 'text-sky-900', chip: 'bg-sky-100 text-sky-700', value: 'text-sky-600' },
     question: 'Quale prodotto sviluppare e per chi',
     output: 'Product concept brief con ipotesi di valore falsificabili, 1-2 domini applicativi, shortlist di archetipi di end-user e tesi di "why now".',
     sections: [
@@ -5650,6 +5651,7 @@ const CANTERA_PHASES = [
   },
   {
     n: 2, name: 'Proof of Pull', short: 'Pull', weeks: 4,
+    color: { card: 'bg-violet-50 border-violet-200', bar: 'bg-violet-500', num: 'bg-violet-500', title: 'text-violet-900', chip: 'bg-violet-100 text-violet-700', value: 'text-violet-600' },
     question: 'Il problema è reale e qualcuno lo vuole risolto con noi?',
     output: 'Evidenza di validazione da end-user qualificati, conferma del problema e segnali di pull (LOI, interesse a pilot).',
     sections: [
@@ -5681,6 +5683,7 @@ const CANTERA_PHASES = [
   },
   {
     n: 3, name: 'Proof of Feasibility', short: 'Feasibility', weeks: 3,
+    color: { card: 'bg-teal-50 border-teal-200', bar: 'bg-teal-500', num: 'bg-teal-500', title: 'text-teal-900', chip: 'bg-teal-100 text-teal-700', value: 'text-teal-600' },
     question: 'Possiamo costruirlo e finanziarlo?',
     output: 'Development plan tecnico (traiettoria TRL, milestone, risorse), funding roadmap con le call pubbliche reali mappate e scenario equity.',
     sections: [
@@ -5947,11 +5950,12 @@ function renderCantera() {
       </div>
       <div id="cn-howto" class="${howtoHidden ? 'hidden' : ''} grid grid-cols-1 md:grid-cols-3 gap-3">
         ${CANTERA_PHASES.map(ph => `
-          <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <div class="relative overflow-hidden ${ph.color.card} border rounded-xl p-4 pt-5 shadow-sm">
+            <div class="absolute inset-x-0 top-0 h-1 ${ph.color.bar}"></div>
             <div class="flex items-center gap-2">
-              <span class="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">${ph.n}</span>
-              <span class="font-semibold text-slate-800">${ph.name}</span>
-              <span class="ml-auto text-[11px] font-medium text-slate-500 bg-slate-100 rounded-full px-2 py-0.5 whitespace-nowrap">${ph.weeks} settimane</span>
+              <span class="w-6 h-6 rounded-full ${ph.color.num} text-white text-xs font-bold flex items-center justify-center flex-shrink-0">${ph.n}</span>
+              <span class="font-semibold ${ph.color.title}">${ph.name}</span>
+              <span class="ml-auto text-[11px] font-medium ${ph.color.chip} rounded-full px-2 py-0.5 whitespace-nowrap">${ph.weeks} settimane</span>
             </div>
             <p class="text-xs text-slate-700 mt-2.5"><span class="font-semibold">Domanda:</span> ${esc(ph.question)}</p>
             <p class="text-xs text-slate-500 mt-1 leading-relaxed"><span class="font-semibold text-slate-600">Output:</span> ${esc(ph.output)}</p>
@@ -5997,7 +6001,7 @@ function _renderCanteraGrid() {
     </button>`;
   statsEl.innerHTML =
     stat('Idee attive', active.length, 'text-slate-800', "setCanteraFilter('status','active')") +
-    [1, 2, 3].map(n => stat('Fase ' + n + ' · ' + _cPhase(n).short, active.filter(p => p.currentPhase === n).length, 'text-indigo-600', null)).join('') +
+    [1, 2, 3].map(n => stat('Fase ' + n + ' · ' + _cPhase(n).short, active.filter(p => p.currentPhase === n).length, _cPhase(n).color.value, null)).join('') +
     stat('In attesa di gate', inReview.length, inReview.length ? 'text-amber-600' : 'text-slate-800', "setCanteraFilter('status','review')");
 
   const q = (canteraFilter.q || '').trim().toLowerCase();
