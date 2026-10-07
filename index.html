@@ -314,6 +314,10 @@ setTimeout(function(){
   </div>
 </div>
 
+<div id="cantera-tpl-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-10" onclick="if(event.target===this) closeCanteraTemplate()">
+  <div class="bg-white rounded-2xl w-full max-w-3xl mx-4 shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Anteprima del template"><div id="cantera-tpl-body"></div></div>
+</div>
+
 <div id="cantera-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-10" onclick="if(event.target===this) closeCanteraModal()">
   <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl"><div id="cantera-modal-body"></div></div>
 </div>
@@ -1101,7 +1105,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter'];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -5973,7 +5977,7 @@ function renderCantera() {
       </div>
       <div id="cn-howto" class="${howtoHidden ? 'hidden' : ''} grid grid-cols-1 md:grid-cols-3 gap-3">
         ${CANTERA_PHASES.map(ph => `
-          <div class="relative overflow-hidden ${ph.color.card} border rounded-xl p-4 pt-5 shadow-sm">
+          <button type="button" onclick="openCanteraTemplate(${ph.n})" title="Vedi il template della fase" class="group relative overflow-hidden text-left ${ph.color.card} border rounded-xl p-4 pt-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="absolute inset-x-0 top-0 h-1 ${ph.color.bar}"></div>
             <div class="flex items-center gap-2">
               <span class="w-6 h-6 rounded-full ${ph.color.num} text-white text-xs font-bold flex items-center justify-center flex-shrink-0">${ph.n}</span>
@@ -5982,7 +5986,8 @@ function renderCantera() {
             </div>
             <p class="text-xs text-slate-700 mt-2.5"><span class="font-semibold">Domanda:</span> ${esc(ph.question)}</p>
             <p class="text-xs text-slate-500 mt-1 leading-relaxed"><span class="font-semibold text-slate-600">Output:</span> ${esc(ph.output)}</p>
-          </div>`).join('')}
+            <span class="inline-flex items-center gap-1 mt-3 text-xs font-medium ${ph.color.title} opacity-70 group-hover:opacity-100">Vedi il template →</span>
+          </button>`).join('')}
       </div>
     </div>
 
@@ -6115,6 +6120,81 @@ function _renderCanteraGrid() {
   }
   grid.innerHTML = html;
 }
+
+// ---------- read-only preview of a phase template (from the stage-gate strip) ----------
+function openCanteraTemplate(n) {
+  const ph = _cPhase(n);
+  if (!ph) return;
+  const box = 'w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-400 cursor-not-allowed';
+  const fieldMock = c => {
+    const lbl = `<span class="block text-[11px] font-medium text-slate-500 mb-0.5">${esc(c.label)}</span>`;
+    if (c.type === 'textarea') return `<div class="sm:col-span-2">${lbl}<textarea disabled rows="2" placeholder="${esc(c.placeholder || '')}" class="${box}"></textarea></div>`;
+    if (c.type === 'select') {
+      const opts = c.options || (c.optionsFrom === 'archetypes' ? ['(archetipi definiti nella Fase 1)'] : []);
+      return `<div>${lbl}<select disabled class="${box}"><option>${esc(opts.join(' / ') || '—')}</option></select></div>`;
+    }
+    if (c.type === 'check') return `<label class="flex items-center gap-2 text-sm text-slate-500 sm:pt-5"><input type="checkbox" disabled class="rounded border-slate-300">${esc(c.label)}</label>`;
+    return `<div>${lbl}<input disabled type="${c.type === 'date' ? 'date' : c.type === 'number' ? 'number' : 'text'}" placeholder="${esc(c.placeholder || '')}" class="${box}"></div>`;
+  };
+  const sectionMock = sec => {
+    if (sec.type === 'text') return `<div class="${box} h-20 flex items-start">${esc(sec.placeholder || 'Testo libero con formattazione (grassetto, elenchi, colori)…')}</div>`;
+    if (sec.type === 'trl') return `<div class="grid grid-cols-2 gap-3">
+        <div><span class="block text-[11px] font-medium text-slate-500 mb-0.5">TRL attuale</span><select disabled class="${box}"><option>TRL 1 … 9</option></select></div>
+        <div><span class="block text-[11px] font-medium text-slate-500 mb-0.5">TRL target a fine piano</span><select disabled class="${box}"><option>TRL 1 … 9</option></select></div>
+        <div class="col-span-2"><span class="block text-[11px] font-medium text-slate-500 mb-0.5">Giustificazione del TRL attuale</span><textarea disabled rows="2" class="${box}"></textarea></div></div>`;
+    if (sec.type === 'hypotheses') return `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
+        <div class="text-xs font-semibold text-slate-500">Per ogni ipotesi della Fase 1</div>
+        <div class="text-sm text-slate-500 italic mt-0.5">"Crediamo che …" — segnale atteso</div>
+        <div class="grid grid-cols-1 sm:grid-cols-[11rem_1fr] gap-2 mt-2.5">
+          <select disabled class="${box}"><option>${CANTERA_HYP_STATUSES.join(' / ')}</option></select>
+          <textarea disabled rows="2" placeholder="Evidenza raccolta (chi, quanti, cosa è emerso)…" class="${box}"></textarea>
+        </div></div>`;
+    return `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
+        <div class="text-xs font-semibold text-slate-500 mb-2">${esc(sec.rowLabel)} 1</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${sec.columns.map(fieldMock).join('')}</div>
+      </div>
+      <div class="mt-2 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded-xl py-2">+ ${esc(sec.addLabel)}${sec.min ? ` · minimo ${sec.min}` : ''}${sec.max ? ` · massimo ${sec.max}` : ''}${sec.minWhere ? ` · di cui ${sec.minWhere.min} ${sec.minWhere.label}` : ''}</div>`;
+  };
+  const req = ph.sections.filter(s => s.required);
+  document.getElementById('cantera-tpl-body').innerHTML = `
+    <div class="h-1.5 ${ph.color.bar}"></div>
+    <div class="${ph.color.card} border-b px-6 py-5">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="w-9 h-9 rounded-full ${ph.color.num} text-white font-bold flex items-center justify-center flex-shrink-0">${ph.n}</span>
+          <div>
+            <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fase ${ph.n} · ${ph.weeks} settimane · anteprima del template</div>
+            <h2 class="text-xl font-bold ${ph.color.title}">${ph.name}</h2>
+          </div>
+        </div>
+        <button type="button" onclick="closeCanteraTemplate()" title="Chiudi (Esc)" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/70">${_ti('x', 'w-5 h-5')}</button>
+      </div>
+      <p class="text-sm text-slate-700 mt-3"><span class="font-semibold">Domanda:</span> ${esc(ph.question)}</p>
+      <p class="text-sm text-slate-600 mt-1"><span class="font-semibold">Output atteso:</span> ${esc(ph.output)}</p>
+    </div>
+    <div class="px-6 py-5 space-y-5 max-h-[65vh] overflow-y-auto">
+      <div class="rounded-xl border border-slate-200 p-4">
+        <div class="text-xs font-semibold text-slate-600 mb-2">Requisiti per inviare al gate ${ph.n}</div>
+        <ul class="space-y-1">${req.map(s => `<li class="flex items-start gap-2 text-sm text-slate-600"><span class="mt-0.5 w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"></span><span>${esc(s.label)}${s.type === 'list' ? ` <span class="text-slate-400">(almeno ${s.min || 1}${s.minWhere ? ', di cui ' + s.minWhere.min + ' ' + s.minWhere.label : ''})</span>` : ''}</span></li>`).join('')}</ul>
+      </div>
+      ${ph.sections.map((sec, i) => `
+        <section>
+          <div class="flex items-start justify-between gap-3">
+            <h3 class="font-semibold text-slate-800">${i + 1}. ${esc(sec.label)}${sec.required ? ' <span class="text-rose-500" title="Richiesto per il gate">*</span>' : ''}</h3>
+            ${sec.required ? '' : '<span class="text-[11px] text-slate-400">Facoltativo</span>'}
+          </div>
+          <p class="text-xs text-slate-500 mt-1 leading-relaxed">${esc(sec.help)}</p>
+          <div class="mt-2.5 pointer-events-none select-none" aria-hidden="true">${sectionMock(sec)}</div>
+        </section>`).join('')}
+    </div>
+    <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500">Anteprima non compilabile: il template si compila dalla pagina di ciascuna idea, quando la fase è attiva.</div>`;
+  document.getElementById('cantera-tpl-overlay').classList.remove('hidden');
+}
+function closeCanteraTemplate() { document.getElementById('cantera-tpl-overlay').classList.add('hidden'); }
+document.addEventListener('keydown', e => {
+  const o = document.getElementById('cantera-tpl-overlay');
+  if (e.key === 'Escape' && o && !o.classList.contains('hidden')) closeCanteraTemplate();
+});
 
 // ---------- product team membership (admin) ----------
 function openCanteraPeopleModal() {
