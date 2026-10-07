@@ -5763,11 +5763,21 @@ function _cCanEditProject(p) {
 function _cCanEditPhase(p, n) { return _cCanEditProject(p) && p.status === 'active' && p.phases[n].state === 'active'; }
 // People shown in La Cantera: members flagged as product management team
 function _cProductTeam() { return loadTeam().filter(m => m.status !== 'Inactive' && m.productTeam); }
+// Who can own an idea: the product team plus anyone who already owns one
+function _cEligibleOwners() {
+  const owners = new Set(loadCantera().map(p => p.ownerId));
+  return loadTeam().filter(m => m.status !== 'Inactive' && (m.productTeam || owners.has(m.id)));
+}
 function _cCanCreateFor(memberId) {
   const me = currentUser();
   if (!me || !canEdit('cantera')) return false;
-  if (!_cProductTeam().some(m => m.id === memberId)) return false;
+  if (!_cEligibleOwners().some(m => m.id === memberId)) return false;
   return isAdminMember(me) || memberId === me.id;
+}
+// Header button: admins always (they pick the owner), others for themselves
+function _cShowNewIdea() {
+  const me = currentUser();
+  return !!me && canEdit('cantera') && (isAdminMember(me) || _cCanCreateFor(me.id));
 }
 function _cHistory(p, n, action, note) {
   const me = currentUser();
@@ -5950,7 +5960,7 @@ function renderCantera() {
       </div>
       <div class="flex items-center gap-2">
         ${me && isAdminMember(me) ? `<button type="button" onclick="openCanteraPeopleModal()" class="inline-flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition">${_ti('people')}Gestisci persone</button>` : ''}
-        ${me && _cCanCreateFor(me.id) ? `<button type="button" onclick="openCanteraModal(null)" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition">${_ti('plus')}Nuova idea</button>` : ''}
+        ${_cShowNewIdea() ? `<button type="button" onclick="openCanteraModal(null)" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition">${_ti('plus')}Nuova idea</button>` : ''}
       </div>
     </div>
 
@@ -6083,7 +6093,7 @@ function _renderCanteraGrid() {
       <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">${_ti('bulb', 'w-6 h-6')}</div>
       <div class="text-sm font-semibold text-slate-700">${all.length ? 'Nessuna idea corrisponde ai filtri' : 'La Cantera è ancora vuota'}</div>
       <p class="text-xs text-slate-500 mt-1">${all.length ? 'Prova a cambiare il filtro o la ricerca.' : 'Ogni persona del team product management può proporre la sua prima idea.'}</p>
-      ${!all.length && me && _cCanCreateFor(me.id) ? `<button type="button" onclick="openCanteraModal(null)" class="mt-4 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
+      ${!all.length && _cShowNewIdea() ? `<button type="button" onclick="openCanteraModal(null)" class="mt-4 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
     </div>`;
   } else {
     html = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${people.map(m => personCard(m, byOwner.get(m.id))).join('')}${extraOwners.map(id => personCard(allMembers.find(x => x.id === id) || null, byOwner.get(id))).join('')}</div>`;
@@ -6155,11 +6165,18 @@ function openCanteraModal(editId, presetOwner, focusDates) {
   const me = currentUser();
   if (!me) return;
   const p = editId ? _canteraGet(editId) : null;
-  if (p ? !_cCanEditProject(p) : !_cCanCreateFor(presetOwner || me.id)) return;
+  if (!p && !presetOwner) {
+    const eligible = _cEligibleOwners();
+    if (eligible.some(m => m.id === me.id) && _cCanCreateFor(me.id)) presetOwner = me.id;
+    else if (isAdminMember(me) && eligible.length) presetOwner = eligible[0].id;
+    else if (isAdminMember(me)) { alert('Prima scegli chi fa parte del team product management: le idee vanno assegnate a una di queste persone.'); openCanteraPeopleModal(); return; }
+    else return;
+  }
+  if (p ? !_cCanEditProject(p) : !_cCanCreateFor(presetOwner)) return;
   _canteraModalEditId = editId || null;
   const admin = isAdminMember(me);
-  const owner = p ? p.ownerId : (presetOwner || me.id);
-  const team = loadTeam().filter(m => (m.status !== 'Inactive' && m.productTeam) || m.id === owner);
+  const owner = p ? p.ownerId : presetOwner;
+  const team = _cEligibleOwners().concat(loadTeam().filter(m => m.id === owner && !_cEligibleOwners().some(e => e.id === m.id)));
   const plan = p ? _cPlan(p) : _cDefaultPlan(_ymd(_startOfToday()));
   document.getElementById('cantera-modal-body').innerHTML = `
     <form onsubmit="saveCanteraModal(event)" class="p-6 space-y-4">
