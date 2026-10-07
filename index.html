@@ -1101,7 +1101,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter'];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -5946,6 +5946,7 @@ function renderCantera() {
   if (canteraOpenId && _canteraGet(canteraOpenId)) { _renderCanteraProject(); return; }
   canteraOpenId = null;
   clearInterval(_canteraPollTimer);
+  if (canteraView === 'dashboard') { _renderCanteraDashboard(); refreshCanteraNavBadge(); return; }
   const me = currentUser();
   let howtoHidden = false;
   try { howtoHidden = !!localStorage.getItem('ui_canteraHowtoHidden'); } catch(_) {}
@@ -5958,7 +5959,8 @@ function renderCantera() {
         <h1 class="text-2xl font-bold text-slate-800">La Cantera</h1>
         <p class="text-sm text-slate-500 mt-0.5">Le idee di prodotto del team, dal concept alla fattibilità</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        ${_cViewToggle()}
         ${me && isAdminMember(me) ? `<button type="button" onclick="openCanteraPeopleModal()" class="inline-flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition">${_ti('people')}Gestisci persone</button>` : ''}
         ${_cShowNewIdea() ? `<button type="button" onclick="openCanteraModal(null)" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition">${_ti('plus')}Nuova idea</button>` : ''}
       </div>
@@ -6880,6 +6882,297 @@ async function _pullCantera() {
     }
     refreshCanteraNavBadge();
   } catch(_) {}
+}
+
+// ---------- La Cantera dashboard ----------
+// Stage colors (validated: lightness band, chroma, CVD; the pink/teal pair sits in the
+// 6-8 CVD floor band, so stacked bars always carry a legend, 2px gaps and a data table).
+const CN_STAGE_COLORS = { p1: '#0284c7', p2: '#8b5cf6', p3: '#0d9488', done: '#ec4899' };
+const CN_STAGE_LABELS = { p1: 'Fase 1 · Concept', p2: 'Fase 2 · Pull', p3: 'Fase 3 · Feasibility', done: 'Completate' };
+const CN_ACCENT = '#6366f1'; // single-hue magnitude bars
+let canteraView = 'ideas';
+try { canteraView = localStorage.getItem('ui_canteraView') || 'ideas'; } catch(_) {}
+let canteraDashFilter = { sector: '', owner: '' };
+
+function setCanteraView(v) {
+  canteraView = v;
+  try { localStorage.setItem('ui_canteraView', v); } catch(_) {}
+  canteraOpenId = null;
+  renderCantera();
+}
+function setCanteraDashFilter(k, v) { canteraDashFilter[k] = v; _renderCanteraDashboard(); }
+function _cViewToggle() {
+  return `<div class="inline-flex bg-slate-200/70 rounded-lg p-0.5" role="tablist" aria-label="Vista La Cantera">
+    ${[['ideas', 'Idee', 'bulb'], ['dashboard', 'Dashboard', 'board']].map(([k, l, ic]) => `<button type="button" role="tab" aria-selected="${canteraView === k}" onclick="setCanteraView('${k}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${canteraView === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">${_ti(ic)}${l}</button>`).join('')}
+  </div>`;
+}
+function _cStage(p) {
+  if (p.status === 'completed') return 'done';
+  if (p.status === 'stopped') return 'stopped';
+  return 'p' + p.currentPhase;
+}
+function _cIsLate(p) {
+  if (p.status !== 'active' || p.phases[p.currentPhase].state !== 'active') return false;
+  const tb = _cTimebox(p, p.currentPhase);
+  return !!(tb && tb.overdue);
+}
+function _cDays(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+function _cFmtNum(n) { return Number(n || 0).toLocaleString('it-IT'); }
+function _cFmtEur(n) {
+  n = Number(n || 0);
+  if (n >= 1e6) return '€ ' + (n / 1e6).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' M';
+  if (n >= 1e3) return '€ ' + Math.round(n / 1e3).toLocaleString('it-IT') + 'k';
+  return '€ ' + n.toLocaleString('it-IT');
+}
+
+// Hover tooltip for every [data-tip] mark in the dashboard
+function _cDashTipInit() {
+  if (document.getElementById('cn-tip')) return;
+  const tip = document.createElement('div');
+  tip.id = 'cn-tip';
+  tip.className = 'fixed z-[90] pointer-events-none hidden max-w-xs bg-slate-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg leading-relaxed';
+  document.body.appendChild(tip);
+  document.addEventListener('mouseover', e => {
+    const t = e.target.closest && e.target.closest('#cn-dash [data-tip]');
+    if (!t) { tip.classList.add('hidden'); return; }
+    tip.innerHTML = t.getAttribute('data-tip');
+    tip.classList.remove('hidden');
+  });
+  document.addEventListener('mousemove', e => {
+    if (tip.classList.contains('hidden')) return;
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    const y = Math.min(e.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  });
+}
+// data-tip carries trusted, pre-escaped HTML: build it only from esc()'d values
+function _cTip(title, rows) {
+  return esc(`<div class="font-semibold mb-0.5">${title}</div>${rows.map(([k, v]) => `<div class="flex justify-between gap-4"><span class="text-slate-300">${k}</span><span class="font-medium">${v}</span></div>`).join('')}`);
+}
+
+function _cCard(title, subtitle, body, extraCls) {
+  return `<section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm ${extraCls || ''}">
+    <h3 class="font-semibold text-slate-800">${title}</h3>
+    ${subtitle ? `<p class="text-xs text-slate-500 mt-0.5">${subtitle}</p>` : ''}
+    <div class="mt-4">${body}</div>
+  </section>`;
+}
+function _cDataTable(headers, rows) {
+  return `<details class="mt-4 group">
+    <summary class="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer select-none">Mostra i dati in tabella</summary>
+    <div class="mt-2 overflow-x-auto"><table class="w-full text-xs">
+      <thead><tr class="text-left text-slate-500 border-b border-slate-200">${headers.map((h, i) => `<th class="py-1.5 pr-3 font-medium ${i ? 'text-right' : ''}">${esc(h)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r => `<tr class="border-b border-slate-100">${r.map((c, i) => `<td class="py-1.5 pr-3 ${i ? 'text-right tabular-nums' : 'text-slate-700'}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>
+  </details>`;
+}
+// Horizontal single-hue bar list (magnitude): value at the tip, 4px rounded data-end
+function _cHBars(items, max, unit) {
+  if (!items.length) return '<p class="text-sm text-slate-400">Nessun dato.</p>';
+  return `<div class="space-y-2.5">${items.map(it => `
+    <div class="grid grid-cols-[minmax(6rem,10rem)_1fr] items-center gap-3" data-tip="${_cTip(esc(it.label), it.tip || [[unit, _cFmtNum(it.value)]])}">
+      <div class="text-sm text-slate-700 truncate" title="${esc(it.label)}">${esc(it.label)}</div>
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="h-5 rounded-r flex-shrink-0" style="width:${max ? Math.max(2, it.value / max * 85) : 0}%;background:${it.color || CN_ACCENT}"></div>
+        <span class="text-xs font-semibold text-slate-700 tabular-nums">${_cFmtNum(it.value)}</span>
+      </div>
+    </div>`).join('')}</div>`;
+}
+function _cLegend(keys) {
+  return `<div class="flex flex-wrap gap-x-4 gap-y-1.5 mb-3">${keys.map(k => `<span class="inline-flex items-center gap-1.5 text-xs text-slate-600"><span class="w-2.5 h-2.5 rounded-sm" style="background:${CN_STAGE_COLORS[k]}"></span>${CN_STAGE_LABELS[k]}</span>`).join('')}</div>`;
+}
+
+function _renderCanteraDashboard() {
+  const el = document.getElementById('page-cantera');
+  if (!el) return;
+  _cDashTipInit();
+  _taskTeamIdx = null;
+  const allIdeas = loadCantera();
+  const sectorsUsed = [...new Set(allIdeas.map(p => p.sector).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const ownersUsed = [...new Set(allIdeas.map(p => p.ownerId))].map(id => _memberById(id) || { id, name: 'Non più nel team' }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const f = canteraDashFilter;
+  const ideas = allIdeas.filter(p => (!f.sector || (f.sector === '__none' ? !p.sector : p.sector === f.sector)) && (!f.owner || p.ownerId === f.owner));
+  const active = ideas.filter(p => p.status === 'active');
+  const late = active.filter(_cIsLate);
+  const atGate = active.filter(p => p.phases[p.currentPhase].state === 'review');
+  const completed = ideas.filter(p => p.status === 'completed');
+  const stopped = ideas.filter(p => p.status === 'stopped');
+  const hist = ideas.flatMap(p => (p.history || []).map(h => ({ ...h, p })));
+  const decisions = hist.filter(h => ['approved', 'changes', 'stopped'].includes(h.action));
+  const approved = decisions.filter(h => h.action === 'approved');
+  const approvalRate = decisions.length ? Math.round(approved.length / decisions.length * 100) : null;
+  const selCls = 'text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300';
+
+  // KPI tiles
+  const tile = (label, value, sub, tone) => `
+    <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+      <div class="text-xs font-medium text-slate-500">${label}</div>
+      <div class="text-3xl font-bold mt-1 ${tone || 'text-slate-800'}">${value}</div>
+      ${sub ? `<div class="text-[11px] text-slate-500 mt-1">${sub}</div>` : ''}
+    </div>`;
+  const kpis = [
+    tile('Idee totali', _cFmtNum(ideas.length), `${active.length} attive · ${sectorsUsed.length} settori`),
+    tile('In ritardo sul piano', _cFmtNum(late.length), active.length ? `${Math.round(late.length / active.length * 100)}% delle idee attive` : 'nessuna idea attiva', late.length ? 'text-rose-600' : ''),
+    tile('In attesa di gate', _cFmtNum(atGate.length), 'decisione del Venture Building', atGate.length ? 'text-amber-600' : ''),
+    tile('Completate', _cFmtNum(completed.length), 'tutti i gate superati'),
+    tile('Fermate', _cFmtNum(stopped.length), 'stop deciso al gate'),
+    tile('Approvazione ai gate', approvalRate === null ? '—' : approvalRate + '%', decisions.length ? `${approved.length} approvazioni su ${decisions.length} decisioni` : 'nessuna decisione ancora')
+  ].join('');
+
+  // Ideas by stage (funnel, stage identity colors)
+  const stageKeys = ['p1', 'p2', 'p3', 'done'];
+  const stageCount = k => ideas.filter(p => _cStage(p) === k).length;
+  const stageMax = Math.max(1, ...stageKeys.map(stageCount));
+  const funnel = _cHBars(stageKeys.map(k => ({
+    label: CN_STAGE_LABELS[k], value: stageCount(k), color: CN_STAGE_COLORS[k],
+    tip: [['Idee', _cFmtNum(stageCount(k))], ...(k !== 'done' ? [['di cui al gate', _cFmtNum(ideas.filter(p => _cStage(p) === k && p.phases[p.currentPhase].state === 'review').length)], ['di cui in ritardo', _cFmtNum(ideas.filter(p => _cStage(p) === k && _cIsLate(p)).length)]] : [])]
+  })), stageMax, 'Idee') + (stopped.length ? `<p class="text-xs text-slate-500 mt-3">Fermate: ${stopped.length} (escluse dal conteggio per fase)</p>` : '');
+
+  // Ideas by sector, stacked by stage
+  const sectorKeys = [...new Set(ideas.map(p => p.sector || '__none'))];
+  const bySector = sectorKeys.map(s => {
+    const list = ideas.filter(p => (p.sector || '__none') === s);
+    const counts = {}; stageKeys.forEach(k => { counts[k] = list.filter(p => _cStage(p) === k).length; });
+    return { s, label: s === '__none' ? 'Settore non indicato' : s, list, counts, total: list.length, stopped: list.filter(p => p.status === 'stopped').length };
+  }).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+  const sectorMax = Math.max(1, ...bySector.map(x => x.total - x.stopped));
+  const sectorChart = bySector.length ? _cLegend(stageKeys) + `<div class="space-y-2.5">${bySector.map(x => {
+    const shown = x.total - x.stopped;
+    return `<div class="grid grid-cols-[minmax(6rem,10rem)_1fr] items-center gap-3">
+      <div class="text-sm text-slate-700 truncate" title="${esc(x.label)}">${esc(x.label)}</div>
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="flex h-5 gap-[2px] flex-shrink-0" style="width:${Math.max(shown ? 2 : 0, shown / sectorMax * 85)}%">
+          ${stageKeys.filter(k => x.counts[k]).map((k, i, arr) => `<div class="h-full ${i === arr.length - 1 ? 'rounded-r' : ''}" style="flex:${x.counts[k]};background:${CN_STAGE_COLORS[k]}" data-tip="${_cTip(esc(x.label) + ' · ' + CN_STAGE_LABELS[k], [['Idee', _cFmtNum(x.counts[k])], ['Totale settore', _cFmtNum(x.total)]])}"></div>`).join('')}
+        </div>
+        <span class="text-xs font-semibold text-slate-700 tabular-nums">${_cFmtNum(x.total)}</span>${x.stopped ? `<span class="text-[11px] text-slate-400">(${x.stopped} fermate)</span>` : ''}
+      </div>
+    </div>`;
+  }).join('')}</div>` + _cDataTable(['Settore', ...stageKeys.map(k => CN_STAGE_LABELS[k]), 'Fermate', 'Totale'], bySector.map(x => [x.label, ...stageKeys.map(k => x.counts[k]), x.stopped, x.total]))
+    : '<p class="text-sm text-slate-400">Nessuna idea.</p>';
+
+  // Ideas by person (active ideas)
+  const byOwner = [...new Set(ideas.map(p => p.ownerId))].map(id => {
+    const list = ideas.filter(p => p.ownerId === id);
+    const m = _memberById(id);
+    return { label: m ? m.name : 'Non più nel team', value: list.filter(p => p.status === 'active').length,
+      tip: [['Attive', _cFmtNum(list.filter(p => p.status === 'active').length)], ['In ritardo', _cFmtNum(list.filter(_cIsLate).length)], ['Completate', _cFmtNum(list.filter(p => p.status === 'completed').length)], ['Totali', _cFmtNum(list.length)]] };
+  }).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+  const ownerChart = _cHBars(byOwner, Math.max(1, ...byOwner.map(x => x.value)), 'Idee attive');
+
+  // Gate performance table
+  const gateRows = [1, 2, 3].map(n => {
+    const h = hist.filter(x => x.phase === n);
+    const sub = h.filter(x => x.action === 'submitted').length;
+    const ap = h.filter(x => x.action === 'approved').length;
+    const ch = h.filter(x => x.action === 'changes').length;
+    const st = h.filter(x => x.action === 'stopped').length;
+    const passed = ideas.filter(p => p.phases[n].state === 'passed' && p.phases[n].startedAt && p.phases[n].decidedAt);
+    const actualAvg = passed.length ? Math.round(passed.reduce((s, p) => s + _cDays(p.phases[n].startedAt, p.phases[n].decidedAt), 0) / passed.length) : null;
+    const plannedAvg = passed.length ? Math.round(passed.reduce((s, p) => s + _cTimebox(p, n).total, 0) / passed.length) : _cPhase(n).weeks * 7;
+    const rate = ap + ch + st ? Math.round(ap / (ap + ch + st) * 100) + '%' : '—';
+    return { n, sub, ap, ch, st, rate, actualAvg, plannedAvg };
+  });
+  const gateTable = `<div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead><tr class="text-left text-xs text-slate-500 border-b border-slate-200">
+      <th class="py-2 pr-3 font-medium">Gate</th><th class="py-2 px-2 font-medium text-right">Invii</th><th class="py-2 px-2 font-medium text-right">Approvati</th>
+      <th class="py-2 px-2 font-medium text-right">Integrazioni</th><th class="py-2 px-2 font-medium text-right">Fermate</th><th class="py-2 px-2 font-medium text-right">Approvazione</th>
+      <th class="py-2 pl-2 font-medium text-right">Durata media (effettiva / pianificata)</th></tr></thead>
+    <tbody>${gateRows.map(g => `<tr class="border-b border-slate-100">
+      <td class="py-2.5 pr-3"><span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm" style="background:${CN_STAGE_COLORS['p' + g.n]}"></span><span class="text-slate-700">${g.n} · ${_cPhase(g.n).short}</span></span></td>
+      <td class="py-2.5 px-2 text-right tabular-nums">${g.sub}</td><td class="py-2.5 px-2 text-right tabular-nums">${g.ap}</td>
+      <td class="py-2.5 px-2 text-right tabular-nums">${g.ch}</td><td class="py-2.5 px-2 text-right tabular-nums">${g.st}</td>
+      <td class="py-2.5 px-2 text-right tabular-nums font-medium text-slate-800">${g.rate}</td>
+      <td class="py-2.5 pl-2 text-right tabular-nums">${g.actualAvg === null ? '<span class="text-slate-400">—</span>' : `<span class="${g.actualAvg > g.plannedAvg ? 'text-rose-600 font-medium' : 'text-slate-800'}">${g.actualAvg} g</span>`} <span class="text-slate-400">/ ${g.plannedAvg} g</span></td>
+    </tr>`).join('')}</tbody></table></div>`;
+
+  // Evidence collected across ideas
+  let interviews = 0, qualified = 0, confirmed = 0, hyps = 0, hValid = 0, hFals = 0, hOpen = 0, signals = 0, signed = 0, fundMapped = 0, fundWon = 0, fundCount = 0;
+  ideas.forEach(p => {
+    const d1 = p.phases[1].data || {}, d2 = p.phases[2].data || {}, d3 = p.phases[3].data || {};
+    (d2.interviews || []).filter(r => String(r.who || '').trim()).forEach(r => { interviews++; if (r.qualified) qualified++; if (r.confirmed === 'Sì') confirmed++; });
+    const checks = d2.hypothesisCheck || {};
+    (d1.hypotheses || []).filter(h => String(h.statement || '').trim()).forEach(h => {
+      hyps++;
+      const st = (checks[h.id] || {}).status;
+      if (st === 'Validata') hValid++; else if (st === 'Falsificata') hFals++; else hOpen++;
+    });
+    (d2.pullSignals || []).filter(r => String(r.counterpart || '').trim()).forEach(r => { signals++; if (r.status === 'Firmato / confermato') signed++; });
+    (d3.funding || []).filter(r => String(r.name || '').trim()).forEach(r => { fundCount++; fundMapped += Number(r.amount) || 0; if (r.status === 'Ottenuta') fundWon += Number(r.amount) || 0; });
+  });
+  const ev = (label, value, sub) => `<div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div class="text-xs font-medium text-slate-500">${label}</div><div class="text-2xl font-bold text-slate-800 mt-1">${value}</div><div class="text-[11px] text-slate-500 mt-1">${sub}</div></div>`;
+  const evidence = `<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    ${ev('Interazioni con end-user', _cFmtNum(interviews), interviews ? `${Math.round(qualified / interviews * 100)}% qualificate · ${confirmed} confermano il problema` : 'registrate nella Fase 2')}
+    ${ev('Ipotesi di valore', _cFmtNum(hyps), hyps ? `${hValid} validate · ${hFals} falsificate · ${hOpen} da testare` : 'definite nella Fase 1')}
+    ${ev('Segnali di pull', _cFmtNum(signals), signals ? `${signed} firmati / confermati (LOI, pilot…)` : 'raccolti nella Fase 2')}
+    ${ev('Funding mappato', _cFmtEur(fundMapped), fundCount ? `${fundCount} fonti · ${_cFmtEur(fundWon)} ottenuti` : 'dalla Fase 3')}
+  </div>`;
+
+  // New ideas per month (last 12 months)
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ y: d.getFullYear(), m: d.getMonth(), label: d.toLocaleDateString('it-IT', { month: 'short' }), full: d.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }) }); }
+  months.forEach(mo => { mo.count = ideas.filter(p => { const c = new Date(p.createdAt); return c.getFullYear() === mo.y && c.getMonth() === mo.m; }).length; });
+  const monthMax = Math.max(1, ...months.map(m => m.count));
+  const monthChart = `<div class="flex items-end gap-2 h-36 border-b border-slate-200 pb-0.5">${months.map(mo => `
+    <div class="flex-1 h-full flex flex-col justify-end items-center gap-1 min-w-0 cursor-default" data-tip="${_cTip(esc(mo.full), [['Nuove idee', _cFmtNum(mo.count)]])}">
+      ${mo.count ? `<span class="text-[11px] font-semibold text-slate-700 tabular-nums">${mo.count}</span>` : ''}
+      <div class="w-full max-w-[24px] rounded-t" style="height:${mo.count ? Math.max(4, mo.count / monthMax * 100) : 0}%;background:${CN_ACCENT}"></div>
+    </div>`).join('')}</div>
+    <div class="flex gap-2 mt-1.5">${months.map(mo => `<div class="flex-1 text-center text-[10px] text-slate-500 min-w-0 truncate">${esc(mo.label)}</div>`).join('')}</div>`
+    + _cDataTable(['Mese', 'Nuove idee'], months.map(mo => [mo.full, mo.count]));
+
+  // Upcoming planned deadlines + late ideas (actionable list)
+  const today = _startOfToday();
+  const deadlines = active.filter(p => p.phases[p.currentPhase].state === 'active').map(p => ({ p, tb: _cTimebox(p, p.currentPhase) }))
+    .filter(x => x.tb && !x.tb.notStarted).map(x => ({ ...x, days: Math.round((x.tb.deadline - today) / 86400000) }))
+    .filter(x => x.days <= 21).sort((a, b) => a.days - b.days);
+  const deadlineList = deadlines.length ? `<ul class="divide-y divide-slate-100">${deadlines.map(x => {
+    const owner = _memberById(x.p.ownerId);
+    return `<li><button type="button" onclick="openCanteraProject('${esc(x.p.id)}')" class="w-full flex items-center gap-3 py-2.5 text-left hover:bg-slate-50 rounded-lg px-2 -mx-2">
+      ${_avatarHtml(owner, 'w-7 h-7 text-[10px]')}
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800 truncate">${esc(x.p.title)}</span><span class="block text-[11px] text-slate-500">Fase ${x.p.currentPhase} · ${_cPhase(x.p.currentPhase).short} · fine prevista ${_cFmtDate(x.tb.deadline)}</span></span>
+      <span class="text-xs font-semibold whitespace-nowrap ${x.days < 0 ? 'text-rose-600' : x.days <= 7 ? 'text-amber-700' : 'text-slate-600'}">${x.days < 0 ? 'in ritardo di ' + (-x.days) + ' g' : x.days === 0 ? 'scade oggi' : 'tra ' + x.days + ' g'}</span>
+    </button></li>`;
+  }).join('')}</ul>` : '<p class="text-sm text-slate-400">Nessuna fase in scadenza nelle prossime 3 settimane.</p>';
+
+  el.innerHTML = `
+  <div id="cn-dash" class="max-w-7xl mx-auto">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">La Cantera · Dashboard</h1>
+        <p class="text-sm text-slate-500 mt-0.5">Andamento complessivo delle idee nel percorso stage-gate</p>
+      </div>
+      ${_cViewToggle()}
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-3 mb-5 shadow-sm flex flex-wrap items-center gap-2">
+      <span class="text-xs font-medium text-slate-500 px-1">Filtra</span>
+      <select data-ro-keep onchange="setCanteraDashFilter('sector', this.value)" class="${selCls}" aria-label="Settore">
+        <option value="">Tutti i settori</option>
+        ${sectorsUsed.map(s => `<option ${f.sector === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+        ${allIdeas.some(p => !p.sector) ? `<option value="__none" ${f.sector === '__none' ? 'selected' : ''}>Settore non indicato</option>` : ''}
+      </select>
+      <select data-ro-keep onchange="setCanteraDashFilter('owner', this.value)" class="${selCls}" aria-label="Responsabile">
+        <option value="">Tutte le persone</option>
+        ${ownersUsed.map(m => `<option value="${esc(m.id)}" ${f.owner === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+      </select>
+      ${f.sector || f.owner ? `<button type="button" onclick="canteraDashFilter = { sector: '', owner: '' }; _renderCanteraDashboard()" class="text-xs text-slate-500 hover:text-slate-800 underline px-1">Azzera</button>` : ''}
+    </div>
+    ${!allIdeas.length ? `<div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 px-6 text-center text-sm text-slate-500">Ancora nessuna idea: la dashboard si popola appena il team inizia a proporne.</div>` : `
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">${kpis}</div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      ${_cCard('Idee per fase', 'Dove si trovano le idee nel percorso', funnel)}
+      ${_cCard('Idee per settore', 'Numero di idee per settore applicativo, suddivise per fase', sectorChart)}
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      ${_cCard('Idee attive per persona', 'Carico di lavoro del team product management', ownerChart)}
+      ${_cCard('Scadenze e ritardi', 'Fasi in corso che finiscono entro 3 settimane o sono oltre la data pianificata', deadlineList)}
+    </div>
+    ${_cCard('Performance dei gate', 'Decisioni del Venture Building e durata effettiva delle fasi superate rispetto al piano', gateTable, 'mb-5')}
+    ${_cCard('Evidenze raccolte', 'Somma di quanto registrato nei template di tutte le idee filtrate', evidence, 'mb-5')}
+    ${_cCard('Nuove idee per mese', 'Ultimi 12 mesi, per data di creazione', monthChart)}`}
+  </div>`;
+  if (!canEdit('cantera')) applyReadonlyToPage('cantera');
 }
 
 // Generate task_due_soon notifications at app start (dedup by task id + date marker)
