@@ -5743,9 +5743,13 @@ function _cCanEditProject(p) {
   return !!me && canEdit('cantera') && (isAdminMember(me) || p.ownerId === me.id);
 }
 function _cCanEditPhase(p, n) { return _cCanEditProject(p) && p.status === 'active' && p.phases[n].state === 'active'; }
+// People shown in La Cantera: members flagged as product management team
+function _cProductTeam() { return loadTeam().filter(m => m.status !== 'Inactive' && m.productTeam); }
 function _cCanCreateFor(memberId) {
   const me = currentUser();
-  return !!me && canEdit('cantera') && (isAdminMember(me) || memberId === me.id);
+  if (!me || !canEdit('cantera')) return false;
+  if (!_cProductTeam().some(m => m.id === memberId)) return false;
+  return isAdminMember(me) || memberId === me.id;
 }
 function _cHistory(p, n, action, note) {
   const me = currentUser();
@@ -5761,22 +5765,45 @@ function _cNotify(userIds, title, body, p) {
 }
 function _cFmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
 
-// Elapsed time inside a phase (stops counting while the phase sits at the gate)
+// Planned path: start date of each phase + final gate date (YYYY-MM-DD), set by hand.
+// Ideas created before the plan existed get one derived from the standard durations.
+function _cDefaultPlan(startYmd) {
+  const d = _parseYmd(startYmd) || _startOfToday();
+  const add = days => { const x = new Date(d); x.setDate(x.getDate() + days); return _ymd(x); };
+  const w = CANTERA_PHASES.map(ph => ph.weeks * 7);
+  return { 1: _ymd(d), 2: add(w[0]), 3: add(w[0] + w[1]), end: add(w[0] + w[1] + w[2]) };
+}
+function _cPlan(p) {
+  if (p.plan && p.plan[1] && p.plan[2] && p.plan[3] && p.plan.end) return p.plan;
+  return _cDefaultPlan(((p.phases[1] && p.phases[1].startedAt) || p.createdAt || new Date().toISOString()).slice(0, 10));
+}
+function _cPlanError(plan) {
+  const seq = [plan[1], plan[2], plan[3], plan.end].map(_parseYmd);
+  if (seq.some(d => !d)) return 'Inserisci tutte e quattro le date.';
+  for (let i = 1; i < seq.length; i++) if (seq[i] <= seq[i - 1]) return 'Le date devono essere in ordine: ogni fase inizia dopo la precedente.';
+  return '';
+}
+function _cShortDate(d) { return d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : ''; }
+
+// Position of a phase in its planned window (the clock stops while the phase sits at the gate)
 function _cTimebox(p, n) {
   const ph = p.phases[n];
-  if (!ph || !ph.startedAt) return null;
-  const weeks = _cPhase(n).weeks;
-  const total = weeks * 7;
-  const start = new Date(ph.startedAt);
-  const end = ph.state === 'passed' && ph.decidedAt ? new Date(ph.decidedAt)
-            : ph.state === 'review' && ph.submittedAt ? new Date(ph.submittedAt) : new Date();
-  const elapsed = Math.max(0, Math.floor((end - start) / 86400000));
+  const plan = _cPlan(p);
+  const start = _parseYmd(plan[n]);
+  const end = _parseYmd(n < 3 ? plan[n + 1] : plan.end);
+  if (!ph || !start || !end) return null;
+  const total = Math.max(1, Math.round((end - start) / 86400000));
+  const dayOf = iso => { const d = new Date(iso); d.setHours(0, 0, 0, 0); return d; };
+  const ref = ph.state === 'passed' && ph.decidedAt ? dayOf(ph.decidedAt)
+            : ph.state === 'review' && ph.submittedAt ? dayOf(ph.submittedAt) : _startOfToday();
+  const elapsed = Math.round((ref - start) / 86400000);
+  const weeks = Math.max(1, Math.round(total / 7));
   return {
-    total, elapsed, weeks,
-    week: Math.min(weeks, Math.floor(elapsed / 7) + 1),
+    total, elapsed, weeks, start, deadline: end,
+    notStarted: elapsed < 0,
+    week: Math.min(weeks, Math.max(1, Math.floor(elapsed / 7) + 1)),
     overdue: elapsed > total, lateBy: Math.max(0, elapsed - total),
-    pct: Math.min(100, Math.round(elapsed / total * 100)),
-    deadline: new Date(start.getTime() + total * 86400000)
+    pct: Math.max(0, Math.min(100, Math.round(elapsed / total * 100)))
   };
 }
 
@@ -5832,7 +5859,7 @@ function _cJourney(p) {
     if (st === 'passed') fill = 100;
     else if (st === 'active' || st === 'review') {
       const tb = _cTimebox(p, n);
-      fill = tb ? Math.max(4, tb.pct) : 0;
+      fill = tb && !tb.notStarted ? Math.max(4, tb.pct) : 0;
       col = st === 'review' ? 'bg-amber-400' : tb && tb.overdue ? 'bg-rose-400' : 'bg-indigo-400';
     }
     return `<div class="flex-1 h-1.5 mx-1 rounded-full bg-slate-200 overflow-hidden"><div class="h-full ${col} rounded-full" style="width:${fill}%"></div></div>`;
@@ -5841,7 +5868,11 @@ function _cJourney(p) {
   const flag = `<span class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300 border border-slate-200'}" title="Gate finale">${_ti('flag', 'w-3.5 h-3.5')}</span>`;
   return `
     <div class="flex items-center">${_cNode(_cNodeState(p, 1), 1)}${conn(1)}${_cNode(_cNodeState(p, 2), 2)}${conn(2)}${_cNode(_cNodeState(p, 3), 3)}${conn(3)}${flag}</div>
-    <div class="flex justify-between text-[10px] font-medium text-slate-400 mt-1"><span>Concept</span><span>Pull</span><span>Feasibility</span><span>Gate</span></div>`;
+    <div class="flex justify-between text-[10px] font-medium text-slate-400 mt-1 leading-tight">${(() => {
+      const pl = _cPlan(p);
+      return [['Concept', pl[1], 'text-left'], ['Pull', pl[2], 'text-center'], ['Feasibility', pl[3], 'text-center'], ['Gate', pl.end, 'text-right']]
+        .map(([l, d, a]) => `<span class="${a}">${l}<br><span class="font-normal text-slate-400/80">${esc(_cShortDate(_parseYmd(d)))}</span></span>`).join('');
+    })()}</div>`;
 }
 function _cStatusPill(p) {
   const pill = (label, cls) => `<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}">${label}</span>`;
@@ -5851,6 +5882,7 @@ function _cStatusPill(p) {
   if (p.phases[n].state === 'review') return pill('Al gate ' + n, 'bg-amber-50 text-amber-700');
   const tb = _cTimebox(p, n);
   if (tb && tb.overdue) return pill('Fase ' + n + ' · in ritardo', 'bg-rose-50 text-rose-700');
+  if (tb && tb.notStarted) return pill('Fase ' + n + ' · dal ' + _cShortDate(tb.start), 'bg-indigo-50 text-indigo-700');
   return pill('Fase ' + n + (tb ? ' · sett. ' + tb.week + '/' + tb.weeks : ''), 'bg-indigo-50 text-indigo-700');
 }
 
@@ -5898,7 +5930,10 @@ function renderCantera() {
         <h1 class="text-2xl font-bold text-slate-800">La Cantera</h1>
         <p class="text-sm text-slate-500 mt-0.5">Le idee di prodotto del team, dal concept alla fattibilità</p>
       </div>
-      ${me && _cCanCreateFor(me.id) ? `<button type="button" onclick="openCanteraModal(null)" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition">${_ti('plus')}Nuova idea</button>` : ''}
+      <div class="flex items-center gap-2">
+        ${me && isAdminMember(me) ? `<button type="button" onclick="openCanteraPeopleModal()" class="inline-flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition">${_ti('people')}Gestisci persone</button>` : ''}
+        ${me && _cCanCreateFor(me.id) ? `<button type="button" onclick="openCanteraModal(null)" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition">${_ti('plus')}Nuova idea</button>` : ''}
+      </div>
     </div>
 
     <div class="mb-5">
@@ -5946,7 +5981,8 @@ function _renderCanteraGrid() {
   _taskTeamIdx = null;
   const me = currentUser();
   const all = loadCantera();
-  const team = loadTeam().filter(m => m.status !== 'Inactive');
+  const team = _cProductTeam();
+  const allMembers = loadTeam();
   const active = all.filter(p => p.status === 'active');
   const inReview = active.filter(p => p.phases[p.currentPhase].state === 'review');
 
@@ -5973,7 +6009,8 @@ function _renderCanteraGrid() {
   list.forEach(p => { if (!byOwner.has(p.ownerId)) byOwner.set(p.ownerId, []); byOwner.get(p.ownerId).push(p); });
   const people = team.filter(m => byOwner.has(m.id))
     .sort((a, b) => byOwner.get(b.id).length - byOwner.get(a.id).length || (a.name || '').localeCompare(b.name || ''));
-  const orphanIds = [...byOwner.keys()].filter(id => !team.some(m => m.id === id));
+  // Owners not (or no longer) in the product team still show their ideas
+  const extraOwners = [...byOwner.keys()].filter(id => !team.some(m => m.id === id));
   const without = team.filter(m => !byOwner.has(m.id));
 
   const projectCard = p => `
@@ -6005,7 +6042,17 @@ function _renderCanteraGrid() {
   };
 
   let html = '';
-  if (!people.length && !orphanIds.length) {
+  if (!team.length && !all.length) {
+    html = `<div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 px-6 text-center">
+      <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">${_ti('people', 'w-6 h-6')}</div>
+      <div class="text-sm font-semibold text-slate-700">Scegli chi fa parte del team product management</div>
+      <p class="text-xs text-slate-500 mt-1">Solo queste persone compaiono in La Cantera e possono proporre idee.</p>
+      ${isAdminMember(me) ? `<button type="button" onclick="openCanteraPeopleModal()" class="mt-4 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('people', 'w-3.5 h-3.5')}Gestisci persone</button>` : '<p class="text-xs text-slate-400 mt-3">Chiedi a un admin di configurarlo.</p>'}
+    </div>`;
+    grid.innerHTML = html;
+    return;
+  }
+  if (!people.length && !extraOwners.length) {
     html = `<div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 px-6 text-center">
       <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">${_ti('bulb', 'w-6 h-6')}</div>
       <div class="text-sm font-semibold text-slate-700">${all.length ? 'Nessuna idea corrisponde ai filtri' : 'La Cantera è ancora vuota'}</div>
@@ -6013,7 +6060,7 @@ function _renderCanteraGrid() {
       ${!all.length && me && _cCanCreateFor(me.id) ? `<button type="button" onclick="openCanteraModal(null)" class="mt-4 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
     </div>`;
   } else {
-    html = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${people.map(m => personCard(m, byOwner.get(m.id))).join('')}${orphanIds.map(id => personCard(null, byOwner.get(id))).join('')}</div>`;
+    html = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${people.map(m => personCard(m, byOwner.get(m.id))).join('')}${extraOwners.map(id => personCard(allMembers.find(x => x.id === id) || null, byOwner.get(id))).join('')}</div>`;
   }
   if (without.length && st !== 'review' && !q) {
     html += `
@@ -6031,8 +6078,54 @@ function _renderCanteraGrid() {
   grid.innerHTML = html;
 }
 
+// ---------- product team membership (admin) ----------
+function openCanteraPeopleModal() {
+  if (!isAdminMember(currentUser())) return;
+  const team = loadTeam().filter(m => m.status !== 'Inactive').sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const dup = _teamDuplicates(team);
+  const owners = new Set(loadCantera().map(p => p.ownerId));
+  document.getElementById('cantera-modal-body').innerHTML = `
+    <form onsubmit="saveCanteraPeople(event)" class="p-6">
+      <h2 class="text-lg font-bold text-slate-800">Team product management</h2>
+      <p class="text-xs text-slate-500 mt-0.5">Le persone selezionate compaiono in La Cantera e possono proporre idee. L'elenco viene dalla sezione Team.</p>
+      ${dup.size ? `<div class="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Alcune persone compaiono più volte nel Team (segnate qui sotto). Seleziona quella giusta ed elimina i doppioni dalla sezione <button type="button" onclick="closeCanteraModal(); navigate('team')" class="underline font-medium">Team</button>.</div>` : ''}
+      <div class="mt-4 max-h-[55vh] overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+        ${team.map(m => `
+          <label class="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" name="pt" value="${esc(m.id)}" ${m.productTeam ? 'checked' : ''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+            ${_avatarHtml(m, 'w-7 h-7 text-[10px]')}
+            <span class="flex-1 min-w-0">
+              <span class="block text-sm font-medium text-slate-800 truncate">${esc(m.name)}${dup.has(m.id) ? ' <span class="text-[10px] font-semibold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 align-middle">duplicato</span>' : ''}</span>
+              <span class="block text-[11px] text-slate-500 truncate">${esc(m.email || 'senza email')}${m.canLogin ? ' · accesso attivo' : ''}${owners.has(m.id) ? ' · ha idee' : ''}</span>
+            </span>
+          </label>`).join('') || '<div class="p-4 text-sm text-slate-500">Nessun membro attivo nel Team.</div>'}
+      </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <button type="button" onclick="closeCanteraModal()" class="px-4 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100">Annulla</button>
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Salva</button>
+      </div>
+    </form>`;
+  document.getElementById('cantera-modal-overlay').classList.remove('hidden');
+}
+function saveCanteraPeople(e) {
+  e.preventDefault();
+  if (!isAdminMember(currentUser())) return;
+  const chosen = new Set([...e.target.querySelectorAll('input[name=pt]:checked')].map(i => i.value));
+  const team = loadTeam();
+  let changed = false;
+  team.forEach(m => {
+    if (m.status === 'Inactive') return;
+    const want = chosen.has(m.id);
+    if (!!m.productTeam !== want) { m.productTeam = want; m.updatedAt = new Date().toISOString(); changed = true; }
+  });
+  if (changed) saveTeam(team);
+  _taskTeamIdx = null;
+  closeCanteraModal();
+  renderCantera();
+}
+
 // ---------- new / edit idea ----------
-function openCanteraModal(editId, presetOwner) {
+function openCanteraModal(editId, presetOwner, focusDates) {
   const me = currentUser();
   if (!me) return;
   const p = editId ? _canteraGet(editId) : null;
@@ -6040,7 +6133,8 @@ function openCanteraModal(editId, presetOwner) {
   _canteraModalEditId = editId || null;
   const admin = isAdminMember(me);
   const owner = p ? p.ownerId : (presetOwner || me.id);
-  const team = loadTeam().filter(m => m.status !== 'Inactive' || m.id === owner);
+  const team = loadTeam().filter(m => (m.status !== 'Inactive' && m.productTeam) || m.id === owner);
+  const plan = p ? _cPlan(p) : _cDefaultPlan(_ymd(_startOfToday()));
   document.getElementById('cantera-modal-body').innerHTML = `
     <form onsubmit="saveCanteraModal(event)" class="p-6 space-y-4">
       <div>
@@ -6061,13 +6155,32 @@ function openCanteraModal(editId, presetOwner) {
           ${team.map(m => `<option value="${esc(m.id)}" ${m.id === owner ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
         </select>
       </div>
+      <div class="border-t border-slate-100 pt-4">
+        <div class="text-sm font-medium text-slate-600">Percorso pianificato</div>
+        <p class="text-[11px] text-slate-400 mt-0.5 mb-2">Date di inizio delle fasi. Le durate consigliate sono 3, 4 e 3 settimane${p ? '' : ': cambiando l\'inizio della Fase 1 le altre si aggiornano'}.</p>
+        <div class="grid grid-cols-2 gap-3">
+          ${[['1', 'Inizio Fase 1 · Concept'], ['2', 'Inizio Fase 2 · Pull'], ['3', 'Inizio Fase 3 · Feasibility'], ['end', 'Gate finale']].map(([k, l]) => `
+            <label class="text-xs text-slate-500">${l}
+              <input type="date" id="cn-m-plan-${k}" value="${esc(plan[k])}" ${!p && k === '1' ? 'onchange="_cModalShiftPlan(this.value)"' : ''} class="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </label>`).join('')}
+        </div>
+        <p id="cn-m-plan-err" class="hidden text-xs text-rose-600 mt-2"></p>
+      </div>
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeCanteraModal()" class="px-4 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100">Annulla</button>
         <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">${p ? 'Salva' : 'Crea idea'}</button>
       </div>
     </form>`;
   document.getElementById('cantera-modal-overlay').classList.remove('hidden');
-  setTimeout(() => { const t = document.getElementById('cn-m-title'); if (t) t.focus(); }, 50);
+  setTimeout(() => { const t = document.getElementById(focusDates ? 'cn-m-plan-1' : 'cn-m-title'); if (t) t.focus(); }, 50);
+}
+function _cModalShiftPlan(startYmd) {
+  const pl = _cDefaultPlan(startYmd);
+  ['2', '3', 'end'].forEach(k => { const el = document.getElementById('cn-m-plan-' + k); if (el) el.value = pl[k]; });
+}
+function _cModalPlan() {
+  const v = k => (document.getElementById('cn-m-plan-' + k) || {}).value || '';
+  return { 1: v('1'), 2: v('2'), 3: v('3'), end: v('end') };
 }
 function closeCanteraModal() {
   document.getElementById('cantera-modal-overlay').classList.add('hidden');
@@ -6085,11 +6198,14 @@ function saveCanteraModal(e) {
   const ownerSel = document.getElementById('cn-m-owner');
   const ownerId = isAdminMember(me) ? ownerSel.value : (_canteraModalEditId ? _canteraGet(_canteraModalEditId).ownerId : me.id);
   if (!title) return;
+  const plan = _cModalPlan();
+  const planErr = _cPlanError(plan);
+  if (planErr) { const el = document.getElementById('cn-m-plan-err'); el.textContent = planErr; el.classList.remove('hidden'); return; }
   if (_canteraModalEditId) {
     const p = _canteraGet(_canteraModalEditId);
     if (!p || !_cCanEditProject(p)) return;
     const prevOwner = p.ownerId;
-    Object.assign(p, { title, oneLiner, ownerId });
+    Object.assign(p, { title, oneLiner, ownerId, plan });
     _saveCanteraProject(p);
     if (ownerId !== prevOwner) _cNotify([ownerId], `Ti è stata affidata l'idea "${title}"`, `${me.name} ti ha nominato responsabile in La Cantera.`, p);
     closeCanteraModal();
@@ -6101,7 +6217,7 @@ function saveCanteraModal(e) {
   const p = {
     id: 'cnt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     title, oneLiner, ownerId, createdBy: me.id, createdByName: me.name, createdAt: now, updatedAt: now,
-    status: 'active', currentPhase: 1,
+    status: 'active', currentPhase: 1, plan,
     phases: { 1: { state: 'active', startedAt: now, data: {} }, 2: { state: 'locked', data: {} }, 3: { state: 'locked', data: {} } },
     history: []
   };
@@ -6144,12 +6260,12 @@ function closeCanteraProject() {
 }
 function canteraSelectPhase(n) {
   const p = _canteraGet(canteraOpenId);
-  if (!p || p.phases[n].state === 'locked') return;
+  if (!p || !p.phases[n]) return; // locked phases open as a read-only preview
   canteraPhaseView = n;
   _renderCanteraProject();
 }
 function _cSignature(p) {
-  return JSON.stringify([p.status, p.currentPhase, p.title, p.oneLiner, p.ownerId, [1, 2, 3].map(n => p.phases[n].state), (p.history || []).length]);
+  return JSON.stringify([p.status, p.currentPhase, p.title, p.oneLiner, p.ownerId, p.plan || null, [1, 2, 3].map(n => p.phases[n].state), (p.history || []).length]);
 }
 
 function _renderCanteraProject() {
@@ -6157,7 +6273,7 @@ function _renderCanteraProject() {
   const p = _canteraGet(canteraOpenId);
   if (!p) { canteraOpenId = null; renderCantera(); return; }
   _taskTeamIdx = null;
-  if (!canteraPhaseView || !p.phases[canteraPhaseView] || p.phases[canteraPhaseView].state === 'locked') canteraPhaseView = p.currentPhase;
+  if (!canteraPhaseView || !p.phases[canteraPhaseView]) canteraPhaseView = p.currentPhase;
   const pendingChat = (document.getElementById('cn-chat-input') || {}).value || '';
   const owner = _memberById(p.ownerId);
   const canEditP = _cCanEditProject(p);
@@ -6171,21 +6287,23 @@ function _renderCanteraProject() {
     const selected = canteraPhaseView === n;
     const tb = _cTimebox(p, n);
     let line = '';
-    if (locked) line = `Si sblocca superando il gate ${n - 1}`;
+    if (locked) line = `Inizio previsto ${tb ? _cFmtDate(tb.start) : ''} · si sblocca superando il gate ${n - 1}`;
     else if (ph.state === 'passed') line = `Superata il ${_cFmtDate(ph.decidedAt)}`;
     else if (ph.state === 'review') line = `Al gate dal ${_cFmtDate(ph.submittedAt)}`;
     else if (p.status === 'stopped') line = 'Idea fermata';
-    else if (tb) line = tb.overdue ? `In ritardo di ${tb.lateBy} giorni` : `Settimana ${tb.week} di ${tb.weeks} · scade il ${_cFmtDate(tb.deadline)}`;
+    else if (tb) line = tb.notStarted ? `Inizio previsto il ${_cFmtDate(tb.start)}` : tb.overdue ? `In ritardo di ${tb.lateBy} giorni (fine prevista ${_cFmtDate(tb.deadline)})` : `Settimana ${tb.week} di ${tb.weeks} · fino al ${_cFmtDate(tb.deadline)}`;
     const bar = (ph.state === 'active' || ph.state === 'review') && tb && p.status === 'active'
       ? `<div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${ph.state === 'review' ? 'bg-amber-400' : tb.overdue ? 'bg-rose-400' : 'bg-indigo-500'}" style="width:${Math.max(4, tb.pct)}%"></div></div>` : '';
     const mc = msgCount(n);
     return `
-    <button type="button" ${locked ? 'disabled aria-disabled="true"' : ''} onclick="canteraSelectPhase(${n})"
-      class="text-left rounded-2xl border p-4 transition ${locked ? 'bg-slate-50 border-slate-200 opacity-50 grayscale cursor-not-allowed' : selected ? 'bg-white border-indigo-400 ring-2 ring-indigo-100 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}">
+    <button type="button" ${locked ? 'data-locked="true" title="Fase bloccata: anteprima in sola lettura"' : ''} onclick="canteraSelectPhase(${n})"
+      class="text-left rounded-2xl border p-4 transition ${locked
+        ? (selected ? 'bg-slate-50 border-slate-400 ring-2 ring-slate-200 grayscale' : 'bg-slate-50 border-slate-200 opacity-60 grayscale hover:opacity-90')
+        : selected ? 'bg-white border-indigo-400 ring-2 ring-indigo-100 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}">
       <div class="flex items-center gap-3">
         ${_cNode(state, n, true)}
         <div class="min-w-0 flex-1">
-          <div class="text-[11px] font-semibold uppercase tracking-wide ${locked ? 'text-slate-400' : 'text-indigo-600'}">Fase ${n} · ${meta.weeks} settimane</div>
+          <div class="text-[11px] font-semibold uppercase tracking-wide ${locked ? 'text-slate-400' : 'text-indigo-600'}">Fase ${n} · ${tb ? _cShortDate(tb.start) + ' – ' + _cShortDate(tb.deadline) : meta.weeks + ' settimane'}</div>
           <div class="font-semibold text-slate-800 truncate">${meta.name}</div>
         </div>
         ${mc ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${mc} messaggi">${_ti('chat', 'w-3.5 h-3.5')}${mc}</span>` : ''}
@@ -6216,7 +6334,11 @@ function _renderCanteraProject() {
       ${p.status === 'stopped' ? `<div class="mt-4 text-sm text-rose-800 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2.5">L'idea è stata fermata al gate ${p.currentPhase}. I contenuti restano consultabili.</div>` : ''}
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">${[1, 2, 3].map(stepCard).join('')}</div>
+    <div class="flex flex-wrap items-center justify-between gap-2 mt-5 mb-2">
+      <div class="text-sm text-slate-600"><span class="font-semibold text-slate-700">Percorso pianificato:</span> ${(() => { const pl = _cPlan(p); return `dal ${_cFmtDate(_parseYmd(pl[1]))} al gate finale del ${_cFmtDate(_parseYmd(pl.end))}`; })()}</div>
+      ${canEditP ? `<button type="button" onclick="openCanteraModal('${esc(p.id)}', null, true)" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800">${_ti('cal', 'w-3.5 h-3.5')}Modifica date</button>` : ''}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">${[1, 2, 3].map(stepCard).join('')}</div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5 items-start">
       <div id="cn-main" class="lg:col-span-2 space-y-4"></div>
@@ -6249,14 +6371,16 @@ function _renderCanteraMain(p) {
   const editable = _cCanEditPhase(p, n);
   let reason = '';
   if (!editable) {
-    if (p.status === 'stopped') reason = 'Idea fermata: contenuti in sola lettura.';
+    if (ph.state === 'locked') reason = `Anteprima in sola lettura: questa fase si sblocca superando il gate ${n - 1}. Puoi già vedere cosa servirà compilare.`;
+    else if (p.status === 'stopped') reason = 'Idea fermata: contenuti in sola lettura.';
     else if (ph.state === 'review') reason = 'La fase è al gate: i contenuti restano bloccati fino alla decisione del team Venture Building.';
     else if (ph.state === 'passed') reason = 'Fase superata: contenuti in sola lettura.';
     else reason = 'Solo il responsabile dell\'idea e il team Venture Building possono compilare questa fase.';
   }
+  const preview = ph.state === 'locked';
   el.innerHTML = `
-    <div class="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-5">
-      <div class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Fase ${n} · ${meta.weeks} settimane · Template guidato</div>
+    <div class="${preview ? 'bg-slate-50 border-slate-200' : 'bg-gradient-to-br from-indigo-50 to-white border-indigo-100'} border rounded-2xl p-5">
+      <div class="text-xs font-semibold ${preview ? 'text-slate-500' : 'text-indigo-600'} uppercase tracking-wide">Fase ${n} · ${meta.weeks} settimane · ${preview ? 'Anteprima' : 'Template guidato'}</div>
       <h2 class="text-lg font-bold text-slate-800 mt-1">${meta.name}: ${esc(meta.question)}</h2>
       <p class="text-sm text-slate-600 mt-2"><span class="font-semibold">Output atteso:</span> ${esc(meta.output)}</p>
       ${reason ? `<div class="mt-3 inline-flex items-center gap-1.5 text-xs text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-3 py-1.5">${_ti('lock', 'w-3.5 h-3.5')}${reason}</div>` : ''}
@@ -6485,6 +6609,8 @@ function _renderCanteraGate(p) {
       </div>`;
     else actions = subNote + `<p class="text-xs text-slate-600">In attesa della decisione del team Venture Building.</p>
       ${isOwner || _cCanEditProject(p) ? `<button type="button" onclick="canteraWithdraw()" class="mt-2 text-xs font-medium text-slate-500 hover:text-slate-800 underline">Ritira dal gate per modificare</button>` : ''}`;
+  } else if (ph.state === 'locked') {
+    actions = `<p class="text-xs text-slate-500">${_ti('lock', 'w-3.5 h-3.5 inline -mt-0.5')} Fase bloccata: questi saranno i requisiti per il gate ${n}. Si sblocca superando il gate ${n - 1}.</p>`;
   } else if (ph.state === 'passed') {
     const dec = (p.history || []).filter(h => h.phase === n && h.action === 'approved').slice(-1)[0];
     actions = `<p class="text-xs text-emerald-700">Superato il ${_cFmtDate(ph.decidedAt)}${ph.decidedBy ? ' · decisione di ' + esc(ph.decidedBy) : ''}.</p>${dec && dec.note ? `<p class="text-xs text-slate-600 mt-1.5">${esc(dec.note)}</p>` : ''}`;
@@ -6498,8 +6624,8 @@ function _renderCanteraGate(p) {
     </div>
     ${tb && ph.state !== 'passed' && p.status === 'active' ? `
     <div class="mt-3">
-      <div class="flex justify-between text-[11px] text-slate-500 mb-1"><span>Avviata il ${_cFmtDate(ph.startedAt)}</span><span class="${tb.overdue && ph.state === 'active' ? 'text-rose-600 font-medium' : ''}">${ph.state === 'review' ? 'Timer in pausa al gate' : tb.overdue ? 'In ritardo di ' + tb.lateBy + ' g' : 'Scade il ' + _cFmtDate(tb.deadline)}</span></div>
-      <div class="h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${ph.state === 'review' ? 'bg-amber-400' : tb.overdue ? 'bg-rose-400' : 'bg-indigo-500'}" style="width:${Math.max(4, tb.pct)}%"></div></div>
+      <div class="flex justify-between text-[11px] text-slate-500 mb-1"><span>Pianificata dal ${_cFmtDate(tb.start)}</span><span class="${tb.overdue && ph.state === 'active' ? 'text-rose-600 font-medium' : ''}">${ph.state === 'review' ? 'Timer in pausa al gate' : ph.state === 'locked' ? 'al ' + _cFmtDate(tb.deadline) : tb.overdue ? 'In ritardo di ' + tb.lateBy + ' g' : 'Fino al ' + _cFmtDate(tb.deadline)}</span></div>
+      ${ph.state === 'locked' ? '' : `<div class="h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${ph.state === 'review' ? 'bg-amber-400' : tb.overdue ? 'bg-rose-400' : 'bg-indigo-500'}" style="width:${Math.max(4, tb.pct)}%"></div></div>`}
     </div>` : ''}
     <div class="mt-4">
       <div class="flex items-center justify-between text-xs mb-2"><span class="font-semibold text-slate-600">Requisiti del gate</span><span class="text-slate-500 tabular-nums">${prog.done}/${prog.total}</span></div>
@@ -6604,6 +6730,10 @@ function _renderCanteraChat(p) {
   const me = currentUser();
   const n = canteraPhaseView;
   const vb = _cVbTeam();
+  if (p.phases[n].state === 'locked') {
+    el.innerHTML = `<div class="bg-white border border-slate-200 rounded-2xl p-5 text-xs text-slate-500">La chat con il Venture Building per la Fase ${n} sarà disponibile quando la fase si sblocca.</div>`;
+    return;
+  }
   const msgs = loadCanteraMsgs().filter(m => m.projectId === p.id && m.phase === n).sort((a, b) => (a.at < b.at ? -1 : 1));
   const vbIds = new Set(vb.map(m => m.id));
   el.innerHTML = `
@@ -8969,8 +9099,33 @@ const DEMO_TEAM = [
 function loadTeam() {
   const raw = localStorage.getItem(TEAM_KEY);
   if (raw) { try { return JSON.parse(raw); } catch(e) {} }
-  localStorage.setItem(TEAM_KEY, JSON.stringify(DEMO_TEAM));
-  return JSON.parse(JSON.stringify(DEMO_TEAM));
+  // With the cloud configured, never seed the demo users: a browser that could not reach
+  // the cloud would otherwise push them back. Only the admin account is needed to log in.
+  const seed = _sb ? DEMO_TEAM.filter(m => m.id === 'tm-admin') : DEMO_TEAM;
+  localStorage.setItem(TEAM_KEY, JSON.stringify(seed));
+  return JSON.parse(JSON.stringify(seed));
+}
+
+// Members that look like the same person (same name or same email), keyed by member id
+function _teamDuplicates(team) {
+  const norm = v => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const groups = new Map();
+  team.forEach(m => {
+    [norm(m.name) && 'n:' + norm(m.name), norm(m.email) && 'e:' + norm(m.email)].filter(Boolean).forEach(k => {
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(m);
+    });
+  });
+  const dup = new Map();
+  groups.forEach(list => {
+    if (list.length < 2) return;
+    list.forEach(m => {
+      const others = dup.get(m.id) || new Set();
+      list.forEach(o => { if (o.id !== m.id) others.add(o); });
+      dup.set(m.id, others);
+    });
+  });
+  return dup;
 }
 // Team sync: each member is its own cloud row (key = 'team_<id>') so parallel
 // edits and additions across browsers never overwrite each other.
@@ -8994,6 +9149,7 @@ function saveTeam(t) {
 function renderTeam() {
   const el = document.getElementById('page-team');
   const team = loadTeam();
+  const dupMap = _teamDuplicates(team);
   const allDeals = loadDeals();
 
   const roleBg = { 'Partner':'bg-indigo-100 text-indigo-700', 'Analyst':'bg-sky-100 text-sky-700', 'Associate':'bg-teal-100 text-teal-700' };
@@ -9058,6 +9214,8 @@ function renderTeam() {
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-semibold text-slate-800">${esc(m.name)}</span>
                     <span class="text-xs px-2 py-0.5 rounded-full font-medium ${roleBg[m.role]||'bg-slate-100 text-slate-600'}">${esc(m.role)}</span>
+                    ${m.productTeam ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-700">La Cantera</span>' : ''}
+                    ${dupMap.has(m.id) ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800" title="Stesso nome o email di: ${esc([...dupMap.get(m.id)].map(o => o.name + ' (' + (o.email || 'senza email') + (o.canLogin ? ', accesso attivo' : '') + ')').join('; '))}. Tieni quello con accesso e progetti, elimina gli altri.">Possibile duplicato</span>` : ''}
                   </div>
                   <div class="text-xs text-slate-400 mt-0.5">${esc(m.email||'—')}</div>
                 </div>
