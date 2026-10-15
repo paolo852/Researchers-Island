@@ -1110,7 +1110,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox(', 'canteraChatAt('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -4238,6 +4238,7 @@ function addNotification(n) {
     dealId: n.dealId || null,
     taskId: n.taskId || null,
     canteraId: n.canteraId || null,
+    canteraPhase: n.canteraPhase || null,
     criterion: n.criterion || null,
     read: false,
     timestamp: new Date().toISOString()
@@ -4306,7 +4307,7 @@ function emailNotify(notif) {
   const member = team.find(m => m.id === notif.userId);
   if (!member || !member.email) return;
   const appBase = window.location.origin + window.location.pathname;
-  const ctaUrl = notif.canteraId ? appBase + '?cantera=' + encodeURIComponent(notif.canteraId)
+  const ctaUrl = notif.canteraId ? appBase + '?cantera=' + encodeURIComponent(notif.canteraId) + (notif.canteraPhase ? '&phase=' + notif.canteraPhase : '')
                : notif.taskId ? appBase + '?task=' + encodeURIComponent(notif.taskId)
                : notif.dealId ? appBase + '?deal=' + notif.dealId : appBase;
   const firstName = (member.name || '').split(' ')[0];
@@ -4382,6 +4383,7 @@ function onNotifClick(id) {
   closeNotifPanel();
   if (n.canteraId && _canteraGet(n.canteraId)) {
     openCanteraProject(n.canteraId);
+    if (n.canteraPhase) { canteraSelectPhase(n.canteraPhase); const c = document.getElementById('cn-chat'); if (c) c.scrollIntoView({ block: 'center' }); }
   } else if (n.taskId && loadTasks().some(t => t.id === n.taskId)) {
     navigate('tasks');
     openTaskDrawer('g:' + n.taskId);
@@ -7191,51 +7193,95 @@ function canteraReactivate() {
   _renderCanteraProject();
 }
 
-// ---------- chat with the Venture Building team (one thread per phase) ----------
+// ---------- team chat (one thread per phase) with @mentions ----------
+let _cnMention = null; // open mention picker: { start, end, items, sel }
+// People who can be mentioned: active members who can log in and see La Cantera
+function _cMentionable() {
+  return loadTeam().filter(m => m.status !== 'Inactive' && m.canLogin && String(m.name || '').trim()
+    && (isAdminMember(m) || ((m.permissions || {}).cantera || _defaultPermissions().cantera) !== 'none'));
+}
+// Mentions are "@" + a member's full name; the longest matching name wins
+function _cFindMentions(text, people) {
+  const out = [];
+  const list = (people || _cMentionable()).filter(x => x && String(x.name || '').trim()).sort((a, b) => b.name.length - a.name.length);
+  const low = String(text || '').toLowerCase();
+  let i = low.indexOf('@');
+  while (i >= 0) {
+    const m = list.find(x => {
+      const n = x.name.toLowerCase();
+      if (low.substr(i + 1, n.length) !== n) return false;
+      const next = text.charAt(i + 1 + n.length);
+      return !next || !/[\p{L}\p{N}]/u.test(next);
+    });
+    if (m) { out.push({ id: m.id, start: i, end: i + 1 + m.name.length }); i = low.indexOf('@', i + 1 + m.name.length); }
+    else i = low.indexOf('@', i + 1);
+  }
+  return out;
+}
+function _cChatTextHtml(msg, mine) {
+  const me = currentUser();
+  const people = (msg.mentions || []).map(id => _memberById(id)).filter(Boolean);
+  const found = people.length ? _cFindMentions(msg.text, people) : [];
+  let html = '', pos = 0;
+  found.forEach(f => {
+    html += esc(msg.text.slice(pos, f.start));
+    const cls = me && f.id === me.id ? 'bg-amber-200 text-amber-900' : mine ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700';
+    html += `<span class="font-semibold rounded px-0.5 ${cls}">${esc(msg.text.slice(f.start, f.end))}</span>`;
+    pos = f.end;
+  });
+  return html + esc(msg.text.slice(pos));
+}
+
 function _renderCanteraChat(p) {
   const el = document.getElementById('cn-chat');
   if (!el) return;
+  _cnMention = null;
   const me = currentUser();
   const n = canteraPhaseView;
   const vb = _cVbTeam();
   if (p.phases[n].state === 'locked') {
-    el.innerHTML = `<div class="bg-white border border-slate-200 rounded-2xl p-5 text-xs text-slate-500">La chat con il Venture Building per la Fase ${n} sarà disponibile quando la fase si sblocca.</div>`;
+    el.innerHTML = `<div class="bg-white border border-slate-200 rounded-2xl p-5 text-xs text-slate-500">La chat del team per la Fase ${n} sarà disponibile quando la fase si sblocca.</div>`;
     return;
   }
   const msgs = loadCanteraMsgs().filter(m => m.projectId === p.id && m.phase === n).sort((a, b) => (a.at < b.at ? -1 : 1));
   const vbIds = new Set(vb.map(m => m.id));
+  // Participants: owner, Venture Building, whoever wrote or was mentioned in this thread
+  const partIds = [...new Set([p.ownerId].concat(vb.map(m => m.id), msgs.map(m => m.authorId), msgs.flatMap(m => m.mentions || [])))];
+  const parts = partIds.map(id => _memberById(id)).filter(Boolean);
   el.innerHTML = `
   <div class="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
     <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <div class="font-semibold text-slate-800">Chat con il Venture Building</div>
+        <div class="font-semibold text-slate-800">Chat con il Team</div>
         <div class="text-xs text-slate-500">Fase ${n} · ${_cPhase(n).name}</div>
       </div>
-      <div class="flex -space-x-2 flex-shrink-0">${vb.slice(0, 4).map(m => _avatarHtml(m, 'w-7 h-7 text-[10px]')).join('')}${vb.length > 4 ? `<span class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold flex items-center justify-center ring-2 ring-white">+${vb.length - 4}</span>` : ''}</div>
+      <div class="flex -space-x-1.5 flex-shrink-0" title="${esc(parts.map(m => m.name).join(', '))}">${parts.slice(0, 4).map(m => _avatarHtml(m, 'w-7 h-7 text-[10px]')).join('')}${parts.length > 4 ? `<span class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold flex items-center justify-center ring-2 ring-white">+${parts.length - 4}</span>` : ''}</div>
     </div>
     <div id="cn-chat-list" class="px-4 py-4 space-y-3 max-h-96 overflow-y-auto">
       ${msgs.length ? msgs.map(m => {
         const mine = me && m.authorId === me.id;
         const author = _memberById(m.authorId) || { id: m.authorId, name: m.authorName || '?' };
+        const forMe = !mine && me && (m.mentions || []).includes(me.id);
         return `<div class="flex gap-2 ${mine ? 'justify-end' : ''}">
           ${mine ? '' : _avatarHtml(author, 'w-7 h-7 text-[10px]')}
           <div class="max-w-[80%] min-w-0">
             <div class="text-[11px] text-slate-400 mb-0.5 ${mine ? 'text-right' : ''}">${mine ? 'Tu' : esc(author.name)}${!mine && vbIds.has(m.authorId) ? ' · Venture Building' : ''} · ${esc(_relTime(m.at))}</div>
-            <div class="px-3 py-2 text-sm whitespace-pre-wrap break-words ${mine ? 'bg-indigo-600 text-white rounded-2xl rounded-br-md' : 'bg-slate-100 text-slate-800 rounded-2xl rounded-bl-md'}">${esc(m.text)}</div>
+            <div class="px-3 py-2 text-sm whitespace-pre-wrap break-words ${mine ? 'bg-indigo-600 text-white rounded-2xl rounded-br-md' : forMe ? 'bg-amber-50 text-slate-800 ring-1 ring-amber-200 rounded-2xl rounded-bl-md' : 'bg-slate-100 text-slate-800 rounded-2xl rounded-bl-md'}">${_cChatTextHtml(m, mine)}</div>
           </div>
         </div>`;
       }).join('') : `
         <div class="text-center py-6">
           <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-2">${_ti('chat', 'w-5 h-5')}</div>
           <div class="text-sm font-medium text-slate-700">Avvia una conversazione</div>
-          <p class="text-xs text-slate-500 mt-1">Chiedi un parere, condividi un dubbio o prepara il gate insieme al team Venture Building.</p>
-          ${vb.length ? '' : '<p class="text-xs text-amber-600 mt-2">Nessun membro del team ha ancora il ruolo admin (Venture Building).</p>'}
+          <p class="text-xs text-slate-500 mt-1">Chiedi un parere, condividi un dubbio o prepara il gate insieme al team. Scrivi <span class="font-semibold text-indigo-600">@</span> per menzionare una persona: riceverà una notifica.</p>
         </div>`}
     </div>
     ${me ? `
-    <div class="p-3 border-t border-slate-100 flex items-end gap-2">
-      <textarea id="cn-chat-input" data-ro-keep rows="1" placeholder="Scrivi al team Venture Building…"
-        onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();postCanteraMsg();}" oninput="_autoGrow(this)"
+    <div class="relative p-3 border-t border-slate-100 flex items-end gap-2">
+      <div id="cn-mention-dd" class="hidden absolute left-3 right-3 bottom-full mb-1 z-30 bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-64 overflow-y-auto"></div>
+      <button type="button" onclick="canteraChatAt()" title="Menziona una persona" class="w-10 h-10 rounded-xl border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center flex-shrink-0 text-base font-semibold">@</button>
+      <textarea id="cn-chat-input" data-ro-keep rows="1" placeholder="Scrivi… @ per menzionare"
+        onkeydown="_cnChatKeydown(event)" oninput="_autoGrow(this); _cnChatInput(this)" onclick="_cnChatInput(this)" onblur="_cnHideMentions()"
         class="flex-1 resize-none border border-slate-200 rounded-xl px-3 py-2 text-sm max-h-40 focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
       <button type="button" onclick="postCanteraMsg()" title="Invia (Invio)" class="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center flex-shrink-0">${_ti('send', 'w-4 h-4 rotate-90')}</button>
     </div>` : ''}
@@ -7243,6 +7289,84 @@ function _renderCanteraChat(p) {
   const list = document.getElementById('cn-chat-list');
   if (list) list.scrollTop = list.scrollHeight;
 }
+
+// Mention picker: opens while typing "@name", arrows to move, Enter/Tab to pick, Esc to close
+function _cnChatInput(ta) {
+  const pos = ta.selectionStart;
+  const before = ta.value.slice(0, pos);
+  const at = before.lastIndexOf('@');
+  if (at < 0 || (at > 0 && /[\p{L}\p{N}]/u.test(before.charAt(at - 1)))) { _cnHideMentions(); return; }
+  const q = before.slice(at + 1).toLowerCase();
+  if (q.length > 40 || /\n|\s\s/.test(q)) { _cnHideMentions(); return; }
+  const me = currentUser();
+  const p = _canteraGet(canteraOpenId);
+  const vb = new Set(_cVbTeam().map(m => m.id));
+  const rank = m => (p && m.id === p.ownerId ? 0 : vb.has(m.id) ? 1 : 2);
+  const items = _cMentionable()
+    .filter(m => !me || m.id !== me.id)
+    .filter(m => { const nm = m.name.toLowerCase(); return !q || nm.startsWith(q) || nm.split(/\s+/).some(w => w.startsWith(q)); })
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
+    .slice(0, 8);
+  if (!items.length) { _cnHideMentions(); return; }
+  const prev = _cnMention && _cnMention.start === at ? _cnMention.items[_cnMention.sel] : null;
+  const sel = prev ? Math.max(0, items.findIndex(m => m.id === prev.id)) : 0;
+  _cnMention = { start: at, end: pos, items, sel };
+  _cnRenderMentions();
+}
+function _cnRenderMentions() {
+  const dd = document.getElementById('cn-mention-dd');
+  if (!dd || !_cnMention) return;
+  const p = _canteraGet(canteraOpenId);
+  const vb = new Set(_cVbTeam().map(m => m.id));
+  dd.innerHTML = `<div class="px-3 pt-1 pb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Menziona</div>` + _cnMention.items.map((m, i) => `
+    <div role="option" aria-selected="${i === _cnMention.sel}" onmousedown="event.preventDefault(); _cnPickMention(${i})" class="flex items-center gap-2 px-3 py-1.5 cursor-pointer ${i === _cnMention.sel ? 'bg-indigo-50' : 'hover:bg-slate-50'}">
+      ${_avatarHtml(m, 'w-6 h-6 text-[9px]')}
+      <span class="flex-1 min-w-0 text-sm text-slate-800 truncate">${esc(m.name)}</span>
+      <span class="text-[10px] text-slate-400 whitespace-nowrap">${p && p.ownerId === m.id ? 'Responsabile' : vb.has(m.id) ? 'Venture Building' : esc(m.role || '')}</span>
+    </div>`).join('');
+  dd.classList.remove('hidden');
+}
+function _cnHideMentions() {
+  _cnMention = null;
+  const dd = document.getElementById('cn-mention-dd');
+  if (dd) dd.classList.add('hidden');
+}
+function _cnPickMention(i) {
+  const ta = document.getElementById('cn-chat-input');
+  const m = _cnMention && _cnMention.items[i];
+  if (!ta || !m) return;
+  const before = ta.value.slice(0, _cnMention.start);
+  const after = ta.value.slice(_cnMention.end);
+  const ins = '@' + m.name + ' ';
+  ta.value = before + ins + after.replace(/^ /, '');
+  const pos = before.length + ins.length;
+  _cnHideMentions();
+  ta.focus();
+  ta.setSelectionRange(pos, pos);
+  _autoGrow(ta);
+}
+function _cnChatKeydown(e) {
+  if (_cnMention) {
+    const n = _cnMention.items.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); _cnMention.sel = (_cnMention.sel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; _cnRenderMentions(); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); _cnPickMention(_cnMention.sel); return; }
+    if (e.key === 'Escape') { e.preventDefault(); _cnHideMentions(); return; }
+  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postCanteraMsg(); }
+}
+// "@" button: starts a mention at the cursor
+function canteraChatAt() {
+  const ta = document.getElementById('cn-chat-input');
+  if (!ta) return;
+  const pos = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+  const before = ta.value.slice(0, pos);
+  const ins = (before && !/\s$/.test(before) ? ' ' : '') + '@';
+  ta.value = before + ins + ta.value.slice(pos);
+  ta.focus();
+  ta.setSelectionRange(pos + ins.length, pos + ins.length);
+  _cnChatInput(ta);
+}
+
 function postCanteraMsg() {
   const me = currentUser();
   const p = _canteraGet(canteraOpenId);
@@ -7251,10 +7375,16 @@ function postCanteraMsg() {
   const text = ta.value.trim();
   if (!text) { ta.focus(); return; }
   const n = canteraPhaseView;
-  const msg = { id: 'cm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), projectId: p.id, phase: n, authorId: me.id, authorName: me.name, text, at: new Date().toISOString() };
+  const mentions = [...new Set(_cFindMentions(text).map(x => x.id))].filter(id => id !== me.id);
+  const msg = { id: 'cm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), projectId: p.id, phase: n, authorId: me.id, authorName: me.name, text, mentions, at: new Date().toISOString() };
   _saveRowCollection(CANTERA_MSGS_KEY, loadCanteraMsgs().concat(msg));
   const snippet = text.length > 160 ? text.slice(0, 160) + '…' : text;
-  _cNotify([p.ownerId].concat(_cVbTeam().map(m => m.id)), `Nuovo messaggio su "${p.title}" · Fase ${n}`, `${me.name}: ${snippet}`, p);
+  // Mentioned people get a mention notification; owner and Venture Building the usual one
+  mentions.forEach(uid => {
+    if (!_memberById(uid)) return;
+    addNotification({ userId: uid, type: 'mention', title: `${me.name} ti ha menzionato su "${p.title}"`, body: `Chat del team · Fase ${n}: ${snippet}`, canteraId: p.id, canteraPhase: n });
+  });
+  _cNotify([p.ownerId].concat(_cVbTeam().map(m => m.id)).filter(id => !mentions.includes(id)), `Nuovo messaggio su "${p.title}" · Fase ${n}`, `${me.name}: ${snippet}`, p);
   ta.value = '';
   _autoGrow(ta);
   _renderCanteraChat(p);
@@ -7974,7 +8104,7 @@ function renderSettings() {
       ${userMgmtHtml}
       <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3">
         <h2 class="text-base font-semibold text-slate-700 mb-2">Notifiche in-app</h2>
-        ${row('mentions','@menzioni','Ricevi una notifica quando un membro ti menziona in un commento')}
+        ${row('mentions','@menzioni','Ricevi una notifica quando un membro ti menziona in un commento o nella chat di La Cantera')}
         ${row('tasksAssigned','Task assegnati','Ricevi una notifica quando ti viene assegnato un task')}
         ${row('taskComments','Commenti sui task','Ricevi una notifica quando qualcuno commenta o risponde su un task che ti riguarda')}
         ${row('cantera','La Cantera','Richieste di gate, decisioni del Venture Building e messaggi nella chat delle idee')}
@@ -10616,9 +10746,10 @@ function showApp() {
   }
   // Deep link from La Cantera emails: ?cantera=<id>
   const canteraParam = new URLSearchParams(window.location.search).get('cantera');
+  const phaseParam = Number(new URLSearchParams(window.location.search).get('phase')) || 0;
   if (canteraParam && canView('cantera')) {
     window.history.replaceState({}, '', window.location.pathname);
-    if (_canteraGet(canteraParam)) openCanteraProject(canteraParam); else navigate('cantera');
+    if (_canteraGet(canteraParam)) { openCanteraProject(canteraParam); if (phaseParam) { canteraSelectPhase(phaseParam); const c = document.getElementById('cn-chat'); if (c) c.scrollIntoView({ block: 'center' }); } } else navigate('cantera');
   }
   refreshCanteraNavBadge();
 }
