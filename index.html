@@ -318,6 +318,10 @@ setTimeout(function(){
   <div class="bg-white rounded-2xl w-full max-w-3xl mx-4 shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Anteprima del template"><div id="cantera-tpl-body"></div></div>
 </div>
 
+<div id="cantera-toolbox-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-10" onclick="if(event.target===this) closeCanteraToolbox()">
+  <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Toolbox"><div id="cantera-toolbox-body"></div></div>
+</div>
+
 <div id="cantera-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-10" onclick="if(event.target===this) closeCanteraModal()">
   <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl"><div id="cantera-modal-body"></div></div>
 </div>
@@ -376,7 +380,8 @@ const ROW_COLLECTIONS = {
   dealflow_industries: 'ind_',
   dealflow_task_comments: 'tcom_',
   dealflow_cantera: 'cnt_',
-  dealflow_cantera_msgs: 'cmsg_'
+  dealflow_cantera_msgs: 'cmsg_',
+  dealflow_cantera_toolbox: 'ctb_'
 };
 function _saveRowCollection(blobKey, list) {
   const prefix = ROW_COLLECTIONS[blobKey];
@@ -1105,7 +1110,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -4460,7 +4465,8 @@ const _TI_PATHS = {
   back: 'M15 19l-7-7 7-7',
   edit: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
   bulb: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
-  inbox: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'
+  inbox: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+  toolbox: 'M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 9a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM3 13h18M8 11.5v3M16 11.5v3'
 };
 function _ti(name, cls) {
   return `<svg class="${cls || 'w-4 h-4'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="${_TI_PATHS[name]}"/></svg>`;
@@ -5610,7 +5616,7 @@ function _notifyTaskComment(d, c) {
 }
 
 // ============================================================
-// LA CANTERA — product ideas of the PM team through a 3-phase stage gate
+// LA CANTERA — product ideas of the PM team through a 4-phase stage gate
 // ============================================================
 // Each idea is one cloud row ('cnt_<id>'); chat messages are separate rows ('cmsg_<id>')
 // so people writing at the same time never overwrite each other.
@@ -5620,60 +5626,54 @@ const CANTERA_KEY = 'dealflow_cantera';
 const CANTERA_MSGS_KEY = 'dealflow_cantera_msgs';
 const CANTERA_PHASES = [
   {
-    n: 1, name: 'Product Concept', short: 'Concept', weeks: 3,
+    n: 1, name: 'Identificare e comprendere il bisogno', short: 'Bisogno', weeks: 3,
     color: { card: 'bg-sky-50 border-sky-200', bar: 'bg-sky-500', num: 'bg-sky-500', title: 'text-sky-900', chip: 'bg-sky-100 text-sky-700', value: 'text-sky-600' },
-    question: 'Quale prodotto sviluppare e per chi',
-    output: 'Product concept brief con ipotesi di valore falsificabili, 1-2 domini applicativi, shortlist di archetipi di end-user e tesi di "why now".',
+    question: 'Qual è il bisogno reale, di chi è e quanto conta?',
+    output: 'I bisogni su cui si lavora, ciascuno descritto con il canvas a 12 blocchi, distinguendo evidenze, ipotesi e dati mancanti.',
     sections: [
-      { key: 'problem', label: 'Problema e opportunità', type: 'text', required: true,
-        help: 'Quale problema risolve l\'idea e per chi? Descrivi il contesto, quanto è sentito il problema e perché le soluzioni di oggi non bastano.',
-        placeholder: 'Es. I gestori delle reti idriche individuano le perdite solo dopo…' },
-      { key: 'hypotheses', label: 'Ipotesi di valore falsificabili', type: 'list', required: true, min: 2, keyCol: 'statement', rowLabel: 'Ipotesi', addLabel: 'Aggiungi ipotesi',
-        help: 'Ogni ipotesi deve poter risultare falsa. Formato consigliato: "Crediamo che [archetipo] [abbia questo problema / pagherebbe per…]. Sapremo di avere ragione se [segnale misurabile con soglia]". Servono almeno 2 ipotesi.',
-        columns: [
-          { key: 'statement', label: 'Ipotesi', type: 'textarea', placeholder: 'Crediamo che…' },
-          { key: 'signal', label: 'Segnale e soglia di validazione', type: 'textarea', placeholder: 'Es. almeno 6 responsabili su 10 confermano il problema e…' }
-        ] },
-      { key: 'domains', label: 'Domini applicativi (1-2)', type: 'list', required: true, min: 1, max: 2, keyCol: 'name', rowLabel: 'Dominio', addLabel: 'Aggiungi dominio',
-        help: 'Scegli al massimo due ambiti in cui la tecnologia crea più valore. Concentrarsi fa parte del lavoro: gli altri ambiti restano nel cassetto.',
-        columns: [
-          { key: 'name', label: 'Dominio', type: 'input', placeholder: 'Es. Monitoraggio reti idriche' },
-          { key: 'why', label: 'Perché questo dominio', type: 'textarea' }
-        ] },
-      { key: 'archetypes', label: 'Shortlist archetipi di end-user', type: 'list', required: true, min: 2, keyCol: 'name', rowLabel: 'Archetipo', addLabel: 'Aggiungi archetipo',
-        help: 'Chi usa il prodotto e chi decide l\'acquisto: 2-4 archetipi concreti (ruolo + contesto), non segmenti generici. Li incontrerai nella Fase 2.',
-        columns: [
-          { key: 'name', label: 'Archetipo', type: 'input', placeholder: 'Es. Responsabile manutenzione di una utility medio-grande' },
-          { key: 'role', label: 'Ruolo nell\'acquisto', type: 'select', options: ['Utilizzatore', 'Decisore', 'Influenzatore', 'Pagatore'] },
-          { key: 'context', label: 'Contesto e problema principale', type: 'textarea' }
-        ] },
-      { key: 'whyNow', label: 'Tesi di "why now"', type: 'text', required: true,
-        help: 'Perché adesso è il momento giusto: maturità della tecnologia, normative in arrivo, costi in calo, cambiamenti di mercato. Cita dati e fonti.' },
-      { key: 'assets', label: 'Asset di partenza', type: 'text', required: false,
-        help: 'Tecnologia, brevetti, competenze o dati da cui parte l\'idea (gruppo di ricerca, TRL attuale, risultati già ottenuti).' }
+      { key: 'needs', label: 'Bisogni su cui stai lavorando', type: 'needs', required: true,
+        help: 'Aggiungi i bisogni che stai esplorando e, per ognuno, compila il canvas. Per ogni blocco indica se è un\'ipotesi o se è validato (e come). Un blocco vuoto resta "dato mancante". Per il gate serve almeno un bisogno con il canvas completo.' }
     ]
   },
   {
-    n: 2, name: 'Proof of Pull', short: 'Pull', weeks: 4,
+    n: 2, name: 'Esplorare le possibili soluzioni', short: 'Soluzioni', weeks: 3,
     color: { card: 'bg-violet-50 border-violet-200', bar: 'bg-violet-500', num: 'bg-violet-500', title: 'text-violet-900', chip: 'bg-violet-100 text-violet-700', value: 'text-violet-600' },
-    question: 'Il problema è reale e qualcuno lo vuole risolto con noi?',
-    output: 'Evidenza di validazione da end-user qualificati, conferma del problema e segnali di pull (LOI, interesse a pilot).',
+    question: 'Quali soluzioni possono rispondere al bisogno?',
+    output: 'Una mappa delle soluzioni possibili, comprese quelle già esistenti, confrontate con end-user e stakeholder e con i criteri per scegliere.',
     sections: [
-      { key: 'plan', label: 'Piano di validazione', type: 'text', required: false,
-        help: 'Quali archetipi incontrerai, quanti e con quali domande chiave. Obiettivo consigliato: almeno 10 conversazioni, di cui la maggior parte qualificate.' },
-      { key: 'interviews', label: 'Interazioni con end-user', type: 'list', required: true, min: 5, keyCol: 'who', minWhere: { col: 'qualified', min: 3, label: 'qualificate' }, rowLabel: 'Interazione', addLabel: 'Aggiungi interazione',
-        help: 'Registra ogni conversazione. "Qualificata" = la persona corrisponde a un archetipo e ha esperienza diretta o potere decisionale sul problema. Servono almeno 5 interazioni, di cui 3 qualificate.',
+      { key: 'options', label: 'Soluzioni possibili', type: 'list', required: true, min: 2, keyCol: 'name', rowLabel: 'Soluzione', addLabel: 'Aggiungi soluzione',
+        help: 'Elenca le strade possibili per rispondere al bisogno, anche alternative alla tecnologia di partenza. Servono almeno 2 opzioni da confrontare.',
+        columns: [
+          { key: 'name', label: 'Soluzione', type: 'input', placeholder: 'Es. Sensore acustico distribuito' },
+          { key: 'need', label: 'Bisogno a cui risponde', type: 'select', optionsFrom: 'needs' },
+          { key: 'maturity', label: 'Maturità', type: 'select', options: ['Idea', 'Concept', 'Prototipo', 'Soluzione esistente sul mercato'] },
+          { key: 'approach', label: 'Come funziona e come risponde al bisogno', type: 'textarea' },
+          { key: 'pros', label: 'Punti di forza e limiti', type: 'textarea' }
+        ] },
+      { key: 'benchmark', label: 'Soluzioni esistenti e benchmark', type: 'text', required: true,
+        help: 'Chi sta già rispondendo a questo bisogno (aziende, prodotti, approcci accademici), con quali risultati e quali lacune lasciano aperte.' },
+      { key: 'interviews', label: 'Confronto con end-user e stakeholder', type: 'list', required: true, min: 3, keyCol: 'who', minWhere: { col: 'qualified', min: 2, label: 'qualificati' }, rowLabel: 'Interazione', addLabel: 'Aggiungi interazione',
+        help: 'Registra le conversazioni in cui hai messo alla prova bisogno e soluzioni. "Qualificato" = chi vive il problema o decide l\'acquisto. Servono almeno 3 interazioni, di cui 2 qualificate.',
         columns: [
           { key: 'who', label: 'Persona / organizzazione', type: 'input' },
           { key: 'date', label: 'Data', type: 'date' },
-          { key: 'archetype', label: 'Archetipo', type: 'select', optionsFrom: 'archetypes' },
-          { key: 'confirmed', label: 'Problema confermato', type: 'select', options: ['Sì', 'Parzialmente', 'No'] },
+          { key: 'confirmed', label: 'Bisogno confermato', type: 'select', options: ['Sì', 'Parzialmente', 'No'] },
           { key: 'qualified', label: 'Interlocutore qualificato', type: 'check' },
-          { key: 'notes', label: 'Insight principali', type: 'textarea' }
+          { key: 'notes', label: 'Cosa è emerso sulle soluzioni', type: 'textarea' }
         ] },
-      { key: 'hypothesisCheck', label: 'Esito delle ipotesi', type: 'hypotheses', required: true,
-        help: 'Per ogni ipotesi della Fase 1 indica se è validata o falsificata e con quale evidenza. Un\'ipotesi falsificata è un risultato utile, non un fallimento.' },
-      { key: 'pullSignals', label: 'Segnali di pull', type: 'list', required: true, min: 1, keyCol: 'counterpart', rowLabel: 'Segnale', addLabel: 'Aggiungi segnale',
+      { key: 'criteria', label: 'Criteri per scegliere', type: 'text', required: true,
+        help: 'Su quali criteri sceglierai la soluzione: impatto sul bisogno, fattibilità tecnica, costo, tempi, proprietà intellettuale, interesse dei partner.' }
+    ]
+  },
+  {
+    n: 3, name: 'Scelta della soluzione e fattibilità', short: 'Fattibilità', weeks: 4,
+    color: { card: 'bg-teal-50 border-teal-200', bar: 'bg-teal-500', num: 'bg-teal-500', title: 'text-teal-900', chip: 'bg-teal-100 text-teal-700', value: 'text-teal-600' },
+    question: 'Quale soluzione sviluppiamo, e possiamo realizzarla?',
+    output: 'La soluzione scelta con le motivazioni, i segnali di interesse concreti (LOI, pilot) e il piano tecnico: traiettoria TRL, milestone e risorse.',
+    sections: [
+      { key: 'choice', label: 'Soluzione scelta e motivazione', type: 'text', required: true,
+        help: 'Quale soluzione porti avanti e perché, rispetto ai criteri definiti nella fase precedente. Cosa hai scartato e per quale motivo.' },
+      { key: 'pullSignals', label: 'Segnali di interesse concreti', type: 'list', required: true, min: 1, keyCol: 'counterpart', rowLabel: 'Segnale', addLabel: 'Aggiungi segnale',
         help: 'Impegni concreti, non complimenti: lettere d\'intenti (LOI), richieste di pilot, disponibilità a co-sviluppare, accesso a dati o siti, budget dedicato.',
         columns: [
           { key: 'counterpart', label: 'Controparte', type: 'input' },
@@ -5681,16 +5681,6 @@ const CANTERA_PHASES = [
           { key: 'status', label: 'Stato', type: 'select', options: ['Discusso', 'Proposto', 'Firmato / confermato'] },
           { key: 'notes', label: 'Dettagli', type: 'textarea' }
         ] },
-      { key: 'synthesis', label: 'Sintesi della validazione', type: 'text', required: true,
-        help: 'Cosa hai imparato, quali assunzioni sono cambiate, quali archetipo e dominio emergono come prioritari per la Fase 3.' }
-    ]
-  },
-  {
-    n: 3, name: 'Proof of Feasibility', short: 'Feasibility', weeks: 3,
-    color: { card: 'bg-teal-50 border-teal-200', bar: 'bg-teal-500', num: 'bg-teal-500', title: 'text-teal-900', chip: 'bg-teal-100 text-teal-700', value: 'text-teal-600' },
-    question: 'Possiamo costruirlo e finanziarlo?',
-    output: 'Development plan tecnico (traiettoria TRL, milestone, risorse), funding roadmap con le call pubbliche reali mappate e scenario equity.',
-    sections: [
       { key: 'trl', label: 'Traiettoria TRL', type: 'trl', required: true,
         help: 'TRL attuale e TRL target a fine piano, con la giustificazione del livello attuale (test eseguiti, ambiente, risultati).' },
       { key: 'milestones', label: 'Milestone tecniche', type: 'list', required: true, min: 3, keyCol: 'title', rowLabel: 'Milestone', addLabel: 'Aggiungi milestone',
@@ -5702,7 +5692,19 @@ const CANTERA_PHASES = [
           { key: 'deliverable', label: 'Deliverable / criterio di successo', type: 'textarea' }
         ] },
       { key: 'resources', label: 'Risorse necessarie', type: 'text', required: true,
-        help: 'Team (FTE e competenze), partner tecnici, infrastrutture e budget stimato per ogni tappa.' },
+        help: 'Team (FTE e competenze), partner tecnici, infrastrutture e tempi per ogni tappa.' },
+      { key: 'risks', label: 'Rischi principali e mitigazioni', type: 'text', required: false,
+        help: 'Rischi tecnici, regolatori e di mercato che possono fermare il progetto, con la contromossa prevista.' }
+    ]
+  },
+  {
+    n: 4, name: 'Piano di investimento', short: 'Investimento', weeks: 2,
+    color: { card: 'bg-pink-50 border-pink-200', bar: 'bg-pink-500', num: 'bg-pink-500', title: 'text-pink-900', chip: 'bg-pink-100 text-pink-700', value: 'text-pink-600' },
+    question: 'Quanto serve, da dove arrivano le risorse e con quale struttura?',
+    output: 'Budget e uso dei fondi, funding roadmap con le call pubbliche reali mappate e scenario equity.',
+    sections: [
+      { key: 'budget', label: 'Budget e uso dei fondi', type: 'text', required: true,
+        help: 'Quanto serve fino alla prossima milestone di valore e come verrà speso (personale, sviluppo, IP, test, industrializzazione).' },
       { key: 'funding', label: 'Funding roadmap', type: 'list', required: true, min: 2, keyCol: 'name', rowLabel: 'Fonte', addLabel: 'Aggiungi fonte',
         help: 'Mappa fonti reali con scadenze e importi veri: call pubbliche (EIC Pathfinder/Transition, Horizon Europe, PNRR, bandi regionali), grant, equity, corporate.',
         columns: [
@@ -5715,12 +5717,87 @@ const CANTERA_PHASES = [
         ] },
       { key: 'equity', label: 'Scenario equity', type: 'text', required: true,
         help: 'Veicolo ipotizzato (spin-off, NewCo), primo round (importo e valutazione pre-money), diluizione e cap table indicativa tra fondatori, università e investitori.' },
-      { key: 'risks', label: 'Rischi principali e mitigazioni', type: 'text', required: false,
-        help: 'Rischi tecnici, regolatori e di mercato che possono fermare il progetto, con la contromossa prevista.' }
+      { key: 'businessModel', label: 'Modello di business e ritorno atteso', type: 'text', required: false,
+        help: 'Come genererà ricavi la soluzione e in quali tempi, con le ipotesi principali sul ritorno dell\'investimento.' }
     ]
   }
 ];
-const CANTERA_HYP_STATUSES = ['Da testare', 'Validata', 'Falsificata', 'Non conclusiva'];
+const CN_N = CANTERA_PHASES.length;
+function _cPhaseNums() { return CANTERA_PHASES.map(ph => ph.n); }
+
+// Need canvas: 12 blocks; each is an evidence (validated, with how), a hypothesis, or missing (empty)
+const CANTERA_CANVAS = [
+  { key: 'origine', title: 'Origine', hint: 'Segnale, fonte e data' },
+  { key: 'soggetti', title: 'Soggetti', hint: 'Utilizzatore, beneficiario, decisore e pagatore' },
+  { key: 'contesto', title: 'Contesto', hint: 'Attività, luogo e condizioni' },
+  { key: 'problema', title: 'Problema', hint: 'Cosa accade e quale risultato manca' },
+  { key: 'frequenza', title: 'Frequenza', hint: 'Eventi, occasioni e diffusione' },
+  { key: 'cause', title: 'Cause', hint: 'Meccanismi documentati o ipotizzati' },
+  { key: 'conseguenze', title: 'Conseguenze', hint: 'Costi, tempi, qualità, sicurezza e ambiente' },
+  { key: 'alternative', title: 'Alternative attuali', hint: 'Cosa funziona e quale lacuna rimane' },
+  { key: 'risultato', title: 'Risultato desiderato', hint: 'Miglioramento e indicatore di beneficio' },
+  { key: 'vincoli', title: 'Vincoli', hint: 'Condizioni da preservare' },
+  { key: 'cambiamento', title: 'Cambiamento', hint: 'Motivazione e beneficio minimo' },
+  { key: 'verifiche', title: 'Verifiche', hint: 'Dati mancanti, interlocutori e prossimi passi' }
+];
+const CANTERA_VALIDATION_SOURCES = ['Interno', 'Researcher', 'Literature', 'Target User', 'Stakeholder'];
+function _cBlockState(b) {
+  if (!b || !String(b.text || '').trim()) return 'missing';
+  return b.status === 'validato' ? 'validato' : 'ipotesi';
+}
+function _cNeedStats(need) {
+  const c = (need && need.canvas) || {};
+  const st = { filled: 0, validato: 0, ipotesi: 0, missing: 0 };
+  CANTERA_CANVAS.forEach(b => { const s = _cBlockState(c[b.key]); st[s]++; if (s !== 'missing') st.filled++; });
+  return st;
+}
+function _cNeeds(p) { return (((p.phases[1] || {}).data || {}).needs || []); }
+// A need counts for the gate once it has a name and every canvas block holds at least a hypothesis
+function _cNeedComplete(nd) { return !!String((nd && nd.title) || '').trim() && _cNeedStats(nd).filled === CANTERA_CANVAS.length; }
+
+// Ideas created with the previous 3-phase template are converted when read (and stored
+// in the new shape on their next save). Old content that has no place in the new
+// templates is kept under data.legacy and shown read-only.
+function _cHasContent(v) {
+  if (v == null) return false;
+  if (typeof v === 'string') return _stripHtml(v).length > 0;
+  if (Array.isArray(v)) return v.some(_cHasContent);
+  if (typeof v === 'object') return Object.keys(v).some(k => k !== 'id' && _cHasContent(v[k]));
+  return v !== false;
+}
+function _cMigrate(p) {
+  if (!p || p.schema === 2 || !p.phases) return p;
+  const q = JSON.parse(JSON.stringify(p));
+  const old = q.phases;
+  const data = n => (old[n] && old[n].data) || {};
+  const pick = (o, keys) => { const r = {}; keys.forEach(k => { if (o[k] !== undefined) r[k] = o[k]; }); return r; };
+  const rest = (o, keys) => { const r = {}; Object.keys(o).forEach(k => { if (!keys.includes(k) && _cHasContent(o[k])) r[k] = o[k]; }); return r; };
+  const meta = n => { const m = Object.assign({ state: 'locked' }, old[n] || {}); delete m.data; return m; };
+  const legacy1 = rest(data(1), []), legacy2 = rest(data(2), ['interviews', 'pullSignals']);
+  q.phases = {
+    1: Object.assign(meta(1), { data: Object.assign({ needs: [] }, Object.keys(legacy1).length ? { legacy: legacy1 } : {}) }),
+    2: Object.assign(meta(2), { data: Object.assign(pick(data(2), ['interviews']), Object.keys(legacy2).length ? { legacy: legacy2 } : {}) }),
+    3: Object.assign(meta(3), { data: Object.assign(pick(data(3), ['trl', 'milestones', 'resources', 'risks']), pick(data(2), ['pullSignals'])) }),
+    4: { state: 'locked', data: pick(data(3), ['funding', 'equity']) }
+  };
+  if (q.status === 'completed') {
+    // Already through the old final gate: stays completed, its investment content now lives in Phase 4
+    q.currentPhase = 4;
+    q.phases[4].state = 'passed';
+    q.phases[4].decidedAt = (old[3] && old[3].decidedAt) || q.updatedAt || new Date().toISOString();
+    if (old[3] && old[3].decidedBy) q.phases[4].decidedBy = old[3].decidedBy;
+  }
+  if (q.plan && q.plan.end && !q.plan[4]) {
+    const e = _parseYmd(q.plan.end);
+    if (e) { const x = new Date(e); x.setDate(x.getDate() + 14); q.plan = { 1: q.plan[1], 2: q.plan[2], 3: q.plan[3], 4: q.plan.end, end: _ymd(x) }; }
+  }
+  q.schema = 2;
+  return q;
+}
+const CANTERA_LEGACY_LABELS = {
+  problem: 'Problema e opportunità', hypotheses: 'Ipotesi di valore', domains: 'Domini applicativi', archetypes: 'Archetipi di end-user',
+  whyNow: 'Tesi di "why now"', assets: 'Asset di partenza', plan: 'Piano di validazione', hypothesisCheck: 'Esito delle ipotesi', synthesis: 'Sintesi della validazione'
+};
 const CANTERA_SECTORS = [
   ['Medtech', 'bg-blue-50 text-blue-700'], ['Biotech', 'bg-fuchsia-50 text-fuchsia-700'], ['Cleantech', 'bg-emerald-50 text-emerald-700'],
   ['Agritech', 'bg-lime-50 text-lime-700'], ['Food', 'bg-orange-50 text-orange-700'], ['Aerospace', 'bg-indigo-50 text-indigo-700'],
@@ -5740,10 +5817,11 @@ let _canteraPollTimer = null;
 let _canteraModalEditId = null;
 let _canteraSig = '';
 let _canteraShownPhase = null;
+let canteraNeedOpen = null; // need whose canvas is open in Phase 1
 
 // ---------- storage & helpers ----------
 function loadCantera() {
-  try { const v = JSON.parse(localStorage.getItem(CANTERA_KEY) || '[]'); return Array.isArray(v) ? v.filter(p => p && p.id && !p._deleted) : []; }
+  try { const v = JSON.parse(localStorage.getItem(CANTERA_KEY) || '[]'); return Array.isArray(v) ? v.filter(p => p && p.id && !p._deleted).map(_cMigrate) : []; }
   catch(_) { return []; }
 }
 function loadCanteraMsgs() {
@@ -5802,16 +5880,19 @@ function _cFmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('it-IT',
 function _cDefaultPlan(startYmd) {
   const d = _parseYmd(startYmd) || _startOfToday();
   const add = days => { const x = new Date(d); x.setDate(x.getDate() + days); return _ymd(x); };
-  const w = CANTERA_PHASES.map(ph => ph.weeks * 7);
-  return { 1: _ymd(d), 2: add(w[0]), 3: add(w[0] + w[1]), end: add(w[0] + w[1] + w[2]) };
+  const plan = {};
+  let off = 0;
+  CANTERA_PHASES.forEach(ph => { plan[ph.n] = add(off); off += ph.weeks * 7; });
+  plan.end = add(off);
+  return plan;
 }
 function _cPlan(p) {
-  if (p.plan && p.plan[1] && p.plan[2] && p.plan[3] && p.plan.end) return p.plan;
+  if (p.plan && _cPhaseNums().every(n => p.plan[n]) && p.plan.end) return p.plan;
   return _cDefaultPlan(((p.phases[1] && p.phases[1].startedAt) || p.createdAt || new Date().toISOString()).slice(0, 10));
 }
 function _cPlanError(plan) {
-  const seq = [plan[1], plan[2], plan[3], plan.end].map(_parseYmd);
-  if (seq.some(d => !d)) return 'Inserisci tutte e quattro le date.';
+  const seq = _cPhaseNums().map(n => plan[n]).concat([plan.end]).map(_parseYmd);
+  if (seq.some(d => !d)) return 'Inserisci tutte le date.';
   for (let i = 1; i < seq.length; i++) if (seq[i] <= seq[i - 1]) return 'Le date devono essere in ordine: ogni fase inizia dopo la precedente.';
   return '';
 }
@@ -5822,7 +5903,7 @@ function _cTimebox(p, n) {
   const ph = p.phases[n];
   const plan = _cPlan(p);
   const start = _parseYmd(plan[n]);
-  const end = _parseYmd(n < 3 ? plan[n + 1] : plan.end);
+  const end = _parseYmd(n < CN_N ? plan[n + 1] : plan.end);
   if (!ph || !start || !end) return null;
   const total = Math.max(1, Math.round((end - start) / 86400000));
   const dayOf = iso => { const d = new Date(iso); d.setHours(0, 0, 0, 0); return d; };
@@ -5846,11 +5927,10 @@ function _cSectionStatus(p, n, sec) {
   const v = data[sec.key];
   if (sec.type === 'text') return { done: _stripHtml(v || '').length >= 10 };
   if (sec.type === 'trl') return { done: !!(v && v.current && v.target) };
-  if (sec.type === 'hypotheses') {
-    const hyps = ((p.phases[1].data || {}).hypotheses || []).filter(h => _cRowFilled(h, { keyCol: 'statement' }));
-    const checks = v || {};
-    const decided = hyps.filter(h => checks[h.id] && checks[h.id].status && checks[h.id].status !== 'Da testare').length;
-    return { done: hyps.length > 0 && decided === hyps.length, count: decided, need: hyps.length };
+  if (sec.type === 'needs') {
+    const named = (v || []).filter(nd => String(nd.title || '').trim());
+    const complete = named.filter(_cNeedComplete).length;
+    return { done: complete >= 1, count: complete, need: 1, total: named.length };
   }
   const rows = (v || []).filter(r => _cRowFilled(r, sec));
   let done = rows.length >= (sec.min || 1);
@@ -5883,7 +5963,7 @@ function _cNodeState(p, n) {
   if (p.status === 'stopped' && n === p.currentPhase) return 'stopped';
   return p.phases[n].state;
 }
-// Journey indicator: Concept → Pull → Feasibility → final gate
+// Journey indicator: one node per phase → final gate
 function _cJourney(p) {
   const conn = n => {
     const st = _cNodeState(p, n);
@@ -5898,13 +5978,13 @@ function _cJourney(p) {
   };
   const done = p.status === 'completed';
   const flag = `<span class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300 border border-slate-200'}" title="Gate finale">${_ti('flag', 'w-3.5 h-3.5')}</span>`;
+  const nums = _cPhaseNums();
+  const pl = _cPlan(p);
+  const labels = nums.map((n, i) => [_cPhase(n).short, pl[n], i === 0 ? 'text-left' : 'text-center']).concat([['Gate', pl.end, 'text-right']]);
   return `
-    <div class="flex items-center">${_cNode(_cNodeState(p, 1), 1)}${conn(1)}${_cNode(_cNodeState(p, 2), 2)}${conn(2)}${_cNode(_cNodeState(p, 3), 3)}${conn(3)}${flag}</div>
-    <div class="flex justify-between text-[10px] font-medium text-slate-400 mt-1 leading-tight">${(() => {
-      const pl = _cPlan(p);
-      return [['Concept', pl[1], 'text-left'], ['Pull', pl[2], 'text-center'], ['Feasibility', pl[3], 'text-center'], ['Gate', pl.end, 'text-right']]
-        .map(([l, d, a]) => `<span class="${a}">${l}<br><span class="font-normal text-slate-400/80">${esc(_cShortDate(_parseYmd(d)))}</span></span>`).join('');
-    })()}</div>`;
+    <div class="flex items-center">${nums.map(n => _cNode(_cNodeState(p, n), n) + conn(n)).join('')}${flag}</div>
+    <div class="flex justify-between text-[10px] font-medium text-slate-400 mt-1 leading-tight">${labels
+      .map(([l, d, a]) => `<span class="${a}">${l}<br><span class="font-normal text-slate-400/80">${esc(_cShortDate(_parseYmd(d)))}</span></span>`).join('')}</div>`;
 }
 function _cStatusPill(p) {
   const pill = (label, cls) => `<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}">${label}</span>`;
@@ -5961,7 +6041,7 @@ function renderCantera() {
     <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">La Cantera</h1>
-        <p class="text-sm text-slate-500 mt-0.5">Le idee di prodotto del team, dal concept alla fattibilità</p>
+        <p class="text-sm text-slate-500 mt-0.5">Le idee di prodotto del team, dal bisogno al piano di investimento</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         ${_cViewToggle()}
@@ -5970,19 +6050,20 @@ function renderCantera() {
       </div>
     </div>
 
-    <div class="mb-5">
+    <div class="flex flex-col lg:flex-row lg:items-start gap-4 mb-5">
+    <div class="flex-1 min-w-0">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-sm font-semibold text-slate-700">Il percorso stage-gate</h2>
         <button type="button" onclick="toggleCanteraHowTo()" class="text-xs text-indigo-600 hover:text-indigo-800"><span id="cn-howto-label">${howtoHidden ? 'Mostra come funziona' : 'Nascondi'}</span></button>
       </div>
-      <div id="cn-howto" class="${howtoHidden ? 'hidden' : ''} grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div id="cn-howto" class="${howtoHidden ? 'hidden' : ''} grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-3">
         ${CANTERA_PHASES.map(ph => `
           <button type="button" onclick="openCanteraTemplate(${ph.n})" title="Vedi il template della fase" class="group relative overflow-hidden text-left ${ph.color.card} border rounded-xl p-4 pt-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="absolute inset-x-0 top-0 h-1 ${ph.color.bar}"></div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-start gap-2">
               <span class="w-6 h-6 rounded-full ${ph.color.num} text-white text-xs font-bold flex items-center justify-center flex-shrink-0">${ph.n}</span>
-              <span class="font-semibold ${ph.color.title}">${ph.name}</span>
-              <span class="ml-auto text-[11px] font-medium ${ph.color.chip} rounded-full px-2 py-0.5 whitespace-nowrap">${ph.weeks} settimane</span>
+              <span class="font-semibold leading-snug ${ph.color.title}">${ph.name}</span>
+              <span class="ml-auto text-[11px] font-medium ${ph.color.chip} rounded-full px-2 py-0.5 whitespace-nowrap">${ph.weeks} sett.</span>
             </div>
             <p class="text-xs text-slate-700 mt-2.5"><span class="font-semibold">Domanda:</span> ${esc(ph.question)}</p>
             <p class="text-xs text-slate-500 mt-1 leading-relaxed"><span class="font-semibold text-slate-600">Output:</span> ${esc(ph.output)}</p>
@@ -5990,8 +6071,13 @@ function renderCantera() {
           </button>`).join('')}
       </div>
     </div>
+    <aside class="lg:w-64 flex-shrink-0">
+      <h2 class="text-sm font-semibold text-slate-700 mb-2">Strumenti del team</h2>
+      <div id="cn-toolbox-tile">${_ctbFolderTile()}</div>
+    </aside>
+    </div>
 
-    <div id="cn-stats" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
+    <div id="cn-stats" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-4"></div>
 
     <div class="bg-white border border-slate-200 rounded-xl p-3 mb-5 shadow-sm flex flex-wrap items-center gap-2">
       <div class="relative flex-1 min-w-[12rem]">
@@ -6035,7 +6121,7 @@ function _renderCanteraGrid() {
     </button>`;
   statsEl.innerHTML =
     stat('Idee attive', active.length, 'text-slate-800', "setCanteraFilter('status','active')") +
-    [1, 2, 3].map(n => stat('Fase ' + n + ' · ' + _cPhase(n).short, active.filter(p => p.currentPhase === n).length, _cPhase(n).color.value, null)).join('') +
+    _cPhaseNums().map(n => stat('Fase ' + n + ' · ' + _cPhase(n).short, active.filter(p => p.currentPhase === n).length, _cPhase(n).color.value, null)).join('') +
     stat('In attesa di gate', inReview.length, inReview.length ? 'text-amber-600' : 'text-slate-800', "setCanteraFilter('status','review')");
 
   const q = (canteraFilter.q || '').trim().toLowerCase();
@@ -6130,7 +6216,7 @@ function openCanteraTemplate(n) {
     const lbl = `<span class="block text-[11px] font-medium text-slate-500 mb-0.5">${esc(c.label)}</span>`;
     if (c.type === 'textarea') return `<div class="sm:col-span-2">${lbl}<textarea disabled rows="2" placeholder="${esc(c.placeholder || '')}" class="${box}"></textarea></div>`;
     if (c.type === 'select') {
-      const opts = c.options || (c.optionsFrom === 'archetypes' ? ['(archetipi definiti nella Fase 1)'] : []);
+      const opts = c.options || (c.optionsFrom === 'needs' ? ['(bisogni definiti nella Fase 1)'] : []);
       return `<div>${lbl}<select disabled class="${box}"><option>${esc(opts.join(' / ') || '—')}</option></select></div>`;
     }
     if (c.type === 'check') return `<label class="flex items-center gap-2 text-sm text-slate-500 sm:pt-5"><input type="checkbox" disabled class="rounded border-slate-300">${esc(c.label)}</label>`;
@@ -6142,13 +6228,22 @@ function openCanteraTemplate(n) {
         <div><span class="block text-[11px] font-medium text-slate-500 mb-0.5">TRL attuale</span><select disabled class="${box}"><option>TRL 1 … 9</option></select></div>
         <div><span class="block text-[11px] font-medium text-slate-500 mb-0.5">TRL target a fine piano</span><select disabled class="${box}"><option>TRL 1 … 9</option></select></div>
         <div class="col-span-2"><span class="block text-[11px] font-medium text-slate-500 mb-0.5">Giustificazione del TRL attuale</span><textarea disabled rows="2" class="${box}"></textarea></div></div>`;
-    if (sec.type === 'hypotheses') return `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
-        <div class="text-xs font-semibold text-slate-500">Per ogni ipotesi della Fase 1</div>
-        <div class="text-sm text-slate-500 italic mt-0.5">"Crediamo che …" — segnale atteso</div>
-        <div class="grid grid-cols-1 sm:grid-cols-[11rem_1fr] gap-2 mt-2.5">
-          <select disabled class="${box}"><option>${CANTERA_HYP_STATUSES.join(' / ')}</option></select>
-          <textarea disabled rows="2" placeholder="Evidenza raccolta (chi, quanti, cosa è emerso)…" class="${box}"></textarea>
-        </div></div>`;
+    if (sec.type === 'needs') return `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
+        <div class="text-xs font-semibold text-slate-500 mb-2">Bisogno 1</div>
+        <div class="grid grid-cols-1 gap-2">
+          <div><span class="block text-[11px] font-medium text-slate-500 mb-0.5">Titolo del bisogno</span><input disabled class="${box}" placeholder="Es. Individuare le perdite nella rete idrica prima che diventino guasti"></div>
+          <div><span class="block text-[11px] font-medium text-slate-500 mb-0.5">Descrizione</span><textarea disabled rows="2" class="${box}"></textarea></div>
+        </div>
+        <div class="text-xs font-semibold text-slate-600 mt-3 mb-1.5">Canvas del bisogno</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">${CANTERA_CANVAS.map((b, i) => `
+          <div class="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+            <div class="text-[11px] font-semibold text-slate-700"><span class="text-slate-400 mr-0.5">${i + 1}</span> ${esc(b.title)}</div>
+            <div class="text-[10px] text-slate-400 leading-snug">${esc(b.hint)}</div>
+            <div class="flex gap-1 mt-1"><span class="text-[9px] font-semibold px-1.5 rounded bg-amber-50 text-amber-700">Ipotesi</span><span class="text-[9px] font-semibold px-1.5 rounded bg-emerald-50 text-emerald-700">Validato</span></div>
+          </div>`).join('')}</div>
+        <p class="text-[11px] text-slate-500 italic mt-2">Per ogni campo: evidenza, ipotesi oppure dato mancante. Se validato, si indica come (fonte e metodo).</p>
+      </div>
+      <div class="mt-2 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded-xl py-2">+ Aggiungi bisogno</div>`;
     return `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
         <div class="text-xs font-semibold text-slate-500 mb-2">${esc(sec.rowLabel)} 1</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${sec.columns.map(fieldMock).join('')}</div>
@@ -6175,7 +6270,7 @@ function openCanteraTemplate(n) {
     <div class="px-6 py-5 space-y-5 max-h-[65vh] overflow-y-auto">
       <div class="rounded-xl border border-slate-200 p-4">
         <div class="text-xs font-semibold text-slate-600 mb-2">Requisiti per inviare al gate ${ph.n}</div>
-        <ul class="space-y-1">${req.map(s => `<li class="flex items-start gap-2 text-sm text-slate-600"><span class="mt-0.5 w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"></span><span>${esc(s.label)}${s.type === 'list' ? ` <span class="text-slate-400">(almeno ${s.min || 1}${s.minWhere ? ', di cui ' + s.minWhere.min + ' ' + s.minWhere.label : ''})</span>` : ''}</span></li>`).join('')}</ul>
+        <ul class="space-y-1">${req.map(s => `<li class="flex items-start gap-2 text-sm text-slate-600"><span class="mt-0.5 w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"></span><span>${esc(s.label)}${s.type === 'list' ? ` <span class="text-slate-400">(almeno ${s.min || 1}${s.minWhere ? ', di cui ' + s.minWhere.min + ' ' + s.minWhere.label : ''})</span>` : s.type === 'needs' ? ' <span class="text-slate-400">(almeno 1 bisogno con il canvas completo)</span>' : ''}</span></li>`).join('')}</ul>
       </div>
       ${ph.sections.map((sec, i) => `
         <section>
@@ -6264,7 +6359,7 @@ function openCanteraModal(editId, presetOwner, focusDates) {
     <form onsubmit="saveCanteraModal(event)" class="p-6 space-y-4">
       <div>
         <h2 class="text-lg font-bold text-slate-800">${p ? 'Modifica idea' : 'Nuova idea'}</h2>
-        ${p ? '' : '<p class="text-xs text-slate-500 mt-0.5">L\'idea parte dalla Fase 1 · Product Concept (3 settimane).</p>'}
+        ${p ? '' : `<p class="text-xs text-slate-500 mt-0.5">L'idea parte dalla Fase 1 · ${esc(_cPhase(1).name)} (${_cPhase(1).weeks} settimane).</p>`}
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Nome dell'idea *</label>
@@ -6295,9 +6390,9 @@ function openCanteraModal(editId, presetOwner, focusDates) {
       </div>
       <div class="border-t border-slate-100 pt-4">
         <div class="text-sm font-medium text-slate-600">Percorso pianificato</div>
-        <p class="text-[11px] text-slate-400 mt-0.5 mb-2">Date di inizio delle fasi. Le durate consigliate sono 3, 4 e 3 settimane${p ? '' : ': cambiando l\'inizio della Fase 1 le altre si aggiornano'}.</p>
+        <p class="text-[11px] text-slate-400 mt-0.5 mb-2">Date di inizio delle fasi. Le durate consigliate sono ${CANTERA_PHASES.map(ph => ph.weeks).join(', ').replace(/, (\d+)$/, ' e $1')} settimane${p ? '' : ': cambiando l\'inizio della Fase 1 le altre si aggiornano'}.</p>
         <div class="grid grid-cols-2 gap-3">
-          ${[['1', 'Inizio Fase 1 · Concept'], ['2', 'Inizio Fase 2 · Pull'], ['3', 'Inizio Fase 3 · Feasibility'], ['end', 'Gate finale']].map(([k, l]) => `
+          ${_cPhaseNums().map(n => [String(n), 'Inizio Fase ' + n + ' · ' + _cPhase(n).short]).concat([['end', 'Gate finale']]).map(([k, l]) => `
             <label class="text-xs text-slate-500">${l}
               <input type="date" id="cn-m-plan-${k}" value="${esc(plan[k])}" ${!p && k === '1' ? 'onchange="_cModalShiftPlan(this.value)"' : ''} class="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
             </label>`).join('')}
@@ -6314,11 +6409,13 @@ function openCanteraModal(editId, presetOwner, focusDates) {
 }
 function _cModalShiftPlan(startYmd) {
   const pl = _cDefaultPlan(startYmd);
-  ['2', '3', 'end'].forEach(k => { const el = document.getElementById('cn-m-plan-' + k); if (el) el.value = pl[k]; });
+  _cPhaseNums().slice(1).map(String).concat(['end']).forEach(k => { const el = document.getElementById('cn-m-plan-' + k); if (el) el.value = pl[k]; });
 }
 function _cModalPlan() {
   const v = k => (document.getElementById('cn-m-plan-' + k) || {}).value || '';
-  return { 1: v('1'), 2: v('2'), 3: v('3'), end: v('end') };
+  const plan = { end: v('end') };
+  _cPhaseNums().forEach(n => { plan[n] = v(String(n)); });
+  return plan;
 }
 function closeCanteraModal() {
   document.getElementById('cantera-modal-overlay').classList.add('hidden');
@@ -6359,8 +6456,8 @@ function saveCanteraModal(e) {
     id: 'cnt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     title, oneLiner, ownerId, createdBy: me.id, createdByName: me.name, createdAt: now, updatedAt: now,
     status: 'active', currentPhase: 1, plan, sector,
-    phases: { 1: { state: 'active', startedAt: now, data: {} }, 2: { state: 'locked', data: {} }, 3: { state: 'locked', data: {} } },
-    history: []
+    phases: Object.fromEntries(_cPhaseNums().map(n => [n, n === 1 ? { state: 'active', startedAt: now, data: { needs: [] } } : { state: 'locked', data: {} }])),
+    history: [], schema: 2
   };
   _cHistory(p, 1, 'created');
   _saveCanteraProject(p);
@@ -6390,6 +6487,7 @@ function openCanteraProject(id) {
   if (!p) return;
   canteraOpenId = id;
   canteraPhaseView = p.currentPhase;
+  canteraNeedOpen = null;
   if (document.getElementById('page-cantera').classList.contains('hidden')) navigate('cantera');
   else renderCantera();
   document.querySelector('main').scrollTop = 0;
@@ -6402,11 +6500,12 @@ function closeCanteraProject() {
 function canteraSelectPhase(n) {
   const p = _canteraGet(canteraOpenId);
   if (!p || !p.phases[n]) return; // locked phases open as a read-only preview
+  if (canteraPhaseView !== n) canteraNeedOpen = null;
   canteraPhaseView = n;
   _renderCanteraProject();
 }
 function _cSignature(p) {
-  return JSON.stringify([p.status, p.currentPhase, p.title, p.oneLiner, p.sector || '', p.ownerId, p.plan || null, [1, 2, 3].map(n => p.phases[n].state), (p.history || []).length]);
+  return JSON.stringify([p.status, p.currentPhase, p.title, p.oneLiner, p.sector || '', p.ownerId, p.plan || null, _cPhaseNums().map(n => p.phases[n].state), (p.history || []).length]);
 }
 
 function _renderCanteraProject() {
@@ -6441,11 +6540,11 @@ function _renderCanteraProject() {
       class="text-left rounded-2xl border p-4 transition ${locked
         ? (selected ? 'bg-slate-50 border-slate-400 ring-2 ring-slate-200 grayscale' : 'bg-slate-50 border-slate-200 opacity-60 grayscale hover:opacity-90')
         : selected ? 'bg-white border-indigo-400 ring-2 ring-indigo-100 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}">
-      <div class="flex items-center gap-3">
+      <div class="flex items-start gap-3">
         ${_cNode(state, n, true)}
         <div class="min-w-0 flex-1">
           <div class="text-[11px] font-semibold uppercase tracking-wide ${locked ? 'text-slate-400' : 'text-indigo-600'}">Fase ${n} · ${tb ? _cShortDate(tb.start) + ' – ' + _cShortDate(tb.deadline) : meta.weeks + ' settimane'}</div>
-          <div class="font-semibold text-slate-800 truncate">${meta.name}</div>
+          <div class="font-semibold text-slate-800 leading-snug">${meta.name}</div>
         </div>
         ${mc ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${mc} messaggi">${_ti('chat', 'w-3.5 h-3.5')}${mc}</span>` : ''}
       </div>
@@ -6471,7 +6570,7 @@ function _renderCanteraProject() {
           <button type="button" onclick="deleteCanteraProject('${esc(p.id)}')" title="Elimina idea" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50">${_ti('trash')}</button>
         </div>` : ''}
       </div>
-      ${p.status === 'completed' ? `<div class="mt-4 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">Tutti e tre i gate sono stati superati: l'idea è pronta per il passaggio al Venture Building.</div>` : ''}
+      ${p.status === 'completed' ? `<div class="mt-4 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">Tutti i gate sono stati superati: l'idea è pronta per il passaggio al Venture Building.</div>` : ''}
       ${p.status === 'stopped' ? `<div class="mt-4 text-sm text-rose-800 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2.5">L'idea è stata fermata al gate ${p.currentPhase}. I contenuti restano consultabili.</div>` : ''}
     </div>
 
@@ -6479,7 +6578,7 @@ function _renderCanteraProject() {
       <div class="text-sm text-slate-600"><span class="font-semibold text-slate-700">Percorso pianificato:</span> ${(() => { const pl = _cPlan(p); return `dal ${_cFmtDate(_parseYmd(pl[1]))} al gate finale del ${_cFmtDate(_parseYmd(pl.end))}`; })()}</div>
       ${canEditP ? `<button type="button" onclick="openCanteraModal('${esc(p.id)}', null, true)" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800">${_ti('cal', 'w-3.5 h-3.5')}Modifica date</button>` : ''}
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">${[1, 2, 3].map(stepCard).join('')}</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">${_cPhaseNums().map(stepCard).join('')}</div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5 items-start">
       <div id="cn-main" class="lg:col-span-2 space-y-4"></div>
@@ -6534,10 +6633,16 @@ function _renderCanteraMain(p) {
         </div>
         <p class="text-xs text-slate-500 mt-1 leading-relaxed">${esc(sec.help)}</p>
         <div class="mt-3">${_cSectionControl(p, n, sec, editable)}</div>
-      </section>`).join('')}`;
+      </section>`).join('')}
+    ${_cLegacyBox(p, n)}`;
 }
 function _cSectionBadge(p, n, sec) {
   const s = _cSectionStatus(p, n, sec);
+  if (sec.type === 'needs') {
+    const lbl = `${s.total} ${s.total === 1 ? 'bisogno' : 'bisogni'} · ${s.count} canvas ${s.count === 1 ? 'completo' : 'completi'}`;
+    return s.done ? `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">${_ti('check', 'w-3 h-3')}${lbl}</span>`
+      : `<span class="text-[11px] font-medium text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">${lbl}</span>`;
+  }
   const cnt = s.need !== undefined && sec.type !== 'text' && sec.type !== 'trl' ? ` ${s.count}/${s.need}` : '';
   const extra = s.extra ? ` · ${s.extra.count}/${s.extra.need} ${s.extra.label}` : '';
   if (s.done) return `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">${_ti('check', 'w-3 h-3')}Completo${cnt}${extra}</span>`;
@@ -6570,31 +6675,13 @@ function _cSectionControl(p, n, sec, editable) {
         <textarea rows="3" oninput="canteraTrlSet('note', this.value)" class="${inputCls} mt-1">${esc(t.note || '')}</textarea></label>`;
   }
 
-  if (sec.type === 'hypotheses') {
-    const hyps = ((p.phases[1].data || {}).hypotheses || []).filter(h => _cRowFilled(h, { keyCol: 'statement' }));
-    if (!hyps.length) return '<div class="text-sm text-slate-400 italic">Nessuna ipotesi nella Fase 1.</div>';
-    const checks = v || {};
-    const tone = s => s === 'Validata' ? 'bg-emerald-50 text-emerald-700' : s === 'Falsificata' ? 'bg-rose-50 text-rose-700' : s === 'Non conclusiva' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
-    return `<div class="space-y-3">${hyps.map((h, i) => {
-      const c = checks[h.id] || {};
-      return `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/40">
-        <div class="text-xs font-semibold text-slate-500">Ipotesi ${i + 1}</div>
-        <div class="text-sm text-slate-800 mt-0.5 whitespace-pre-wrap">${esc(h.statement)}</div>
-        ${h.signal ? `<div class="text-xs text-slate-500 mt-1"><span class="font-medium">Segnale atteso:</span> ${esc(h.signal)}</div>` : ''}
-        ${editable ? `<div class="grid grid-cols-1 sm:grid-cols-[11rem_1fr] gap-2 mt-2.5">
-            <select onchange="canteraHypSet('${esc(h.id)}','status', this.value)" class="${inputCls}">${CANTERA_HYP_STATUSES.map(s => `<option ${(c.status || 'Da testare') === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
-            <textarea rows="2" placeholder="Evidenza raccolta (chi, quanti, cosa è emerso)…" oninput="canteraHypSet('${esc(h.id)}','evidence', this.value)" class="${inputCls}">${esc(c.evidence || '')}</textarea>
-          </div>`
-          : `<div class="mt-2 flex flex-wrap items-start gap-2"><span class="text-[11px] font-semibold px-2 py-0.5 rounded-full ${tone(c.status)}">${esc(c.status || 'Da testare')}</span>${c.evidence ? `<span class="text-sm text-slate-700 whitespace-pre-wrap flex-1 min-w-[12rem]">${esc(c.evidence)}</span>` : ''}</div>`}
-      </div>`;
-    }).join('')}</div>`;
-  }
+  if (sec.type === 'needs') return _cNeedsControl(p, n, sec, editable);
 
   // list
   const rows = v || [];
   const optsFor = c => {
     if (c.options) return c.options;
-    if (c.optionsFrom === 'archetypes') return ((p.phases[1].data || {}).archetypes || []).map(a => (a.name || '').trim()).filter(Boolean);
+    if (c.optionsFrom === 'needs') return _cNeeds(p).map(nd => String(nd.title || '').trim()).filter(Boolean);
     return [];
   };
   if (!editable) {
@@ -6695,18 +6782,258 @@ function canteraRowSet(n, key, rowId, col, val) {
   r[col] = val;
   _cAfterEdit(p, n, _cPhase(n).sections.find(s => s.key === key));
 }
-function canteraHypSet(hypId, field, val) {
-  const p = _cEditTarget(2);
-  if (!p) return;
-  const checks = p.phases[2].data.hypothesisCheck = p.phases[2].data.hypothesisCheck || {};
-  checks[hypId] = Object.assign({}, checks[hypId], { [field]: val });
-  _cAfterEdit(p, 2, _cPhase(2).sections.find(s => s.key === 'hypothesisCheck'));
-}
 function canteraTrlSet(field, val) {
   const p = _cEditTarget(3);
   if (!p) return;
   p.phases[3].data.trl = Object.assign({}, p.phases[3].data.trl, { [field]: val });
   _cAfterEdit(p, 3, _cPhase(3).sections.find(s => s.key === 'trl'));
+}
+
+// ---------- Phase 1: needs and their 12-block canvas ----------
+const _cBlockTone = {
+  validato: { badge: 'bg-emerald-50 text-emerald-700', border: 'border-l-emerald-500', label: 'Validato', bar: '#059669' },
+  ipotesi: { badge: 'bg-amber-50 text-amber-700', border: 'border-l-amber-400', label: 'Ipotesi', bar: '#d97706' },
+  missing: { badge: 'bg-slate-100 text-slate-500', border: 'border-l-slate-200', label: 'Dato mancante', bar: '#cbd5e1' }
+};
+function _cBlockBadge(state) {
+  const t = _cBlockTone[state];
+  return `<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${t.badge}">${state === 'validato' ? _ti('check', 'w-3 h-3') : ''}${t.label}</span>`;
+}
+function _cNeedBar(st, big) {
+  const seg = k => st[k] ? `<div style="flex:${st[k]};background:${_cBlockTone[k].bar}"></div>` : '';
+  return `<div class="flex ${big ? 'h-2.5' : 'h-2'} gap-[2px] rounded-full overflow-hidden bg-slate-100">${seg('validato')}${seg('ipotesi')}${seg('missing')}</div>`;
+}
+function _cNeedLegend(st) {
+  const word = { validato: st.validato === 1 ? 'validato' : 'validati', ipotesi: 'ipotesi', missing: st.missing === 1 ? 'dato mancante' : 'dati mancanti' };
+  return `<div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600 mt-1.5">${['validato', 'ipotesi', 'missing'].map(k => `<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm" style="background:${_cBlockTone[k].bar}"></span><span><span class="tabular-nums font-semibold">${st[k]}</span> ${word[k]}</span></span>`).join('')}</div>`;
+}
+
+function _cNeedsControl(p, n, sec, editable) {
+  const needs = (p.phases[n].data || {}).needs || [];
+  const inputCls = 'w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-300';
+  const idx = needs.findIndex(x => x.id === canteraNeedOpen);
+  if (idx < 0) {
+    canteraNeedOpen = null;
+    const addBtn = editable ? `<button type="button" onclick="canteraAddNeed()" class="w-full inline-flex items-center justify-center gap-1.5 text-sm font-medium text-sky-700 border-2 border-dashed border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 rounded-xl py-2.5 transition">${_ti('plus')}Aggiungi bisogno</button>` : '';
+    if (!needs.length) return `<div id="cn-needs" class="text-center border border-dashed border-slate-300 rounded-xl py-8 px-4">
+        <div class="w-10 h-10 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center mx-auto mb-2">${_ti('bulb', 'w-5 h-5')}</div>
+        <div class="text-sm font-medium text-slate-700">${editable ? 'Inserisci il primo bisogno su cui stai lavorando' : 'Nessun bisogno inserito'}</div>
+        ${editable ? `<p class="text-xs text-slate-500 mt-1 mb-4">Descrivilo in poche righe, poi compila il suo canvas a 12 blocchi.</p><div class="max-w-xs mx-auto">${addBtn}</div>` : ''}
+      </div>`;
+    return `<div id="cn-needs" class="space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${needs.map((nd, i) => {
+        const st = _cNeedStats(nd);
+        const complete = _cNeedComplete(nd);
+        return `<button type="button" onclick="canteraOpenNeed('${esc(nd.id)}')" class="text-left rounded-xl border border-slate-200 hover:border-sky-300 hover:shadow-sm bg-white p-4 transition flex flex-col">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-sky-700">Bisogno ${i + 1}</span>
+            ${complete ? `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">${_ti('check', 'w-3 h-3')}Canvas completo</span>` : `<span class="text-[11px] text-slate-500 tabular-nums">${st.filled}/${CANTERA_CANVAS.length} blocchi</span>`}
+          </div>
+          <div class="font-semibold text-slate-800 mt-1 leading-snug">${String(nd.title || '').trim() ? esc(nd.title) : '<span class="italic font-normal text-slate-400">Senza titolo</span>'}</div>
+          ${String(nd.description || '').trim() ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(nd.description)}</p>` : ''}
+          <div class="mt-auto pt-3">${_cNeedBar(st)}${_cNeedLegend(st)}</div>
+          <span class="mt-2.5 text-xs font-medium text-sky-700">${editable ? 'Apri e compila il canvas' : 'Apri il canvas'} →</span>
+        </button>`;
+      }).join('')}</div>
+      ${addBtn}
+    </div>`;
+  }
+
+  const nd = needs[idx];
+  const canvas = nd.canvas || {};
+  const st = _cNeedStats(nd);
+  const named = !!String(nd.title || '').trim();
+  const block = (b, i) => {
+    const c = canvas[b.key] || {};
+    const state = _cBlockState(c);
+    const sel = c.status === 'validato' ? 'validato' : 'ipotesi';
+    const args = `'${esc(nd.id)}','${b.key}'`;
+    const sources = (c.sources || []).filter(Boolean);
+    let body;
+    if (editable) {
+      const tgl = (k, label, on) => `<button type="button" onclick="canteraBlockSet(${args},'status','${k}')" aria-pressed="${sel === k}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition ${sel === k ? 'bg-white shadow-sm ' + on : 'text-slate-500 hover:text-slate-800'}">${k === 'validato' ? _ti('check', 'w-3 h-3') : ''}${label}</button>`;
+      body = `<textarea rows="3" oninput="canteraBlockSet(${args},'text', this.value)" placeholder="Cosa sai su questo punto? Lascia vuoto se è un dato mancante." class="${inputCls} mt-2">${esc(c.text || '')}</textarea>
+        <div class="mt-2 inline-flex bg-slate-100 rounded-lg p-0.5" role="group" aria-label="Stato del blocco ${esc(b.title)}">${tgl('ipotesi', 'Ipotesi', 'text-amber-700')}${tgl('validato', 'Validato', 'text-emerald-700')}</div>
+        ${sel === 'validato' ? `<div class="mt-2 rounded-lg bg-emerald-50/70 border border-emerald-100 p-2.5">
+          <div class="text-[11px] font-semibold text-emerald-800 mb-1.5">Come è stato validato</div>
+          <div class="flex flex-wrap gap-1">${CANTERA_VALIDATION_SOURCES.map(src => {
+            const on = sources.includes(src);
+            return `<button type="button" onclick="canteraBlockSource(${args},'${src}')" aria-pressed="${on}" class="text-[11px] font-medium px-2 py-0.5 rounded-full border transition ${on ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50'}">${src}</button>`;
+          }).join('')}</div>
+          <textarea rows="2" oninput="canteraBlockSet(${args},'how', this.value)" placeholder="Metodo e fonte: es. 6 interviste con responsabili di manutenzione (marzo 2026), report di settore…" class="${inputCls} mt-2">${esc(c.how || '')}</textarea>
+        </div>` : ''}`;
+    } else {
+      body = (state === 'missing' ? '<p class="text-sm text-slate-400 italic mt-2">Dato mancante</p>' : `<p class="text-sm text-slate-700 whitespace-pre-wrap break-words mt-2">${esc(c.text)}</p>`)
+        + (state === 'validato' && (sources.length || String(c.how || '').trim()) ? `<div class="mt-2 rounded-lg bg-emerald-50/70 border border-emerald-100 p-2">
+            <div class="text-[11px] font-semibold text-emerald-800">Come è stato validato</div>
+            ${sources.length ? `<div class="flex flex-wrap gap-1 mt-1">${sources.map(s => `<span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-600 text-white">${esc(s)}</span>`).join('')}</div>` : ''}
+            ${String(c.how || '').trim() ? `<p class="text-xs text-slate-700 mt-1 whitespace-pre-wrap break-words">${esc(c.how)}</p>` : ''}
+          </div>` : '');
+    }
+    return `<div id="cn-blk-${b.key}" class="rounded-xl border border-slate-200 border-l-4 ${_cBlockTone[state].border} bg-white p-3">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-slate-800"><span class="text-slate-400 tabular-nums mr-1">${i + 1}</span>${esc(b.title)}</div>
+          <div class="text-[11px] text-slate-500 leading-snug">${esc(b.hint)}</div>
+        </div>
+        <span id="cn-blk-${b.key}-badge" class="flex-shrink-0">${_cBlockBadge(state)}</span>
+      </div>
+      ${body}
+    </div>`;
+  };
+  return `<div id="cn-needs">
+    <div class="flex items-center justify-between gap-2">
+      <button type="button" onclick="canteraCloseNeed()" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">${_ti('back')}Tutti i bisogni (${needs.length})</button>
+      ${editable ? `<button type="button" onclick="canteraRemoveNeed('${esc(nd.id)}')" class="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-rose-600">${_ti('trash', 'w-3.5 h-3.5')}Elimina bisogno</button>` : ''}
+    </div>
+    <div class="mt-3 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
+      <div class="text-[11px] font-semibold uppercase tracking-wide text-sky-700">Bisogno ${idx + 1}</div>
+      ${editable ? `
+        <label class="block mt-2"><span class="block text-[11px] font-medium text-slate-500 mb-0.5">Titolo del bisogno *</span>
+          <input id="cn-need-title" maxlength="160" value="${esc(nd.title || '')}" oninput="canteraNeedSet('${esc(nd.id)}','title', this.value)" placeholder="Es. Individuare le perdite della rete idrica prima che diventino guasti" class="${inputCls}"></label>
+        <label class="block mt-2"><span class="block text-[11px] font-medium text-slate-500 mb-0.5">Descrizione</span>
+          <textarea rows="3" oninput="canteraNeedSet('${esc(nd.id)}','description', this.value)" placeholder="Di chi è il bisogno, in quale situazione si presenta e perché è importante" class="${inputCls}">${esc(nd.description || '')}</textarea></label>`
+      : `<div class="text-lg font-semibold text-slate-800 mt-1">${named ? esc(nd.title) : '<span class="italic font-normal text-slate-400">Senza titolo</span>'}</div>
+        ${String(nd.description || '').trim() ? `<p class="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">${esc(nd.description)}</p>` : ''}`}
+    </div>
+    <div class="mt-5">
+      <div class="font-semibold text-slate-800">Canvas del bisogno</div>
+      <p class="text-xs text-slate-500 mt-0.5">${editable ? 'Per ogni blocco scrivi cosa sai e indica se è un\'ipotesi o se è validato; se è validato, indica come. Un blocco vuoto resta un dato mancante.' : 'Stato di ciascun blocco: validato, ipotesi o dato mancante.'}</p>
+      <div id="cn-need-prog" class="mt-2.5">${_cNeedBar(st, true)}${_cNeedLegend(st)}</div>
+    </div>
+    ${editable ? `<p id="cn-need-gate-hint" class="${named ? 'hidden' : ''} mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Dai prima un titolo al bisogno: poi potrai compilare il canvas.</p>` : ''}
+    <div id="cn-need-canvas" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 transition ${editable && !named ? 'opacity-50 pointer-events-none' : ''}">${CANTERA_CANVAS.map(block).join('')}</div>
+    <p class="text-xs text-slate-500 italic mt-3">Per ogni campo: evidenza, ipotesi oppure dato mancante.</p>
+  </div>`;
+}
+
+function _cNeedsSec() { return _cPhase(1).sections.find(s => s.type === 'needs'); }
+function _cNeedTarget(needId) {
+  const p = _cEditTarget(1);
+  if (!p) return null;
+  const nd = (p.phases[1].data.needs || []).find(x => x.id === needId);
+  return nd ? { p, nd } : null;
+}
+function _cRenderNeeds(p) {
+  _renderCanteraMain(p);
+  const el = document.getElementById('cn-needs');
+  if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start' });
+}
+function canteraOpenNeed(id) {
+  const p = _canteraGet(canteraOpenId);
+  if (!p) return;
+  canteraNeedOpen = id;
+  _cRenderNeeds(p);
+}
+function canteraCloseNeed() {
+  const p = _canteraGet(canteraOpenId);
+  canteraNeedOpen = null;
+  if (p) _cRenderNeeds(p);
+}
+function canteraAddNeed() {
+  const p = _cEditTarget(1);
+  if (!p) return;
+  const me = currentUser();
+  const needs = p.phases[1].data.needs = p.phases[1].data.needs || [];
+  const nd = { id: 'nd-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), title: '', description: '', canvas: {}, createdAt: new Date().toISOString(), createdBy: me ? me.id : '', createdByName: me ? me.name : '' };
+  needs.push(nd);
+  canteraNeedOpen = nd.id;
+  _cAfterEdit(p, 1, _cNeedsSec());
+  _cRenderNeeds(p);
+  const t = document.getElementById('cn-need-title');
+  if (t) t.focus();
+}
+function canteraRemoveNeed(id) {
+  const x = _cNeedTarget(id);
+  if (!x) return;
+  if (_cHasContent([x.nd.title, x.nd.description, x.nd.canvas]) && !confirm(`Eliminare il bisogno "${x.nd.title || 'senza titolo'}" con il suo canvas?`)) return;
+  x.p.phases[1].data.needs = x.p.phases[1].data.needs.filter(nd => nd.id !== id);
+  canteraNeedOpen = null;
+  _cAfterEdit(x.p, 1, _cNeedsSec());
+  _cRenderNeeds(x.p);
+}
+function canteraNeedSet(id, field, val) {
+  const x = _cNeedTarget(id);
+  if (!x) return;
+  x.nd[field] = val;
+  x.nd.updatedAt = new Date().toISOString();
+  _cAfterEdit(x.p, 1, _cNeedsSec());
+  if (field === 'title') {
+    const named = !!String(val).trim();
+    const cv = document.getElementById('cn-need-canvas');
+    if (cv) { cv.classList.toggle('opacity-50', !named); cv.classList.toggle('pointer-events-none', !named); }
+    const h = document.getElementById('cn-need-gate-hint');
+    if (h) h.classList.toggle('hidden', named);
+  }
+}
+function _cBlockEdit(id, key, fn) {
+  const x = _cNeedTarget(id);
+  if (!x) return null;
+  const cv = x.nd.canvas = x.nd.canvas || {};
+  const me = currentUser();
+  cv[key] = Object.assign({ text: '', status: 'ipotesi', how: '', sources: [] }, cv[key]);
+  fn(cv[key]);
+  cv[key].updatedAt = x.nd.updatedAt = new Date().toISOString();
+  cv[key].updatedBy = me ? me.name : '';
+  _cAfterEdit(x.p, 1, _cNeedsSec());
+  return x;
+}
+function canteraBlockSet(id, key, field, val) {
+  const x = _cBlockEdit(id, key, b => { b[field] = val; });
+  if (!x) return;
+  if (field === 'status') { _renderCanteraMain(x.p); return; }
+  // Typing: refresh the block state and the need progress in place (keeps focus)
+  const state = _cBlockState(x.nd.canvas[key]);
+  const card = document.getElementById('cn-blk-' + key);
+  if (card) { Object.values(_cBlockTone).forEach(t => card.classList.remove(t.border)); card.classList.add(_cBlockTone[state].border); }
+  const badge = document.getElementById('cn-blk-' + key + '-badge');
+  if (badge) badge.innerHTML = _cBlockBadge(state);
+  const prog = document.getElementById('cn-need-prog');
+  if (prog) { const st = _cNeedStats(x.nd); prog.innerHTML = _cNeedBar(st, true) + _cNeedLegend(st); }
+}
+function canteraBlockSource(id, key, src) {
+  const x = _cBlockEdit(id, key, b => {
+    const set = new Set(b.sources || []);
+    if (set.has(src)) set.delete(src); else set.add(src);
+    b.sources = CANTERA_VALIDATION_SOURCES.filter(s => set.has(s));
+  });
+  if (x) _renderCanteraMain(x.p);
+}
+
+// Content written with the previous 3-phase template, kept read-only
+const CANTERA_LEGACY_FIELDS = {
+  statement: 'Ipotesi', signal: 'Segnale e soglia di validazione', name: 'Nome', why: 'Perché', role: 'Ruolo', context: 'Contesto e problema principale',
+  status: 'Esito', evidence: 'Evidenza', who: 'Persona / organizzazione', date: 'Data', archetype: 'Archetipo', notes: 'Note', confirmed: 'Problema confermato', qualified: 'Qualificato'
+};
+function _cLegacyFields(o) {
+  return `<dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">${Object.keys(o).filter(k => k !== 'id' && _cHasContent(o[k])).map(k => {
+    const v = o[k];
+    const txt = v === true ? 'Sì' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+    return `<div class="${txt.length > 60 ? 'sm:col-span-2' : ''}"><dt class="text-[11px] text-slate-400">${esc(CANTERA_LEGACY_FIELDS[k] || k)}</dt><dd class="text-sm text-slate-700 whitespace-pre-wrap break-words">${esc(txt)}</dd></div>`;
+  }).join('')}</dl>`;
+}
+function _cLegacyBox(p, n) {
+  const legacy = ((p.phases[n] || {}).data || {}).legacy;
+  if (!legacy || !_cHasContent(legacy)) return '';
+  const oldHyps = (((p.phases[1].data || {}).legacy || {}).hypotheses || []);
+  const render = (k, v) => {
+    if (typeof v === 'string') return `<div class="text-sm text-slate-700 leading-relaxed">${_rtSanitizeStored(v)}</div>`;
+    if (k === 'hypothesisCheck' && v && typeof v === 'object' && !Array.isArray(v)) {
+      return `<div class="space-y-2">${Object.keys(v).filter(id => _cHasContent(v[id])).map(id => {
+        const h = oldHyps.find(x => x.id === id);
+        return `<div class="border border-slate-200 rounded-lg p-2.5 bg-white">${h ? `<div class="text-sm text-slate-800 mb-1">${esc(h.statement || '')}</div>` : ''}${_cLegacyFields(v[id])}</div>`;
+      }).join('')}</div>`;
+    }
+    const rows = Array.isArray(v) ? v.filter(_cHasContent) : [v];
+    return `<div class="space-y-2">${rows.map(r => typeof r === 'object' ? `<div class="border border-slate-200 rounded-lg p-2.5 bg-white">${_cLegacyFields(r)}</div>` : `<div class="text-sm text-slate-700">${esc(String(r))}</div>`).join('')}</div>`;
+  };
+  const openByDefault = n === 1 && !_cNeeds(p).length;
+  return `<details class="bg-slate-50 border border-slate-200 rounded-2xl p-5" ${openByDefault ? 'open' : ''}>
+    <summary class="cursor-pointer select-none text-sm font-semibold text-slate-700">Contenuti del template precedente <span class="text-xs font-normal text-slate-500">· sola lettura</span></summary>
+    <p class="text-xs text-slate-500 mt-1.5">L'idea è stata avviata con il vecchio percorso a 3 fasi. Questi contenuti non hanno un campo corrispondente nel nuovo template e restano qui come riferimento${n === 1 ? ' per compilare i bisogni e il loro canvas' : ''}.</p>
+    <div class="mt-3 space-y-4">${Object.keys(legacy).filter(k => _cHasContent(legacy[k])).map(k => `
+      <div><div class="text-xs font-semibold text-slate-600 mb-1">${esc(CANTERA_LEGACY_LABELS[k] || k)}</div>${render(k, legacy[k])}</div>`).join('')}</div>
+  </details>`;
 }
 
 // ---------- gate panel ----------
@@ -6743,7 +7070,7 @@ function _renderCanteraGate(p) {
     const subNote = sub && sub.note ? `<div class="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3"><span class="font-semibold">Nota di ${esc(sub.by)}:</span> ${esc(sub.note)}</div>` : '';
     if (admin) actions = subNote + `
       <textarea id="cn-decision-note" rows="3" placeholder="Motivazione della decisione e indicazioni per il responsabile" class="${textareaCls}"></textarea>
-      <button type="button" onclick="canteraDecide('go')" class="w-full mt-2 inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">${_ti('check', 'w-4 h-4')}${n < 3 ? `Approva · sblocca la Fase ${n + 1}` : 'Approva · idea completata'}</button>
+      <button type="button" onclick="canteraDecide('go')" class="w-full mt-2 inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">${_ti('check', 'w-4 h-4')}${n < CN_N ? `Approva · sblocca la Fase ${n + 1}` : 'Approva · idea completata'}</button>
       <div class="grid grid-cols-2 gap-2 mt-2">
         <button type="button" onclick="canteraDecide('changes')" class="text-xs font-medium px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">Richiedi integrazioni</button>
         <button type="button" onclick="canteraDecide('stop')" class="text-xs font-medium px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50">Ferma l'idea</button>
@@ -6772,7 +7099,7 @@ function _renderCanteraGate(p) {
       <div class="flex items-center justify-between text-xs mb-2"><span class="font-semibold text-slate-600">Requisiti del gate</span><span class="text-slate-500 tabular-nums">${prog.done}/${prog.total}</span></div>
       <ul class="space-y-1.5">${meta.sections.filter(s => s.required).map(s => {
         const st = _cSectionStatus(p, n, s);
-        const detail = s.type === 'list' ? ` <span class="text-slate-400">(${st.count}/${s.min || 1}${st.extra ? ', ' + st.extra.count + '/' + st.extra.need + ' ' + st.extra.label : ''})</span>` : s.type === 'hypotheses' && st.need ? ` <span class="text-slate-400">(${st.count}/${st.need})</span>` : '';
+        const detail = s.type === 'list' ? ` <span class="text-slate-400">(${st.count}/${s.min || 1}${st.extra ? ', ' + st.extra.count + '/' + st.extra.need + ' ' + st.extra.label : ''})</span>` : s.type === 'needs' ? ` <span class="text-slate-400">(${st.count} canvas ${st.count === 1 ? 'completo' : 'completi'} su ${st.total} ${st.total === 1 ? 'bisogno' : 'bisogni'})</span>` : '';
         return `<li class="flex items-start gap-2 text-xs ${st.done ? 'text-slate-700' : 'text-slate-500'}">
           <span class="mt-px w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${st.done ? 'bg-emerald-500 text-white' : 'border border-slate-300'}">${st.done ? _ti('check', 'w-2.5 h-2.5') : ''}</span>
           <span>${esc(s.label)}${detail}</span></li>`;
@@ -6831,7 +7158,7 @@ function canteraDecide(decision) {
     ph.decidedAt = now;
     ph.decidedBy = me.name;
     _cHistory(p, n, 'approved', note);
-    if (n < 3) {
+    if (n < CN_N) {
       p.currentPhase = n + 1;
       p.phases[n + 1].state = 'active';
       p.phases[n + 1].startedAt = now;
@@ -6839,7 +7166,7 @@ function canteraDecide(decision) {
       _cNotify([p.ownerId], `Gate ${n} superato: "${p.title}"`, `${me.name} ha approvato la Fase ${n}. Ora si apre la Fase ${n + 1} · ${_cPhase(n + 1).name} (${_cPhase(n + 1).weeks} settimane).${note ? ' ' + note : ''}`, p);
     } else {
       p.status = 'completed';
-      _cNotify([p.ownerId], `"${p.title}" ha superato tutti i gate`, `${me.name} ha approvato la Fase 3: l'idea è pronta per il Venture Building.${note ? ' ' + note : ''}`, p);
+      _cNotify([p.ownerId], `"${p.title}" ha superato tutti i gate`, `${me.name} ha approvato la Fase ${n} · ${_cPhase(n).name}: l'idea è pronta per il Venture Building.${note ? ' ' + note : ''}`, p);
     }
   } else if (decision === 'changes') {
     ph.state = 'active';
@@ -6964,11 +7291,246 @@ async function _pullCantera() {
   } catch(_) {}
 }
 
+// ---------- Toolbox: shared files for the product team (templates, guides, tools) ----------
+// One cloud row per file ('ctb_<id>'); the file itself lives in Supabase Storage.
+const CANTERA_TOOLBOX_KEY = 'dealflow_cantera_toolbox';
+let _ctbQuery = '';
+let _ctbEditId = null;
+let _ctbStaged = null; // file picked, waiting for its name
+let _ctbBusy = false;
+function loadCanteraToolbox() {
+  try { const v = JSON.parse(localStorage.getItem(CANTERA_TOOLBOX_KEY) || '[]'); return Array.isArray(v) ? v.filter(f => f && f.id && !f._deleted) : []; }
+  catch(_) { return []; }
+}
+function _ctbCanUpload() { const me = currentUser(); return !!me && canEdit('cantera'); }
+function _ctbCanManage(f) {
+  const me = currentUser();
+  return !!me && canEdit('cantera') && (isAdminMember(me) || f.uploadedBy === me.id);
+}
+function _ctbExt(name) { const m = /\.([a-z0-9]{1,5})$/i.exec(name || ''); return m ? m[1].toLowerCase() : ''; }
+function _ctbTone(ext) {
+  if (ext === 'pdf') return 'bg-rose-50 text-rose-700 border-rose-100';
+  if (['doc', 'docx', 'odt', 'rtf', 'txt', 'md'].includes(ext)) return 'bg-blue-50 text-blue-700 border-blue-100';
+  if (['xls', 'xlsx', 'xlsm', 'csv', 'ods'].includes(ext)) return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+  if (['ppt', 'pptx', 'key', 'odp'].includes(ext)) return 'bg-orange-50 text-orange-700 border-orange-100';
+  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) return 'bg-violet-50 text-violet-700 border-violet-100';
+  return 'bg-slate-100 text-slate-600 border-slate-200';
+}
+function _ctbSize(b) {
+  if (!b) return '';
+  if (b < 1024 * 1024) return Math.max(1, Math.round(b / 1024)) + ' KB';
+  return (b / 1024 / 1024).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' MB';
+}
+function _ctbSorted() { return loadCanteraToolbox().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'it', { sensitivity: 'base' })); }
+
+// Folder tile on the La Cantera overview
+function _ctbFolderTile() {
+  const files = loadCanteraToolbox();
+  const recent = files.slice().sort((a, b) => (b.uploadedAt || '').localeCompare(a.uploadedAt || '')).slice(0, 3);
+  return `<button type="button" onclick="openCanteraToolbox()" title="Apri la Toolbox" class="group relative block w-full text-left pt-3 focus:outline-none">
+    <span class="absolute top-0 left-0 h-4 w-24 rounded-t-lg bg-amber-300 group-hover:bg-amber-400 transition" aria-hidden="true"></span>
+    <span class="relative block rounded-b-2xl rounded-tr-2xl bg-gradient-to-br from-amber-200 via-amber-200 to-orange-300 border border-amber-300 p-4 shadow-sm group-hover:shadow-md group-hover:-translate-y-0.5 transition">
+      <span class="flex items-center gap-3">
+        <span class="w-11 h-11 rounded-xl bg-white/80 text-amber-700 flex items-center justify-center shadow-sm flex-shrink-0">${_ti('toolbox', 'w-6 h-6')}</span>
+        <span class="min-w-0">
+          <span class="block text-lg font-bold text-amber-950 leading-tight">Toolbox</span>
+          <span class="block text-xs text-amber-900/80">${files.length ? files.length + (files.length === 1 ? ' file' : ' file') : 'Ancora vuota'}</span>
+        </span>
+      </span>
+      ${recent.length ? `<span class="mt-3 block space-y-1">${recent.map(f => `<span class="flex items-center gap-1.5 text-xs text-amber-950/90 bg-white/60 rounded-md px-2 py-1"><span class="text-[9px] font-bold uppercase text-amber-700 w-8 flex-shrink-0">${esc(_ctbExt(f.fileName) || 'file')}</span><span class="truncate">${esc(f.name)}</span></span>`).join('')}</span>`
+        : `<span class="mt-3 block text-xs text-amber-900/80">Modelli, guide e strumenti del percorso.</span>`}
+      <span class="mt-3 inline-flex items-center text-xs font-semibold text-amber-900 opacity-80 group-hover:opacity-100">Apri la Toolbox →</span>
+    </span>
+  </button>`;
+}
+function _ctbRefreshTile() {
+  const t = document.getElementById('cn-toolbox-tile');
+  if (t) t.innerHTML = _ctbFolderTile();
+}
+
+function openCanteraToolbox() {
+  _ctbEditId = null;
+  _ctbStaged = null;
+  _ctbQuery = '';
+  _renderCanteraToolbox();
+  document.getElementById('cantera-toolbox-overlay').classList.remove('hidden');
+  _pullCanteraToolbox();
+}
+function closeCanteraToolbox() {
+  if (_ctbBusy) return;
+  document.getElementById('cantera-toolbox-overlay').classList.add('hidden');
+  _ctbEditId = null;
+  _ctbStaged = null;
+  _ctbRefreshTile();
+}
+document.addEventListener('keydown', e => {
+  const o = document.getElementById('cantera-toolbox-overlay');
+  if (e.key === 'Escape' && o && !o.classList.contains('hidden')) closeCanteraToolbox();
+});
+
+function _renderCanteraToolbox() {
+  const body = document.getElementById('cantera-toolbox-body');
+  if (!body) return;
+  const all = _ctbSorted();
+  const q = _ctbQuery.trim().toLowerCase();
+  const files = q ? all.filter(f => ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.fileName || '')).toLowerCase().includes(q)) : all;
+  const inputCls = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300';
+  const row = f => {
+    const ext = _ctbExt(f.fileName);
+    if (_ctbEditId === f.id) return `<li class="py-3">
+      <div class="rounded-xl border border-amber-200 bg-amber-50/50 p-3 space-y-2">
+        <input id="ctb-edit-name" maxlength="120" value="${esc(f.name || '')}" placeholder="Nome" class="${inputCls}">
+        <input id="ctb-edit-desc" maxlength="240" value="${esc(f.description || '')}" placeholder="A cosa serve (facoltativo)" class="${inputCls}">
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="canteraToolboxEdit(null)" class="px-3 py-1.5 text-xs font-medium text-slate-600 rounded-lg hover:bg-white">Annulla</button>
+          <button type="button" onclick="canteraToolboxSaveEdit('${esc(f.id)}')" class="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg">Salva</button>
+        </div>
+      </div></li>`;
+    return `<li class="flex items-start gap-3 py-3">
+      <span class="w-11 h-11 rounded-lg border flex items-center justify-center text-[10px] font-bold uppercase flex-shrink-0 ${_ctbTone(ext)}">${esc(ext || 'file')}</span>
+      <div class="flex-1 min-w-0">
+        <a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer" download="${esc(f.fileName || '')}" class="block text-sm font-semibold text-slate-800 hover:text-amber-700 break-words">${esc(f.name)}</a>
+        ${f.description ? `<p class="text-xs text-slate-600 mt-0.5 break-words">${esc(f.description)}</p>` : ''}
+        <p class="text-[11px] text-slate-400 mt-0.5 break-all">${esc(f.fileName || '')}${f.size ? ' · ' + _ctbSize(f.size) : ''} · ${esc(f.uploadedByName || '')}${f.uploadedAt ? ', ' + _cFmtDate(f.uploadedAt) : ''}</p>
+      </div>
+      <div class="flex items-center gap-0.5 flex-shrink-0">
+        <a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer" download="${esc(f.fileName || '')}" title="Scarica" class="p-2 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></a>
+        ${_ctbCanManage(f) ? `<button type="button" onclick="canteraToolboxEdit('${esc(f.id)}')" title="Rinomina" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">${_ti('edit')}</button>
+        <button type="button" onclick="canteraToolboxDelete('${esc(f.id)}')" title="Elimina" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50">${_ti('trash')}</button>` : ''}
+      </div>
+    </li>`;
+  };
+  body.innerHTML = `
+    <div class="px-6 pt-6 pb-4 border-b border-slate-100 bg-gradient-to-br from-amber-50 to-white">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="w-11 h-11 rounded-xl bg-amber-200 text-amber-800 flex items-center justify-center flex-shrink-0">${_ti('toolbox', 'w-6 h-6')}</span>
+          <div>
+            <h2 class="text-xl font-bold text-slate-800">Toolbox</h2>
+            <p class="text-xs text-slate-500">Modelli, guide e strumenti a disposizione del team per tutte le fasi del percorso.</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeCanteraToolbox()" title="Chiudi (Esc)" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white">${_ti('x', 'w-5 h-5')}</button>
+      </div>
+      ${_ctbCanUpload() ? `
+      <div class="mt-4 rounded-xl border-2 border-dashed border-amber-200 bg-white/70 p-3">
+        ${_ctbStaged ? `
+          <div class="text-xs text-slate-600">File scelto: <span class="font-semibold text-slate-800 break-all">${esc(_ctbStaged.name)}</span> <span class="text-slate-400">(${_ctbSize(_ctbStaged.size)})</span></div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <label class="text-[11px] font-medium text-slate-500">Nome nella Toolbox *<input id="ctb-name" maxlength="120" value="${esc(_ctbStaged.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim())}" class="${inputCls} mt-0.5"></label>
+            <label class="text-[11px] font-medium text-slate-500">A cosa serve<input id="ctb-desc" maxlength="240" placeholder="Facoltativo" class="${inputCls} mt-0.5"></label>
+          </div>
+          <div class="flex justify-end gap-2 mt-2.5">
+            <button type="button" onclick="canteraToolboxCancelPick()" class="px-3 py-1.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100">Annulla</button>
+            <button type="button" id="ctb-upload-btn" onclick="canteraToolboxUpload()" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm">${_ti('upload')}Carica nella Toolbox</button>
+          </div>`
+        : `<div class="flex flex-wrap items-center gap-3">
+            <label class="cursor-pointer inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm">
+              ${_ti('upload')}Carica un file
+              <input type="file" id="ctb-file-input" class="hidden" onchange="canteraToolboxPick(this)">
+            </label>
+            <span class="text-xs text-slate-500">Scegli il file e dagli un nome: lo vedranno tutti in La Cantera (max 50 MB).</span>
+          </div>`}
+      </div>` : ''}
+    </div>
+    <div class="px-6 py-4">
+      ${all.length > 5 ? `<div class="relative mb-2"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">${_ti('search')}</span>
+        <input id="ctb-search" type="search" value="${esc(_ctbQuery)}" oninput="_ctbQuery = this.value; _renderCanteraToolboxList()" placeholder="Cerca nella Toolbox…" class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300"></div>` : ''}
+      <ul id="ctb-list" class="divide-y divide-slate-100 max-h-[55vh] overflow-y-auto">${files.length ? files.map(row).join('')
+        : `<li class="py-10 text-center"><div class="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-2">${_ti('toolbox', 'w-6 h-6')}</div>
+            <div class="text-sm font-medium text-slate-700">${all.length ? 'Nessun file corrisponde alla ricerca' : 'La Toolbox è vuota'}</div>
+            ${all.length ? '' : `<p class="text-xs text-slate-500 mt-1">${_ctbCanUpload() ? 'Carica il primo strumento: un modello di canvas, una guida alle interviste, un foglio di calcolo…' : 'Qui compariranno i file caricati dal team.'}</p>`}</li>`}</ul>
+    </div>`;
+}
+function _renderCanteraToolboxList() {
+  // Re-render keeping the search box focused
+  const pos = (document.getElementById('ctb-search') || {}).selectionStart;
+  _renderCanteraToolbox();
+  const s = document.getElementById('ctb-search');
+  if (s) { s.focus(); if (pos != null) s.setSelectionRange(pos, pos); }
+}
+function canteraToolboxPick(input) {
+  const file = input.files && input.files[0];
+  if (!file || !_ctbCanUpload()) return;
+  if (file.size > 50 * 1024 * 1024) { alert('Il file supera i 50 MB.'); input.value = ''; return; }
+  _ctbStaged = file;
+  _renderCanteraToolbox();
+  const n = document.getElementById('ctb-name');
+  if (n) { n.focus(); n.select(); }
+}
+function canteraToolboxCancelPick() { _ctbStaged = null; _renderCanteraToolbox(); }
+async function canteraToolboxUpload() {
+  const file = _ctbStaged;
+  const me = currentUser();
+  if (!file || !me || !_ctbCanUpload() || _ctbBusy) return;
+  const nameEl = document.getElementById('ctb-name');
+  const name = (nameEl.value || '').trim();
+  if (!name) { nameEl.focus(); nameEl.classList.add('ring-2', 'ring-rose-200'); return; }
+  const description = (document.getElementById('ctb-desc').value || '').trim();
+  const btn = document.getElementById('ctb-upload-btn');
+  _ctbBusy = true;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>Caricamento…'; }
+  try {
+    const { path, url } = await uploadFileToSupabase(file, 'cantera-toolbox');
+    const now = new Date().toISOString();
+    const entry = { id: 'tb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), name, description, fileName: file.name, size: file.size, type: file.type, path, url, uploadedBy: me.id, uploadedByName: me.name, uploadedAt: now, updatedAt: now };
+    _saveRowCollection(CANTERA_TOOLBOX_KEY, loadCanteraToolbox().concat(entry));
+    _ctbStaged = null;
+  } catch (err) {
+    alert('Errore nel caricamento di "' + file.name + '": ' + (err && err.message ? err.message : err));
+  } finally {
+    _ctbBusy = false;
+    _renderCanteraToolbox();
+    _ctbRefreshTile();
+  }
+}
+function canteraToolboxEdit(id) { _ctbEditId = id; _renderCanteraToolbox(); const n = document.getElementById('ctb-edit-name'); if (n) n.focus(); }
+function canteraToolboxSaveEdit(id) {
+  const list = loadCanteraToolbox();
+  const f = list.find(x => x.id === id);
+  if (!f || !_ctbCanManage(f)) return;
+  const nameEl = document.getElementById('ctb-edit-name');
+  const name = (nameEl.value || '').trim();
+  if (!name) { nameEl.focus(); nameEl.classList.add('ring-2', 'ring-rose-200'); return; }
+  f.name = name;
+  f.description = (document.getElementById('ctb-edit-desc').value || '').trim();
+  f.updatedAt = new Date().toISOString();
+  _saveRowCollection(CANTERA_TOOLBOX_KEY, list);
+  _ctbEditId = null;
+  _renderCanteraToolbox();
+  _ctbRefreshTile();
+}
+function canteraToolboxDelete(id) {
+  const f = loadCanteraToolbox().find(x => x.id === id);
+  if (!f || !_ctbCanManage(f)) return;
+  if (!confirm(`Eliminare "${f.name}" dalla Toolbox?`)) return;
+  _saveRowCollection(CANTERA_TOOLBOX_KEY, loadCanteraToolbox().filter(x => x.id !== id));
+  _sbTombstone('ctb_' + id);
+  deleteFileFromSupabase(f.path);
+  _renderCanteraToolbox();
+  _ctbRefreshTile();
+}
+// Fresh list from the cloud when the Toolbox opens (files added by others meanwhile)
+async function _pullCanteraToolbox() {
+  if (!_sb) return;
+  try {
+    const { data, error } = await _sb.from('app_data').select('key, value').like('key', 'ctb_%');
+    if (error) return;
+    const before = localStorage.getItem(CANTERA_TOOLBOX_KEY);
+    _assembleRowCollection(CANTERA_TOOLBOX_KEY, 'ctb_', (data || []).filter(r => r.key.startsWith('ctb_')).map(r => ({ id: r.key.slice(4), value: r.value })), []);
+    if (localStorage.getItem(CANTERA_TOOLBOX_KEY) === before) return;
+    const o = document.getElementById('cantera-toolbox-overlay');
+    if (o && !o.classList.contains('hidden') && !_ctbStaged && !_ctbEditId && !_ctbBusy) _renderCanteraToolboxList();
+    _ctbRefreshTile();
+  } catch(_) {}
+}
+
 // ---------- La Cantera dashboard ----------
 // Stage colors (validated: lightness band, chroma, CVD; the pink/teal pair sits in the
 // 6-8 CVD floor band, so stacked bars always carry a legend, 2px gaps and a data table).
-const CN_STAGE_COLORS = { p1: '#0284c7', p2: '#8b5cf6', p3: '#0d9488', done: '#ec4899' };
-const CN_STAGE_LABELS = { p1: 'Fase 1 · Concept', p2: 'Fase 2 · Pull', p3: 'Fase 3 · Feasibility', done: 'Completate' };
+// Canvas status colors (green/amber + neutral for missing) follow the same rules.
+const CN_STAGE_COLORS = { p1: '#0284c7', p2: '#8b5cf6', p3: '#0d9488', p4: '#ec4899', done: '#65a30d' };
+const CN_STAGE_LABELS = Object.assign(Object.fromEntries(CANTERA_PHASES.map(ph => ['p' + ph.n, 'Fase ' + ph.n + ' · ' + ph.short])), { done: 'Completate' });
 const CN_ACCENT = '#6366f1'; // single-hue magnitude bars
 let canteraView = 'ideas';
 try { canteraView = localStorage.getItem('ui_canteraView') || 'ideas'; } catch(_) {}
@@ -7101,7 +7663,7 @@ function _renderCanteraDashboard() {
   ].join('');
 
   // Ideas by stage (funnel, stage identity colors)
-  const stageKeys = ['p1', 'p2', 'p3', 'done'];
+  const stageKeys = _cPhaseNums().map(n => 'p' + n).concat(['done']);
   const stageCount = k => ideas.filter(p => _cStage(p) === k).length;
   const stageMax = Math.max(1, ...stageKeys.map(stageCount));
   const funnel = _cHBars(stageKeys.map(k => ({
@@ -7141,7 +7703,7 @@ function _renderCanteraDashboard() {
   const ownerChart = _cHBars(byOwner, Math.max(1, ...byOwner.map(x => x.value)), 'Idee attive');
 
   // Gate performance table
-  const gateRows = [1, 2, 3].map(n => {
+  const gateRows = _cPhaseNums().map(n => {
     const h = hist.filter(x => x.phase === n);
     const sub = h.filter(x => x.action === 'submitted').length;
     const ap = h.filter(x => x.action === 'approved').length;
@@ -7167,26 +7729,47 @@ function _renderCanteraDashboard() {
     </tr>`).join('')}</tbody></table></div>`;
 
   // Evidence collected across ideas
-  let interviews = 0, qualified = 0, confirmed = 0, hyps = 0, hValid = 0, hFals = 0, hOpen = 0, signals = 0, signed = 0, fundMapped = 0, fundWon = 0, fundCount = 0;
+  let needsN = 0, needsComplete = 0, blkV = 0, blkI = 0, blkM = 0, interviews = 0, qualified = 0, confirmed = 0, signals = 0, signed = 0, fundMapped = 0, fundWon = 0, fundCount = 0;
+  const perBlock = Object.fromEntries(CANTERA_CANVAS.map(b => [b.key, { validato: 0, ipotesi: 0, missing: 0 }]));
   ideas.forEach(p => {
-    const d1 = p.phases[1].data || {}, d2 = p.phases[2].data || {}, d3 = p.phases[3].data || {};
-    (d2.interviews || []).filter(r => String(r.who || '').trim()).forEach(r => { interviews++; if (r.qualified) qualified++; if (r.confirmed === 'Sì') confirmed++; });
-    const checks = d2.hypothesisCheck || {};
-    (d1.hypotheses || []).filter(h => String(h.statement || '').trim()).forEach(h => {
-      hyps++;
-      const st = (checks[h.id] || {}).status;
-      if (st === 'Validata') hValid++; else if (st === 'Falsificata') hFals++; else hOpen++;
+    const d2 = p.phases[2].data || {}, d3 = p.phases[3].data || {}, d4 = p.phases[4].data || {};
+    _cNeeds(p).filter(nd => String(nd.title || '').trim()).forEach(nd => {
+      needsN++;
+      if (_cNeedComplete(nd)) needsComplete++;
+      CANTERA_CANVAS.forEach(b => {
+        const st = _cBlockState((nd.canvas || {})[b.key]);
+        perBlock[b.key][st]++;
+        if (st === 'validato') blkV++; else if (st === 'ipotesi') blkI++; else blkM++;
+      });
     });
-    (d2.pullSignals || []).filter(r => String(r.counterpart || '').trim()).forEach(r => { signals++; if (r.status === 'Firmato / confermato') signed++; });
-    (d3.funding || []).filter(r => String(r.name || '').trim()).forEach(r => { fundCount++; fundMapped += Number(r.amount) || 0; if (r.status === 'Ottenuta') fundWon += Number(r.amount) || 0; });
+    (d2.interviews || []).filter(r => String(r.who || '').trim()).forEach(r => { interviews++; if (r.qualified) qualified++; if (r.confirmed === 'Sì') confirmed++; });
+    (d3.pullSignals || []).filter(r => String(r.counterpart || '').trim()).forEach(r => { signals++; if (r.status === 'Firmato / confermato') signed++; });
+    (d4.funding || []).filter(r => String(r.name || '').trim()).forEach(r => { fundCount++; fundMapped += Number(r.amount) || 0; if (r.status === 'Ottenuta') fundWon += Number(r.amount) || 0; });
   });
+  const blkTot = blkV + blkI + blkM;
   const ev = (label, value, sub) => `<div class="rounded-xl bg-slate-50 border border-slate-100 p-4"><div class="text-xs font-medium text-slate-500">${label}</div><div class="text-2xl font-bold text-slate-800 mt-1">${value}</div><div class="text-[11px] text-slate-500 mt-1">${sub}</div></div>`;
-  const evidence = `<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-    ${ev('Interazioni con end-user', _cFmtNum(interviews), interviews ? `${Math.round(qualified / interviews * 100)}% qualificate · ${confirmed} confermano il problema` : 'registrate nella Fase 2')}
-    ${ev('Ipotesi di valore', _cFmtNum(hyps), hyps ? `${hValid} validate · ${hFals} falsificate · ${hOpen} da testare` : 'definite nella Fase 1')}
-    ${ev('Segnali di pull', _cFmtNum(signals), signals ? `${signed} firmati / confermati (LOI, pilot…)` : 'raccolti nella Fase 2')}
-    ${ev('Funding mappato', _cFmtEur(fundMapped), fundCount ? `${fundCount} fonti · ${_cFmtEur(fundWon)} ottenuti` : 'dalla Fase 3')}
+  const evidence = `<div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+    ${ev('Bisogni mappati', _cFmtNum(needsN), needsN ? `${needsComplete} con il canvas completo` : 'descritti nella Fase 1')}
+    ${ev('Blocchi del canvas validati', blkTot ? Math.round(blkV / blkTot * 100) + '%' : '—', blkTot ? `${blkV} ${blkV === 1 ? 'validato' : 'validati'} · ${blkI} ipotesi · ${blkM} ${blkM === 1 ? 'dato mancante' : 'dati mancanti'}` : 'dai canvas dei bisogni')}
+    ${ev('Interazioni con end-user', _cFmtNum(interviews), interviews ? `${Math.round(qualified / interviews * 100)}% qualificate · ${confirmed} confermano il bisogno` : 'registrate nella Fase 2')}
+    ${ev('Segnali di interesse', _cFmtNum(signals), signals ? `${signed} firmati / confermati (LOI, pilot…)` : 'raccolti nella Fase 3')}
+    ${ev('Funding mappato', _cFmtEur(fundMapped), fundCount ? `${fundCount} fonti · ${_cFmtEur(fundWon)} ottenuti` : 'dalla Fase 4')}
   </div>`;
+
+  // Canvas strength: for each block, how many needs have it validated / as a hypothesis / missing
+  const canvasOrder = ['validato', 'ipotesi', 'missing'];
+  const canvasChart = needsN ? `<div class="flex flex-wrap gap-x-4 gap-y-1.5 mb-3">${canvasOrder.map(k => `<span class="inline-flex items-center gap-1.5 text-xs text-slate-600"><span class="w-2.5 h-2.5 rounded-sm" style="background:${_cBlockTone[k].bar}"></span>${_cBlockTone[k].label}</span>`).join('')}</div>
+    <div class="space-y-2">${CANTERA_CANVAS.map((b, i) => {
+      const c = perBlock[b.key];
+      return `<div class="grid grid-cols-[minmax(7rem,11rem)_1fr_2.75rem] items-center gap-3">
+        <div class="text-sm text-slate-700 truncate" title="${esc(b.title)}"><span class="text-slate-400 tabular-nums mr-1">${i + 1}</span>${esc(b.title)}</div>
+        <div class="flex h-4 gap-[2px]">${canvasOrder.filter(k => c[k]).map((k, j, arr) => `<div class="h-full ${j === 0 ? 'rounded-l' : ''} ${j === arr.length - 1 ? 'rounded-r' : ''}" style="flex:${c[k]};background:${_cBlockTone[k].bar}" data-tip="${_cTip(esc(b.title) + ' · ' + _cBlockTone[k].label, [['Bisogni', _cFmtNum(c[k])], ['Su un totale di', _cFmtNum(needsN)]])}"></div>`).join('')}</div>
+        <span class="text-xs font-semibold text-slate-700 tabular-nums text-right" title="Bisogni con il blocco validato">${Math.round(c.validato / needsN * 100)}%</span>
+      </div>`;
+    }).join('')}</div>
+    <p class="text-[11px] text-slate-500 mt-3">A destra, la quota di bisogni in cui il blocco è validato. I blocchi con più dati mancanti indicano dove concentrare le verifiche.</p>`
+    + _cDataTable(['Blocco', 'Validato', 'Ipotesi', 'Dato mancante'], CANTERA_CANVAS.map(b => [b.title, perBlock[b.key].validato, perBlock[b.key].ipotesi, perBlock[b.key].missing]))
+    : '<p class="text-sm text-slate-400">Ancora nessun bisogno descritto nelle idee filtrate.</p>';
 
   // New ideas per month (last 12 months)
   const now = new Date();
@@ -7250,6 +7833,7 @@ function _renderCanteraDashboard() {
     </div>
     ${_cCard('Performance dei gate', 'Decisioni del Venture Building e durata effettiva delle fasi superate rispetto al piano', gateTable, 'mb-5')}
     ${_cCard('Evidenze raccolte', 'Somma di quanto registrato nei template di tutte le idee filtrate', evidence, 'mb-5')}
+    ${_cCard('Canvas dei bisogni', 'Solidità di ciascun blocco del canvas su tutti i bisogni descritti nella Fase 1', canvasChart, 'mb-5')}
     ${_cCard('Nuove idee per mese', 'Ultimi 12 mesi, per data di creazione', monthChart)}`}
   </div>`;
   if (!canEdit('cantera')) applyReadonlyToPage('cantera');
