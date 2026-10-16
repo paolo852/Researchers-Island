@@ -322,6 +322,8 @@ setTimeout(function(){
   <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Toolbox"><div id="cantera-toolbox-body"></div></div>
 </div>
 
+<input id="cn-photo-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="canteraPhotoPicked(this)">
+
 <div id="cantera-modal-overlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center overflow-y-auto py-10" onclick="if(event.target===this) closeCanteraModal()">
   <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl"><div id="cantera-modal-body"></div></div>
 </div>
@@ -4468,7 +4470,8 @@ const _TI_PATHS = {
   edit: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
   bulb: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
   inbox: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
-  toolbox: 'M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 9a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM3 13h18M8 11.5v3M16 11.5v3'
+  toolbox: 'M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 9a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM3 13h18M8 11.5v3M16 11.5v3',
+  camera: 'M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM15 13a3 3 0 11-6 0 3 3 0 016 0z'
 };
 function _ti(name, cls) {
   return `<svg class="${cls || 'w-4 h-4'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="${_TI_PATHS[name]}"/></svg>`;
@@ -5629,7 +5632,7 @@ const CANTERA_MSGS_KEY = 'dealflow_cantera_msgs';
 const CANTERA_PHASES = [
   {
     n: 1, name: 'Identificare e comprendere il bisogno', short: 'Bisogno', weeks: 3,
-    color: { card: 'bg-sky-50 border-sky-200', bar: 'bg-sky-500', num: 'bg-sky-500', title: 'text-sky-900', chip: 'bg-sky-100 text-sky-700', value: 'text-sky-600' },
+    color: { card: 'bg-sky-50 border-sky-200', bar: 'bg-sky-500', num: 'bg-sky-500', title: 'text-sky-900', chip: 'bg-sky-100 text-sky-700', value: 'text-sky-600', edge: 'border-l-sky-500', ring: 'ring-sky-100', fill: 'bg-sky-400' },
     question: 'Qual è il bisogno reale, di chi è e quanto conta?',
     output: 'I bisogni su cui si lavora, ciascuno descritto con il canvas a 12 blocchi, distinguendo evidenze, ipotesi e dati mancanti.',
     sections: [
@@ -5639,7 +5642,7 @@ const CANTERA_PHASES = [
   },
   {
     n: 2, name: 'Esplorare le possibili soluzioni', short: 'Soluzioni', weeks: 3,
-    color: { card: 'bg-violet-50 border-violet-200', bar: 'bg-violet-500', num: 'bg-violet-500', title: 'text-violet-900', chip: 'bg-violet-100 text-violet-700', value: 'text-violet-600' },
+    color: { card: 'bg-violet-50 border-violet-200', bar: 'bg-violet-500', num: 'bg-violet-500', title: 'text-violet-900', chip: 'bg-violet-100 text-violet-700', value: 'text-violet-600', edge: 'border-l-violet-500', ring: 'ring-violet-100', fill: 'bg-violet-400' },
     question: 'Quali soluzioni possono rispondere al bisogno?',
     output: 'Una mappa delle soluzioni possibili, comprese quelle già esistenti, confrontate con end-user e stakeholder e con i criteri per scegliere.',
     sections: [
@@ -5669,7 +5672,7 @@ const CANTERA_PHASES = [
   },
   {
     n: 3, name: 'Scelta della soluzione e fattibilità', short: 'Fattibilità', weeks: 4,
-    color: { card: 'bg-teal-50 border-teal-200', bar: 'bg-teal-500', num: 'bg-teal-500', title: 'text-teal-900', chip: 'bg-teal-100 text-teal-700', value: 'text-teal-600' },
+    color: { card: 'bg-teal-50 border-teal-200', bar: 'bg-teal-500', num: 'bg-teal-500', title: 'text-teal-900', chip: 'bg-teal-100 text-teal-700', value: 'text-teal-600', edge: 'border-l-teal-500', ring: 'ring-teal-100', fill: 'bg-teal-400' },
     question: 'Quale soluzione sviluppiamo, e possiamo realizzarla?',
     output: 'La soluzione scelta con le motivazioni, i segnali di interesse concreti (LOI, pilot) e il piano tecnico: traiettoria TRL, milestone e risorse.',
     sections: [
@@ -5701,7 +5704,7 @@ const CANTERA_PHASES = [
   },
   {
     n: 4, name: 'Piano di investimento', short: 'Investimento', weeks: 2,
-    color: { card: 'bg-pink-50 border-pink-200', bar: 'bg-pink-500', num: 'bg-pink-500', title: 'text-pink-900', chip: 'bg-pink-100 text-pink-700', value: 'text-pink-600' },
+    color: { card: 'bg-pink-50 border-pink-200', bar: 'bg-pink-500', num: 'bg-pink-500', title: 'text-pink-900', chip: 'bg-pink-100 text-pink-700', value: 'text-pink-600', edge: 'border-l-pink-500', ring: 'ring-pink-100', fill: 'bg-pink-400' },
     question: 'Quanto serve, da dove arrivano le risorse e con quale struttura?',
     output: 'Budget e uso dei fondi, funding roadmap con le call pubbliche reali mappate e scenario equity.',
     sections: [
@@ -5956,7 +5959,7 @@ function _cNode(state, n, big) {
   const ic = big ? 'w-4 h-4' : 'w-3.5 h-3.5';
   const base = `${size} rounded-full flex items-center justify-center font-bold flex-shrink-0`;
   if (state === 'passed') return `<span class="${base} bg-emerald-500 text-white" title="Fase ${n} superata">${_ti('check', ic)}</span>`;
-  if (state === 'active') return `<span class="${base} bg-indigo-600 text-white ring-4 ring-indigo-100" title="Fase ${n} in corso">${n}</span>`;
+  if (state === 'active') { const c = (_cPhase(n) || {}).color || {}; return `<span class="${base} ${c.num || 'bg-indigo-600'} text-white ring-4 ${c.ring || 'ring-indigo-100'}" title="Fase ${n} in corso">${n}</span>`; }
   if (state === 'review') return `<span class="${base} bg-amber-500 text-white ring-4 ring-amber-100" title="Fase ${n} al gate">${_ti('clock', ic)}</span>`;
   if (state === 'stopped') return `<span class="${base} bg-rose-500 text-white" title="Idea fermata">${_ti('x', ic)}</span>`;
   return `<span class="${base} bg-slate-100 text-slate-400 border border-slate-200" title="Fase ${n} bloccata">${_ti('lock', big ? 'w-4 h-4' : 'w-3 h-3')}</span>`;
@@ -5974,7 +5977,7 @@ function _cJourney(p) {
     else if (st === 'active' || st === 'review') {
       const tb = _cTimebox(p, n);
       fill = tb && !tb.notStarted ? Math.max(4, tb.pct) : 0;
-      col = st === 'review' ? 'bg-amber-400' : tb && tb.overdue ? 'bg-rose-400' : 'bg-indigo-400';
+      col = st === 'review' ? 'bg-amber-400' : tb && tb.overdue ? 'bg-rose-400' : _cPhase(n).color.fill;
     }
     return `<div class="flex-1 h-1.5 mx-1 rounded-full bg-slate-200 overflow-hidden"><div class="h-full ${col} rounded-full" style="width:${fill}%"></div></div>`;
   };
@@ -5996,8 +5999,8 @@ function _cStatusPill(p) {
   if (p.phases[n].state === 'review') return pill('Al gate ' + n, 'bg-amber-50 text-amber-700');
   const tb = _cTimebox(p, n);
   if (tb && tb.overdue) return pill('Fase ' + n + ' · in ritardo', 'bg-rose-50 text-rose-700');
-  if (tb && tb.notStarted) return pill('Fase ' + n + ' · dal ' + _cShortDate(tb.start), 'bg-indigo-50 text-indigo-700');
-  return pill('Fase ' + n + (tb ? ' · sett. ' + tb.week + '/' + tb.weeks : ''), 'bg-indigo-50 text-indigo-700');
+  if (tb && tb.notStarted) return pill('Fase ' + n + ' · dal ' + _cShortDate(tb.start), _cPhase(n).color.chip);
+  return pill('Fase ' + n + (tb ? ' · sett. ' + tb.week + '/' + tb.weeks : ''), _cPhase(n).color.chip);
 }
 
 function refreshCanteraNavBadge() {
@@ -6144,32 +6147,50 @@ function _renderCanteraGrid() {
   const extraOwners = [...byOwner.keys()].filter(id => !team.some(m => m.id === id));
   const without = team.filter(m => !byOwner.has(m.id));
 
-  const projectCard = p => `
-    <button type="button" onclick="openCanteraProject('${esc(p.id)}')" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 transition">
+  // Idea tile: left edge and status in the color of the idea's current phase
+  const projectCard = p => {
+    const edge = p.status === 'completed' ? 'border-l-emerald-500' : p.status === 'stopped' ? 'border-l-rose-400' : _cPhase(p.currentPhase).color.edge;
+    return `
+    <button type="button" onclick="openCanteraProject('${esc(p.id)}')" class="w-full text-left p-3.5 rounded-xl bg-white border border-slate-200 border-l-4 ${edge} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <div class="flex items-center gap-2 min-w-0"><span class="font-medium text-slate-800 truncate">${esc(p.title)}</span>${_cSectorBadge(p.sector)}</div>
+          <div class="flex items-center gap-2 min-w-0"><span class="font-semibold text-slate-800 truncate">${esc(p.title)}</span>${_cSectorBadge(p.sector)}</div>
           ${p.oneLiner ? `<div class="text-xs text-slate-500 truncate mt-0.5">${esc(p.oneLiner)}</div>` : ''}
         </div>
         ${_cStatusPill(p)}
       </div>
       <div class="mt-3">${_cJourney(p)}</div>
     </button>`;
+  };
   const personCard = (m, projects) => {
     const sorted = projects.slice().sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     const nActive = projects.filter(p => p.status === 'active').length;
+    const nReview = projects.filter(p => p.status === 'active' && p.phases[p.currentPhase].state === 'review').length;
+    const nLate = projects.filter(_cIsLate).length;
+    const nDone = projects.filter(p => p.status === 'completed').length;
+    const stat = (v, label, cls) => `<span class="inline-flex items-baseline gap-1 rounded-lg px-2 py-1 text-[11px] font-medium ${cls}"><span class="text-sm font-bold tabular-nums">${v}</span>${label}</span>`;
     return `
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col">
-      <div class="flex items-center gap-3 mb-3">
-        ${_avatarHtml(m, 'w-10 h-10 text-sm')}
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-slate-800 truncate">${m ? esc(m.name) : 'Responsabile non più nel team'}</div>
-          <div class="text-xs text-slate-500">${nActive} idee attive · ${projects.length} totali</div>
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+      <div class="flex h-1" aria-hidden="true">${CANTERA_PHASES.map(ph => `<div class="flex-1 ${ph.color.bar}"></div>`).join('')}</div>
+      <div class="px-4 pt-4 pb-3.5 bg-gradient-to-br from-amber-100/80 via-orange-50 to-white border-b border-amber-100">
+        <div class="flex items-start gap-3.5">
+          ${_cPmPhotoHtml(m)}
+          <div class="flex-1 min-w-0">
+            <div class="text-lg font-bold text-slate-900 leading-tight truncate">${m ? esc(m.name) : 'Responsabile non più nel team'}</div>
+            ${m && m.role ? `<div class="text-xs text-slate-600 mt-0.5">${esc(m.role)}</div>` : ''}
+            ${(() => { const sec = _cMemberSectorsHtml(m); return sec ? `<div class="mt-2">${sec}</div>` : ''; })()}
+          </div>
+          ${m && _cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-100 rounded-lg px-2.5 py-1.5 shadow-sm whitespace-nowrap">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
         </div>
-        ${m && _cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">+ Nuova idea</button>` : ''}
+        <div class="flex flex-wrap gap-1.5 mt-3">
+          ${stat(nActive, nActive === 1 ? 'attiva' : 'attive', 'bg-white/80 text-slate-700 ring-1 ring-slate-200')}
+          ${nReview ? stat(nReview, 'al gate', 'bg-amber-100 text-amber-800') : ''}
+          ${nLate ? stat(nLate, 'in ritardo', 'bg-rose-100 text-rose-700') : ''}
+          ${nDone ? stat(nDone, nDone === 1 ? 'completata' : 'completate', 'bg-emerald-100 text-emerald-700') : ''}
+          ${projects.length !== nActive ? stat(projects.length, 'in totale', 'bg-white/60 text-slate-500') : ''}
+        </div>
       </div>
-      ${(() => { const sec = _cMemberSectorsHtml(m); return sec ? `<div class="-mt-1 mb-3 pl-[3.25rem]">${sec}</div>` : ''; })()}
-      <div class="space-y-2.5">${sorted.map(projectCard).join('')}</div>
+      <div class="p-3 space-y-2.5 bg-slate-50/70 flex-1">${sorted.map(projectCard).join('')}</div>
     </div>`;
   };
 
@@ -6468,6 +6489,44 @@ function saveCanteraSectors(e) {
   renderCantera();
 }
 
+// PM photo on the card: same photo as the Team page, changeable here by admins or the person
+let _cPhotoFor = null;
+function _cPmPhotoHtml(m) {
+  const big = 'w-16 h-16 text-lg shadow-md';
+  if (!m || !_cCanEditSectors(m.id)) return _avatarHtml(m, big);
+  return `<button type="button" onclick="canteraPickPhoto('${esc(m.id)}')" title="${m.photo ? 'Cambia la foto' : 'Aggiungi una foto'}" class="group relative flex-shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    ${_avatarHtml(m, big)}
+    <span class="absolute inset-0 rounded-full bg-slate-900/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition">${_ti('camera', 'w-5 h-5')}<span class="text-[9px] font-semibold mt-0.5">${m.photo ? 'Cambia' : 'Aggiungi'}</span></span>
+    ${m.photo ? '' : `<span class="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 flex items-center justify-center">${_ti('camera', 'w-3.5 h-3.5')}</span>`}
+  </button>`;
+}
+function canteraPickPhoto(memberId) {
+  if (!_cCanEditSectors(memberId)) return;
+  _cPhotoFor = memberId;
+  const inp = document.getElementById('cn-photo-input');
+  inp.value = '';
+  inp.click();
+}
+async function canteraPhotoPicked(inp) {
+  const file = inp.files && inp.files[0];
+  const id = _cPhotoFor;
+  _cPhotoFor = null;
+  if (!file || !id || !_cCanEditSectors(id)) return;
+  try {
+    const photo = await _squarePhoto(file, 320);
+    const team = loadTeam();
+    const m = team.find(x => x.id === id);
+    if (!m) return;
+    m.photo = photo;
+    m.updatedAt = new Date().toISOString();
+    saveTeam(team);
+    _taskTeamIdx = null;
+    renderCantera();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 // ---------- new / edit idea ----------
 function openCanteraModal(editId, presetOwner, focusDates) {
   const me = currentUser();
@@ -6665,7 +6724,7 @@ function _renderCanteraProject() {
     else if (p.status === 'stopped') line = 'Idea fermata';
     else if (tb) line = tb.notStarted ? `Inizio previsto il ${_cFmtDate(tb.start)}` : tb.overdue ? `In ritardo di ${tb.lateBy} giorni (fine prevista ${_cFmtDate(tb.deadline)})` : `Settimana ${tb.week} di ${tb.weeks} · fino al ${_cFmtDate(tb.deadline)}`;
     const bar = (ph.state === 'active' || ph.state === 'review') && tb && p.status === 'active'
-      ? `<div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${ph.state === 'review' ? 'bg-amber-400' : tb.overdue ? 'bg-rose-400' : 'bg-indigo-500'}" style="width:${Math.max(4, tb.pct)}%"></div></div>` : '';
+      ? `<div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${ph.state === 'review' ? 'bg-amber-400' : tb.overdue ? 'bg-rose-400' : meta.color.bar}" style="width:${Math.max(4, tb.pct)}%"></div></div>` : '';
     const mc = msgCount(n);
     return `
     <button type="button" ${locked ? 'data-locked="true" title="Fase bloccata: anteprima in sola lettura"' : ''} onclick="canteraSelectPhase(${n})"
@@ -6675,7 +6734,7 @@ function _renderCanteraProject() {
       <div class="flex items-start gap-3">
         ${_cNode(state, n, true)}
         <div class="min-w-0 flex-1">
-          <div class="text-[11px] font-semibold uppercase tracking-wide ${locked ? 'text-slate-400' : 'text-indigo-600'}">Fase ${n} · ${tb ? _cShortDate(tb.start) + ' – ' + _cShortDate(tb.deadline) : meta.weeks + ' settimane'}</div>
+          <div class="text-[11px] font-semibold uppercase tracking-wide ${locked ? 'text-slate-400' : meta.color.value}">Fase ${n} · ${tb ? _cShortDate(tb.start) + ' – ' + _cShortDate(tb.deadline) : meta.weeks + ' settimane'}</div>
           <div class="font-semibold text-slate-800 leading-snug">${meta.name}</div>
         </div>
         ${mc ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${mc} messaggi">${_ti('chat', 'w-3.5 h-3.5')}${mc}</span>` : ''}
@@ -10552,7 +10611,7 @@ function openTeamModal(id) {
         </div>
         <div class="flex-1">
           <div class="text-sm font-medium text-slate-600 mb-1">Foto profilo</div>
-          <div class="text-xs text-slate-400">JPG o PNG, max 1 MB</div>
+          <div class="text-xs text-slate-400">JPG o PNG: viene ritagliata quadrata</div>
           ${m&&m.photo ? `<button type="button" onclick="removeTeamPhoto()" class="mt-1 text-xs text-red-500 hover:text-red-700 underline">Rimuovi foto</button>` : ''}
         </div>
         <input id="avatar-file-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="previewTeamPhoto(event)">
@@ -10735,13 +10794,35 @@ function applyPermissionsToSidebar() {
 
 let _teamPhotoData = undefined; // holds base64 data URL during modal editing
 
+// Profile photos: cropped to a square (keeping the upper part, where faces usually are)
+// and scaled down to a small JPEG so team records stay light.
+function _squarePhoto(file, size) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type)) { reject(new Error('Scegli un\'immagine JPG, PNG o WebP.')); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight, s = Math.min(w, h);
+      const out = Math.min(size, s);
+      const c = document.createElement('canvas');
+      c.width = c.height = out;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, out, out);
+      ctx.drawImage(img, (w - s) / 2, (h - s) * 0.3, s, s, 0, 0, out, out);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Impossibile leggere l\'immagine.')); };
+    img.src = url;
+  });
+}
+
 function previewTeamPhoto(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
-  if (file.size > 1.2 * 1024 * 1024) { alert('La foto deve essere inferiore a 1 MB.'); return; }
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    _teamPhotoData = e.target.result;
+  _squarePhoto(file, 320).then(function(data) {
+    _teamPhotoData = data;
     const preview = document.getElementById('avatar-preview');
     if (preview) preview.innerHTML = `<img src="${_teamPhotoData}" class="w-full h-full object-cover">`;
     const removeBtn = document.getElementById('avatar-remove-btn');
@@ -10757,8 +10838,7 @@ function previewTeamPhoto(event) {
         textCol.appendChild(btn);
       }
     }
-  };
-  reader.readAsDataURL(file);
+  }).catch(function(err) { alert(err.message); });
 }
 
 function removeTeamPhoto() {
