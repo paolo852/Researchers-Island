@@ -6168,6 +6168,7 @@ function _renderCanteraGrid() {
         </div>
         ${m && _cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">+ Nuova idea</button>` : ''}
       </div>
+      ${(() => { const sec = _cMemberSectorsHtml(m); return sec ? `<div class="-mt-1 mb-3 pl-[3.25rem]">${sec}</div>` : ''; })()}
       <div class="space-y-2.5">${sorted.map(projectCard).join('')}</div>
     </div>`;
   };
@@ -6201,6 +6202,7 @@ function _renderCanteraGrid() {
         ${without.map(m => `
           <div class="inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-slate-200 bg-slate-50">
             ${_avatarHtml(m, 'w-6 h-6 text-[10px]')}<span class="text-xs text-slate-700">${esc(m.name)}</span>
+            ${_cMemberSectorsHtml(m, true)}
             ${_cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" title="Nuova idea per ${esc(m.name)}" class="w-5 h-5 rounded-full text-indigo-600 hover:bg-indigo-100 flex items-center justify-center">${_ti('plus', 'w-3.5 h-3.5')}</button>` : ''}
           </div>`).join('')}
       </div>
@@ -6311,7 +6313,7 @@ function openCanteraPeopleModal() {
             ${_avatarHtml(m, 'w-7 h-7 text-[10px]')}
             <span class="flex-1 min-w-0">
               <span class="block text-sm font-medium text-slate-800 truncate">${esc(m.name)}${dup.has(m.id) ? ' <span class="text-[10px] font-semibold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 align-middle">duplicato</span>' : ''}</span>
-              <span class="block text-[11px] text-slate-500 truncate">${esc(m.email || 'senza email')}${m.canLogin ? ' · accesso attivo' : ''}${owners.has(m.id) ? ' · ha idee' : ''}</span>
+              <span class="block text-[11px] text-slate-500 truncate">${esc(m.email || 'senza email')}${m.canLogin ? ' · accesso attivo' : ''}${owners.has(m.id) ? ' · ha idee' : ''}${(m.canteraSectors || []).length ? ' · ' + esc(m.canteraSectors.join(', ')) : ''}</span>
             </span>
           </label>`).join('') || '<div class="p-4 text-sm text-slate-500">Nessun membro attivo nel Team.</div>'}
       </div>
@@ -6335,6 +6337,133 @@ function saveCanteraPeople(e) {
   });
   if (changed) saveTeam(team);
   _taskTeamIdx = null;
+  closeCanteraModal();
+  renderCantera();
+}
+
+// ---------- sectors each product manager works on (free tags on the team member) ----------
+let _cSecDraft = null; // { memberId, tags }
+function _cNormTag(t) { return String(t || '').replace(/\s+/g, ' ').trim().slice(0, 40); }
+function _cSectorSuggestions() {
+  const seen = new Map();
+  const add = s => { const t = _cNormTag(s); if (t && !seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t); };
+  CANTERA_SECTORS.forEach(([n]) => add(n));
+  loadTeam().forEach(m => (m.canteraSectors || []).forEach(add));
+  loadCantera().forEach(p => add(p.sector));
+  return [...seen.values()];
+}
+function _cCanEditSectors(memberId) {
+  const me = currentUser();
+  return !!me && canEdit('cantera') && (isAdminMember(me) || me.id === memberId);
+}
+function _cMemberSectorsHtml(m, compact) {
+  if (!m) return '';
+  const tags = (m.canteraSectors || []).filter(Boolean);
+  const can = _cCanEditSectors(m.id);
+  if (!tags.length && !can) return '';
+  const shown = compact ? tags.slice(0, 3) : tags;
+  const more = tags.length - shown.length;
+  const edit = !can ? '' : tags.length
+    ? `<button type="button" onclick="openCanteraSectors('${esc(m.id)}')" title="Modifica i settori di ${esc(m.name)}" class="w-6 h-6 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center flex-shrink-0">${_ti('edit', 'w-3.5 h-3.5')}</button>`
+    : `<button type="button" onclick="openCanteraSectors('${esc(m.id)}')" class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-indigo-700 border border-dashed border-slate-300 hover:border-indigo-300 rounded-full px-2 py-0.5 whitespace-nowrap">${_ti('plus', 'w-3 h-3')}${compact ? 'Settori' : 'Settori di lavoro'}</button>`;
+  return `<div class="flex flex-wrap items-center gap-1.5" data-sectors-of="${esc(m.id)}">${shown.map(_cSectorBadge).join('')}${more > 0 ? `<span class="text-[11px] text-slate-500" title="${esc(tags.slice(3).join(', '))}">+${more}</span>` : ''}${edit}</div>`;
+}
+
+function openCanteraSectors(memberId) {
+  const m = loadTeam().find(x => x.id === memberId);
+  if (!m || !_cCanEditSectors(memberId)) return;
+  _cSecDraft = { memberId, tags: (m.canteraSectors || []).slice() };
+  document.getElementById('cantera-modal-body').innerHTML = `
+    <form onsubmit="saveCanteraSectors(event)" class="p-6">
+      <div class="flex items-center gap-3">
+        ${_avatarHtml(m, 'w-10 h-10 text-sm')}
+        <div class="min-w-0">
+          <h2 class="text-lg font-bold text-slate-800 leading-tight">Settori di lavoro</h2>
+          <p class="text-xs text-slate-500 truncate">${esc(m.name)}</p>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 mt-3">Indica i settori su cui lavorerà. Scrivi un settore e premi Invio, oppure scegline uno tra i suggerimenti.</p>
+      <div onclick="document.getElementById('cn-sec-input').focus()" class="mt-3 flex flex-wrap items-center gap-1.5 border border-slate-200 rounded-xl px-2.5 py-2 min-h-[2.75rem] cursor-text focus-within:ring-2 focus-within:ring-indigo-300">
+        <span id="cn-sec-chips" class="contents"></span>
+        <input id="cn-sec-input" maxlength="40" autocomplete="off" placeholder="Aggiungi un settore…" onkeydown="_cSecKey(event)" oninput="_cSecRenderSugg()" class="flex-1 min-w-[9rem] text-sm bg-transparent border-0 p-0.5 focus:outline-none focus:ring-0">
+      </div>
+      <div class="mt-4">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Suggerimenti</div>
+        <div id="cn-sec-sugg" class="flex flex-wrap gap-1.5 mt-1.5"></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-5">
+        <button type="button" onclick="closeCanteraModal()" class="px-4 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100">Annulla</button>
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Salva</button>
+      </div>
+    </form>`;
+  _cSecRenderChips();
+  _cSecRenderSugg();
+  document.getElementById('cantera-modal-overlay').classList.remove('hidden');
+  document.getElementById('cn-sec-input').focus();
+}
+function _cSecRenderChips() {
+  const el = document.getElementById('cn-sec-chips');
+  if (!el || !_cSecDraft) return;
+  el.innerHTML = _cSecDraft.tags.map((t, i) => {
+    const known = CANTERA_SECTORS.find(([n]) => n.toLowerCase() === t.toLowerCase());
+    return `<span class="inline-flex items-center gap-1 text-xs font-semibold pl-2 pr-1 py-0.5 rounded-full ${known ? known[1] : 'bg-slate-100 text-slate-700'}">${esc(t)}<button type="button" onclick="event.stopPropagation(); _cSecRemove(${i})" title="Rimuovi ${esc(t)}" class="w-4 h-4 rounded-full flex items-center justify-center opacity-60 hover:opacity-100 hover:bg-black/10">${_ti('x', 'w-3 h-3')}</button></span>`;
+  }).join('');
+}
+function _cSecRenderSugg() {
+  const el = document.getElementById('cn-sec-sugg');
+  if (!el || !_cSecDraft) return;
+  const q = _cNormTag((document.getElementById('cn-sec-input') || {}).value).toLowerCase();
+  const chosen = new Set(_cSecDraft.tags.map(t => t.toLowerCase()));
+  const list = _cSectorSuggestions().filter(s => !chosen.has(s.toLowerCase()) && (!q || s.toLowerCase().includes(q)));
+  const exact = q && list.some(s => s.toLowerCase() === q);
+  el.innerHTML = list.map(s => `<button type="button" onmousedown="event.preventDefault()" onclick="_cSecAdd(${esc(JSON.stringify(s))})" class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50">${_ti('plus', 'w-3 h-3')}${esc(s)}</button>`).join('')
+    + (q && !exact && !chosen.has(q) ? `<button type="button" onmousedown="event.preventDefault()" onclick="_cSecAdd(document.getElementById('cn-sec-input').value)" class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border border-dashed border-indigo-300 text-indigo-700 bg-indigo-50/50">${_ti('plus', 'w-3 h-3')}Crea "${esc(_cNormTag(document.getElementById('cn-sec-input').value))}"</button>` : '')
+    || '<span class="text-xs text-slate-400">Nessun suggerimento: scrivi il nome del settore e premi Invio.</span>';
+}
+function _cSecAdd(raw) {
+  if (!_cSecDraft) return;
+  const t = _cNormTag(raw);
+  const input = document.getElementById('cn-sec-input');
+  if (input) input.value = '';
+  if (t && !_cSecDraft.tags.some(x => x.toLowerCase() === t.toLowerCase())) {
+    // Reuse the spelling already in use (e.g. "medtech" → "Medtech")
+    const canon = _cSectorSuggestions().find(s => s.toLowerCase() === t.toLowerCase());
+    _cSecDraft.tags.push(canon || t);
+  }
+  _cSecRenderChips();
+  _cSecRenderSugg();
+  if (input) input.focus();
+}
+function _cSecRemove(i) {
+  if (!_cSecDraft) return;
+  _cSecDraft.tags.splice(i, 1);
+  _cSecRenderChips();
+  _cSecRenderSugg();
+  const input = document.getElementById('cn-sec-input');
+  if (input) input.focus();
+}
+function _cSecKey(e) {
+  const input = e.target;
+  if ((e.key === 'Enter' || e.key === ',') && input.value.trim()) { e.preventDefault(); _cSecAdd(input.value); return; }
+  if (e.key === ',') { e.preventDefault(); return; }
+  if (e.key === 'Backspace' && !input.value && _cSecDraft && _cSecDraft.tags.length) { _cSecRemove(_cSecDraft.tags.length - 1); }
+}
+function saveCanteraSectors(e) {
+  e.preventDefault();
+  if (!_cSecDraft || !_cCanEditSectors(_cSecDraft.memberId)) return;
+  const pending = (document.getElementById('cn-sec-input') || {}).value;
+  if (pending && pending.trim()) _cSecAdd(pending);
+  const team = loadTeam();
+  const m = team.find(x => x.id === _cSecDraft.memberId);
+  if (!m) return;
+  const before = JSON.stringify(m.canteraSectors || []);
+  if (JSON.stringify(_cSecDraft.tags) !== before) {
+    m.canteraSectors = _cSecDraft.tags.slice();
+    m.updatedAt = new Date().toISOString();
+    saveTeam(team);
+    _taskTeamIdx = null;
+  }
+  _cSecDraft = null;
   closeCanteraModal();
   renderCantera();
 }
@@ -6374,7 +6503,8 @@ function openCanteraModal(editId, presetOwner, focusDates) {
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Settore applicativo *</label>
         ${(() => {
-          const cur = p ? p.sector || '' : '';
+          const ownerSectors = ((loadTeam().find(x => x.id === owner) || {}).canteraSectors || []).filter(Boolean);
+          const cur = p ? p.sector || '' : ownerSectors.length === 1 ? ownerSectors[0] : '';
           const custom = cur && !CANTERA_SECTORS.some(([n]) => n === cur);
           return `<select id="cn-m-sector" required onchange="document.getElementById('cn-m-sector-custom').classList.toggle('hidden', this.value !== '__custom__'); if (this.value === '__custom__') document.getElementById('cn-m-sector-custom').focus();" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300">
             <option value="">— Seleziona settore —</option>
