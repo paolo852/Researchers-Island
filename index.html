@@ -116,7 +116,7 @@ setTimeout(function(){
       Impostazioni
     </button>
     <div class="pt-3 mt-3 border-t border-slate-700">
-      <button onclick="canteraOpenId = null; navigate('cantera')" id="nav-cantera" class="sidebar-link cantera-link w-full text-left">
+      <button onclick="canteraOpenId = null; canteraPmOpen = null; navigate('cantera')" id="nav-cantera" class="sidebar-link cantera-link w-full text-left">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
         <span class="flex-1">La Cantera</span>
         <span id="nav-cantera-badge" class="hidden"></span>
@@ -1112,7 +1112,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox(', 'canteraChatAt(', 'toggleCanteraPmTasks('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox(', 'canteraChatAt(', 'openCanteraPm(', 'closeCanteraPm('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -5902,6 +5902,7 @@ let _canteraModalEditId = null;
 let _canteraSig = '';
 let _canteraShownPhase = null;
 let canteraNeedOpen = null; // need whose canvas is open in Phase 1
+let canteraPmOpen = null;   // product manager page open (member id)
 
 // ---------- storage & helpers ----------
 function loadCantera() {
@@ -6114,6 +6115,7 @@ function renderCantera() {
   if (canteraOpenId && _canteraGet(canteraOpenId)) { _renderCanteraProject(); return; }
   canteraOpenId = null;
   clearInterval(_canteraPollTimer);
+  if (canteraPmOpen) { _renderCanteraPm(); refreshCanteraNavBadge(); return; }
   if (canteraView === 'dashboard') { _renderCanteraDashboard(); refreshCanteraNavBadge(); return; }
   const me = currentUser();
   let howtoHidden = false;
@@ -6230,39 +6232,27 @@ function _renderCanteraGrid() {
   const extraOwners = [...byOwner.keys()].filter(id => !team.some(m => m.id === id));
   const without = team.filter(m => !byOwner.has(m.id));
 
-  // Idea tile: left edge and status in the color of the idea's current phase
-  const projectCard = p => {
-    const edge = p.status === 'completed' ? 'border-l-emerald-500' : p.status === 'stopped' ? 'border-l-rose-400' : _cPhase(p.currentPhase).color.edge;
-    return `
-    <button type="button" onclick="openCanteraProject('${esc(p.id)}')" class="w-full text-left p-3.5 rounded-xl bg-white border border-slate-200 border-l-4 ${edge} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition">
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 min-w-0"><span class="font-semibold text-slate-800 truncate">${esc(p.title)}</span>${_cSectorBadge(p.sector)}</div>
-          ${p.oneLiner ? `<div class="text-xs text-slate-500 truncate mt-0.5">${esc(p.oneLiner)}</div>` : ''}
-        </div>
-        ${_cStatusPill(p)}
-      </div>
-      <div class="mt-3">${_cJourney(p)}</div>
-    </button>`;
-  };
-  const personCard = (m, projects) => {
+  // The whole card opens the product manager page
+  const personCard = (m, projects, ownerId) => {
     const sorted = projects.slice().sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     const nActive = projects.filter(p => p.status === 'active').length;
     const nReview = projects.filter(p => p.status === 'active' && p.phases[p.currentPhase].state === 'review').length;
     const nLate = projects.filter(_cIsLate).length;
     const nDone = projects.filter(p => p.status === 'completed').length;
     const stat = (v, label, cls) => `<span class="inline-flex items-baseline gap-1 rounded-lg px-2 py-1 text-[11px] font-medium ${cls}"><span class="text-sm font-bold tabular-nums">${v}</span>${label}</span>`;
+    const name = m ? m.name : 'Responsabile non più nel team';
     return `
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+    <div role="link" tabindex="0" aria-label="Apri la scheda di ${esc(name)}" onclick="openCanteraPm('${esc(ownerId)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCanteraPm('${esc(ownerId)}')}"
+      class="group bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col cursor-pointer transition hover:shadow-lg hover:-translate-y-0.5 hover:border-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
       <div class="flex h-1" aria-hidden="true">${CANTERA_PHASES.map(ph => `<div class="flex-1 ${ph.color.bar}"></div>`).join('')}</div>
       <div class="px-4 pt-4 pb-3.5 bg-gradient-to-br from-amber-100/80 via-orange-50 to-white border-b border-amber-100">
         <div class="flex items-start gap-3.5">
-          ${_cPmPhotoHtml(m)}
+          ${_avatarHtml(m, 'w-16 h-16 text-lg shadow-md')}
           <div class="flex-1 min-w-0">
-            <div class="text-lg font-bold text-slate-900 leading-tight truncate">${m ? esc(m.name) : 'Responsabile non più nel team'}</div>
-            ${(() => { const sec = _cMemberSectorsHtml(m); return sec ? `<div class="mt-2">${sec}</div>` : ''; })()}
+            <div class="text-lg font-bold text-slate-900 leading-tight truncate">${esc(name)}</div>
+            ${(() => { const sec = _cMemberSectorsHtml(m, false, true); return sec ? `<div class="mt-2">${sec}</div>` : ''; })()}
           </div>
-          ${m && _cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-100 rounded-lg px-2.5 py-1.5 shadow-sm whitespace-nowrap">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
+          <span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-900 bg-white/70 rounded-lg px-2.5 py-1.5 opacity-70 group-hover:opacity-100 transition whitespace-nowrap">Apri la scheda${_ti('back', 'w-3.5 h-3.5 rotate-180')}</span>
         </div>
         <div class="flex flex-wrap gap-1.5 mt-3">
           ${stat(nActive, nActive === 1 ? 'attiva' : 'attive', 'bg-white/80 text-slate-700 ring-1 ring-slate-200')}
@@ -6273,7 +6263,7 @@ function _renderCanteraGrid() {
         </div>
       </div>
       ${_cPmTasksPanel(m, m ? (pmTasks.get(m.id) || []) : [])}
-      <div class="p-3 space-y-2.5 bg-slate-50/70 flex-1">${sorted.map(projectCard).join('')}</div>
+      <div class="p-3 space-y-2.5 bg-slate-50/70 flex-1">${sorted.map(p => _cIdeaTile(p, false)).join('')}</div>
     </div>`;
   };
 
@@ -6296,7 +6286,7 @@ function _renderCanteraGrid() {
       ${!all.length && _cShowNewIdea() ? `<button type="button" onclick="openCanteraModal(null)" class="mt-4 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
     </div>`;
   } else {
-    html = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${people.map(m => personCard(m, byOwner.get(m.id))).join('')}${extraOwners.map(id => personCard(allMembers.find(x => x.id === id) || null, byOwner.get(id))).join('')}</div>`;
+    html = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${people.map(m => personCard(m, byOwner.get(m.id), m.id)).join('')}${extraOwners.map(id => personCard(allMembers.find(x => x.id === id) || null, byOwner.get(id), id)).join('')}</div>`;
   }
   if (without.length && st !== 'review' && !q) {
     html += `
@@ -6304,15 +6294,182 @@ function _renderCanteraGrid() {
       <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Senza idee ${st === 'active' ? 'attive' : 'in questo filtro'}</div>
       <div class="flex flex-wrap gap-2">
         ${without.map(m => `
-          <div class="inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-slate-200 bg-slate-50">
-            ${_avatarHtml(m, 'w-6 h-6 text-[10px]')}<span class="text-xs text-slate-700">${esc(m.name)}</span>
-            ${_cMemberSectorsHtml(m, true)}
-            ${_cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" title="Nuova idea per ${esc(m.name)}" class="w-5 h-5 rounded-full text-indigo-600 hover:bg-indigo-100 flex items-center justify-center">${_ti('plus', 'w-3.5 h-3.5')}</button>` : ''}
-          </div>`).join('')}
+          <button type="button" onclick="openCanteraPm('${esc(m.id)}')" title="Apri la scheda di ${esc(m.name)}" class="inline-flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 transition">
+            ${_avatarHtml(m, 'w-7 h-7 text-[10px]')}<span class="text-xs font-medium text-slate-700">${esc(m.name)}</span>
+            ${_cMemberSectorsHtml(m, true, true)}
+          </button>`).join('')}
       </div>
     </div>`;
   }
   grid.innerHTML = html;
+}
+
+// ---------- shared pieces: idea tile, task rows ----------
+// Idea tile: left edge and status in the color of the idea's current phase
+function _cIdeaTile(p, interactive) {
+  const edge = p.status === 'completed' ? 'border-l-emerald-500' : p.status === 'stopped' ? 'border-l-rose-400' : _cPhase(p.currentPhase).color.edge;
+  const inner = `
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 min-w-0"><span class="font-semibold text-slate-800 truncate">${esc(p.title)}</span>${_cSectorBadge(p.sector)}</div>
+          ${p.oneLiner ? `<div class="text-xs text-slate-500 truncate mt-0.5">${esc(p.oneLiner)}</div>` : ''}
+        </div>
+        ${_cStatusPill(p)}
+      </div>
+      <div class="mt-3">${_cJourney(p)}</div>`;
+  const cls = `w-full text-left p-3.5 rounded-xl bg-white border border-slate-200 border-l-4 ${edge} shadow-sm`;
+  return interactive
+    ? `<button type="button" onclick="openCanteraProject('${esc(p.id)}')" class="${cls} hover:shadow-md hover:-translate-y-0.5 transition">${inner}</button>`
+    : `<div class="${cls}">${inner}</div>`;
+}
+function _cTaskRowHtml(t, label) {
+  const isDone = t.status === 'Done';
+  const att = (t.attachments || []).length;
+  return `<div class="task-row flex items-start gap-2.5 px-4 py-2.5 hover:bg-slate-50 cursor-pointer" onclick="openTaskDrawer('${esc(t.uid)}')">
+    <button type="button" onclick="event.stopPropagation(); toggleTaskDoneByUid('${esc(t.uid)}')" title="${isDone ? 'Riapri' : 'Segna come completato'}"
+      class="task-check mt-0.5 ${isDone ? 'is-done bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 text-emerald-600 hover:border-emerald-500 hover:bg-emerald-50'} w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition">${_ti('check', 'w-3 h-3')}</button>
+    <div class="flex-1 min-w-0">
+      <div class="text-sm font-medium leading-snug break-words ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}">${esc(t.title || '(senza titolo)')}</div>
+      ${label ? `<div class="text-[11px] text-slate-500 truncate mt-0.5">${esc(label)}</div>` : ''}
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+        ${isDone ? '' : _dueChip(t)}
+        ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${att} allegat${att === 1 ? 'o' : 'i'}">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
+        ${_taskCommentBadge(t)}
+      </div>
+    </div>
+    ${_avatarHtml(_memberById(t.assignee), 'w-6 h-6 text-[10px]')}
+  </div>`;
+}
+// Task card used on the idea page and on the PM page
+function _cTasksCardHtml(o) {
+  _recountTaskComments();
+  const tasks = o.tasks;
+  const open = tasks.filter(t => t.status !== 'Done').sort(_taskSort);
+  const done = tasks.filter(t => t.status === 'Done').sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+  const c = _cTaskCounts(tasks);
+  const chip = (txt, cls) => `<span class="text-[11px] font-medium rounded-md px-1.5 py-0.5 ${cls}">${txt}</span>`;
+  const row = t => _cTaskRowHtml(t, o.label ? o.label(t) : '');
+  return `
+  <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="font-semibold text-slate-800">${o.title}</div>
+        <div class="text-xs text-slate-500 truncate">${o.subtitle || ''}</div>
+      </div>
+      ${o.addBtn || ''}
+    </div>
+    ${tasks.length ? `<div class="px-5 py-2.5 flex flex-wrap gap-1 border-b border-slate-100 bg-slate-50/60">
+      ${chip(c.open + (c.open === 1 ? ' aperto' : ' aperti'), 'bg-white text-slate-700 ring-1 ring-slate-200')}
+      ${c.overdue ? chip(c.overdue + ' in ritardo', 'bg-rose-100 text-rose-700') : ''}
+      ${c.soon ? chip(c.soon + ' in scadenza', 'bg-amber-100 text-amber-800') : ''}
+      ${c.done ? chip(c.done + (c.done === 1 ? ' completato' : ' completati'), 'bg-emerald-50 text-emerald-700') : ''}
+    </div>` : ''}
+    ${open.length ? `<div class="divide-y divide-slate-100">${open.map(row).join('')}</div>` : tasks.length ? '<div class="px-5 py-3 text-xs text-slate-500">Tutti i task sono completati.</div>' : `<div class="px-5 py-4 text-xs text-slate-500">${o.empty}</div>`}
+    ${done.length ? `<details class="border-t border-slate-100">
+      <summary class="px-5 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 cursor-pointer select-none">${done.length} ${done.length === 1 ? 'completato' : 'completati'}</summary>
+      <div class="divide-y divide-slate-100 border-t border-slate-100">${done.map(row).join('')}</div>
+    </details>` : ''}
+  </div>`;
+}
+
+// ---------- product manager page ----------
+function openCanteraPm(memberId) {
+  canteraPmOpen = memberId;
+  canteraOpenId = null;
+  renderCantera();
+  document.querySelector('main').scrollTop = 0;
+}
+function closeCanteraPm() {
+  canteraPmOpen = null;
+  renderCantera();
+  document.querySelector('main').scrollTop = 0;
+}
+function _renderCanteraPm() {
+  const el = document.getElementById('page-cantera');
+  const id = canteraPmOpen;
+  const m = loadTeam().find(x => x.id === id) || null;
+  const ideas = loadCantera().filter(p => p.ownerId === id)
+    .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  if (!m && !ideas.length) { canteraPmOpen = null; renderCantera(); return; }
+  _taskTeamIdx = null;
+  const name = m ? m.name : 'Responsabile non più nel team';
+  const active = ideas.filter(p => p.status === 'active');
+  const closed = ideas.filter(p => p.status !== 'active');
+  const nReview = active.filter(p => p.phases[p.currentPhase].state === 'review').length;
+  const nLate = active.filter(_cIsLate).length;
+  const nDone = ideas.filter(p => p.status === 'completed').length;
+  const ideaIds = new Set(ideas.map(p => p.id));
+  const tasks = _allTasks(false).filter(t => t.canteraId && ideaIds.has(t.canteraId));
+  // Needs across the person's ideas
+  let nNeeds = 0, nComplete = 0;
+  const agg = { filled: 0, validato: 0, ipotesi: 0, missing: 0 };
+  ideas.forEach(p => _cNeeds(p).filter(nd => String(nd.title || '').trim()).forEach(nd => {
+    nNeeds++;
+    if (_cNeedComplete(nd)) nComplete++;
+    const st = _cNeedStats(nd);
+    Object.keys(agg).forEach(k => { agg[k] += st[k]; });
+  }));
+  const stat = (v, label, cls) => `<span class="inline-flex items-baseline gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium ${cls}"><span class="text-base font-bold tabular-nums">${v}</span>${label}</span>`;
+  const canCreate = m && _cCanCreateFor(m.id);
+  el.innerHTML = `
+  <div class="max-w-7xl mx-auto">
+    <button type="button" onclick="closeCanteraPm()" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4">${_ti('back')}La Cantera</button>
+
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="flex h-1.5" aria-hidden="true">${CANTERA_PHASES.map(ph => `<div class="flex-1 ${ph.color.bar}"></div>`).join('')}</div>
+      <div class="px-6 py-5 bg-gradient-to-br from-amber-100/80 via-orange-50 to-white">
+        <div class="flex flex-wrap items-start gap-5">
+          ${m ? _cPmPhotoHtml(m, 'w-24 h-24 text-2xl shadow-md') : _avatarHtml(null, 'w-24 h-24')}
+          <div class="flex-1 min-w-[12rem]">
+            <div class="text-[11px] font-semibold uppercase tracking-wide text-amber-800/80">Product manager</div>
+            <h1 class="text-2xl font-bold text-slate-900 leading-tight break-words">${esc(name)}</h1>
+            ${(() => { const sec = _cMemberSectorsHtml(m); return sec ? `<div class="mt-2.5">${sec}</div>` : ''; })()}
+            <div class="flex flex-wrap gap-2 mt-4">
+              ${stat(active.length, active.length === 1 ? 'idea attiva' : 'idee attive', 'bg-white/80 text-slate-700 ring-1 ring-slate-200')}
+              ${nReview ? stat(nReview, 'al gate', 'bg-amber-100 text-amber-800') : ''}
+              ${nLate ? stat(nLate, 'in ritardo', 'bg-rose-100 text-rose-700') : ''}
+              ${nDone ? stat(nDone, nDone === 1 ? 'completata' : 'completate', 'bg-emerald-100 text-emerald-700') : ''}
+              ${stat(nNeeds, nNeeds === 1 ? 'bisogno' : 'bisogni', 'bg-white/80 text-slate-700 ring-1 ring-slate-200')}
+              ${stat(tasks.filter(t => t.status !== 'Done').length, 'task aperti', 'bg-white/80 text-slate-700 ring-1 ring-slate-200')}
+            </div>
+          </div>
+          ${canCreate ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm whitespace-nowrap">${_ti('plus')}Nuova idea</button>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5 items-start">
+      <div class="lg:col-span-2 space-y-5">
+        <section>
+          <h2 class="text-sm font-semibold text-slate-700 mb-2.5">Idee in corso <span class="text-slate-400 font-medium">(${active.length})</span></h2>
+          ${active.length ? `<div class="space-y-3">${active.map(p => _cIdeaTile(p, true)).join('')}</div>`
+            : `<div class="bg-white border border-dashed border-slate-300 rounded-2xl py-10 px-6 text-center">
+                <div class="w-11 h-11 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-2">${_ti('bulb', 'w-5 h-5')}</div>
+                <div class="text-sm font-medium text-slate-700">Nessuna idea in corso</div>
+                ${canCreate ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="mt-3 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
+              </div>`}
+        </section>
+        ${closed.length ? `<section>
+          <h2 class="text-sm font-semibold text-slate-700 mb-2.5">Completate e fermate <span class="text-slate-400 font-medium">(${closed.length})</span></h2>
+          <div class="space-y-3">${closed.map(p => _cIdeaTile(p, true)).join('')}</div>
+        </section>` : ''}
+      </div>
+      <div class="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:-mr-1">
+        <div id="cn-pm-tasks">${_cTasksCardHtml({
+          title: 'Task sui bisogni', subtitle: 'Tutti i task sui bisogni delle sue idee',
+          tasks, label: t => (t._cnNeed || 'Bisogno eliminato') + ' · ' + t._cnIdea,
+          empty: 'Nessun task ancora: si aggiungono dalla scheda di ogni bisogno.'
+        })}</div>
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+          <div class="font-semibold text-slate-800">Bisogni</div>
+          <div class="text-xs text-slate-500">${nNeeds ? `${nNeeds} ${nNeeds === 1 ? 'bisogno' : 'bisogni'} · ${nComplete} canvas ${nComplete === 1 ? 'completo' : 'completi'}` : 'Ancora nessun bisogno descritto'}</div>
+          ${nNeeds ? `<div class="mt-3">${_cNeedBar(agg, true)}${_cNeedLegend(agg)}</div>
+            <p class="text-[11px] text-slate-500 mt-2">Stato dei blocchi del canvas su tutti i bisogni delle sue idee.</p>` : ''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  if (!canEdit('cantera')) applyReadonlyToPage('cantera');
 }
 
 // ---------- read-only preview of a phase template (from the stage-gate strip) ----------
@@ -6460,10 +6617,10 @@ function _cCanEditSectors(memberId) {
   const me = currentUser();
   return !!me && canEdit('cantera') && (isAdminMember(me) || me.id === memberId);
 }
-function _cMemberSectorsHtml(m, compact) {
+function _cMemberSectorsHtml(m, compact, noEdit) {
   if (!m) return '';
   const tags = (m.canteraSectors || []).filter(Boolean);
-  const can = _cCanEditSectors(m.id);
+  const can = !noEdit && _cCanEditSectors(m.id);
   if (!tags.length && !can) return '';
   const shown = compact ? tags.slice(0, 3) : tags;
   const more = tags.length - shown.length;
@@ -6574,8 +6731,8 @@ function saveCanteraSectors(e) {
 
 // PM photo on the card: same photo as the Team page, changeable here by admins or the person
 let _cPhotoFor = null;
-function _cPmPhotoHtml(m) {
-  const big = 'w-16 h-16 text-lg shadow-md';
+function _cPmPhotoHtml(m, size) {
+  const big = size || 'w-16 h-16 text-lg shadow-md';
   if (!m || !_cCanEditSectors(m.id)) return _avatarHtml(m, big);
   return `<button type="button" onclick="canteraPickPhoto('${esc(m.id)}')" title="${m.photo ? 'Cambia la foto' : 'Aggiungi una foto'}" class="group relative flex-shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
     ${_avatarHtml(m, big)}
@@ -6762,6 +6919,7 @@ function openCanteraProject(id) {
   canteraOpenId = id;
   canteraPhaseView = p.currentPhase;
   canteraNeedOpen = null;
+  if (canteraPmOpen && canteraPmOpen !== p.ownerId) canteraPmOpen = null; // opened from elsewhere: back goes to the overview
   if (document.getElementById('page-cantera').classList.contains('hidden')) navigate('cantera');
   else renderCantera();
   document.querySelector('main').scrollTop = 0;
@@ -6829,7 +6987,7 @@ function _renderCanteraProject() {
 
   el.innerHTML = `
   <div class="max-w-7xl mx-auto">
-    <button type="button" onclick="closeCanteraProject()" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4">${_ti('back')}La Cantera</button>
+    <button type="button" onclick="closeCanteraProject()" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4">${_ti('back')}${canteraPmOpen && owner ? esc(owner.name) : 'La Cantera'}</button>
 
     <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -7190,7 +7348,6 @@ function _cNeedsControl(p, n, sec, editable) {
 }
 
 // ---------- tasks on a need (global tasks linked with canteraId + needId) ----------
-let _cTasksExpanded = {}; // PM card: show all open tasks
 function _cNeedTaskList(p, needId) { return _allTasks(false).filter(t => t.canteraId === p.id && t.needId === needId); }
 function _cTaskCounts(tasks) {
   const open = tasks.filter(t => t.status !== 'Done');
@@ -7200,59 +7357,21 @@ function _cTaskCounts(tasks) {
 function _renderCanteraTasks(p) {
   const el = document.getElementById('cn-tasks');
   if (!el) return;
-  _recountTaskComments();
   const needs = _cNeeds(p);
   const nd = canteraPhaseView === 1 && canteraNeedOpen ? needs.find(x => x.id === canteraNeedOpen) || null : null;
   const all = _allTasks(false).filter(t => t.canteraId === p.id);
   const tasks = nd ? all.filter(t => t.needId === nd.id) : all;
   if (!tasks.length && canteraPhaseView !== 1) { el.innerHTML = ''; return; }
   const canAdd = _cCanEditProject(p) && _tasksCanEdit() && needs.length > 0;
-  const open = tasks.filter(t => t.status !== 'Done').sort(_taskSort);
-  const done = tasks.filter(t => t.status === 'Done').sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
-  const c = _cTaskCounts(tasks);
-  const chip = (txt, cls) => `<span class="text-[11px] font-medium rounded-md px-1.5 py-0.5 ${cls}">${txt}</span>`;
-  const row = t => {
-    const isDone = t.status === 'Done';
-    const att = (t.attachments || []).length;
-    return `<div class="task-row flex items-start gap-2.5 px-4 py-2.5 hover:bg-slate-50 cursor-pointer" onclick="openTaskDrawer('${esc(t.uid)}')">
-      <button type="button" onclick="event.stopPropagation(); toggleTaskDoneByUid('${esc(t.uid)}')" title="${isDone ? 'Riapri' : 'Segna come completato'}"
-        class="task-check mt-0.5 ${isDone ? 'is-done bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 text-emerald-600 hover:border-emerald-500 hover:bg-emerald-50'} w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition">${_ti('check', 'w-3 h-3')}</button>
-      <div class="flex-1 min-w-0">
-        <div class="text-sm font-medium leading-snug break-words ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}">${esc(t.title || '(senza titolo)')}</div>
-        ${nd ? '' : `<div class="text-[11px] text-slate-500 truncate mt-0.5">${esc(t._cnNeed || 'Bisogno eliminato')}</div>`}
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-          ${isDone ? '' : _dueChip(t)}
-          ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${att} allegat${att === 1 ? 'o' : 'i'}">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
-          ${_taskCommentBadge(t)}
-        </div>
-      </div>
-      ${_avatarHtml(_memberById(t.assignee), 'w-6 h-6 text-[10px]')}
-    </div>`;
-  };
-  const empty = !needs.length ? 'Aggiungi un bisogno per poter creare i suoi task.'
-    : nd ? 'Nessun task per questo bisogno. Aggiungi le attività per verificarlo: interviste, ricerche, dati da raccogliere…'
-    : 'Nessun task ancora. Apri un bisogno oppure usa "Aggiungi".';
-  el.innerHTML = `
-  <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-    <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <div class="font-semibold text-slate-800">${nd ? 'Task del bisogno' : 'Task dei bisogni'}</div>
-        <div class="text-xs text-slate-500 truncate">${nd ? `Bisogno ${needs.indexOf(nd) + 1} · ${esc(String(nd.title || '').trim() || 'senza titolo')}` : `Tutti i bisogni dell'idea (${needs.length})`}</div>
-      </div>
-      ${canAdd ? `<button type="button" onclick="canteraAddNeedTask('${esc(nd ? nd.id : '')}')" class="inline-flex items-center gap-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg px-2.5 py-1.5 shadow-sm whitespace-nowrap flex-shrink-0">${_ti('plus', 'w-3.5 h-3.5')}Aggiungi</button>` : ''}
-    </div>
-    ${tasks.length ? `<div class="px-5 py-2.5 flex flex-wrap gap-1 border-b border-slate-100 bg-slate-50/60">
-      ${chip(c.open + (c.open === 1 ? ' aperto' : ' aperti'), 'bg-white text-slate-700 ring-1 ring-slate-200')}
-      ${c.overdue ? chip(c.overdue + ' in ritardo', 'bg-rose-100 text-rose-700') : ''}
-      ${c.soon ? chip(c.soon + ' in scadenza', 'bg-amber-100 text-amber-800') : ''}
-      ${c.done ? chip(c.done + (c.done === 1 ? ' completato' : ' completati'), 'bg-emerald-50 text-emerald-700') : ''}
-    </div>` : ''}
-    ${open.length ? `<div class="divide-y divide-slate-100">${open.map(row).join('')}</div>` : tasks.length ? '<div class="px-5 py-3 text-xs text-slate-500">Tutti i task sono completati.</div>' : `<div class="px-5 py-4 text-xs text-slate-500">${empty}</div>`}
-    ${done.length ? `<details class="border-t border-slate-100">
-      <summary class="px-5 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 cursor-pointer select-none">${done.length} ${done.length === 1 ? 'completato' : 'completati'}</summary>
-      <div class="divide-y divide-slate-100 border-t border-slate-100">${done.map(row).join('')}</div>
-    </details>` : ''}
-  </div>`;
+  el.innerHTML = _cTasksCardHtml({
+    title: nd ? 'Task del bisogno' : 'Task dei bisogni',
+    subtitle: nd ? `Bisogno ${needs.indexOf(nd) + 1} · ${esc(String(nd.title || '').trim() || 'senza titolo')}` : `Tutti i bisogni dell'idea (${needs.length})`,
+    tasks, label: nd ? null : t => t._cnNeed || 'Bisogno eliminato',
+    addBtn: canAdd ? `<button type="button" onclick="canteraAddNeedTask('${esc(nd ? nd.id : '')}')" class="inline-flex items-center gap-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg px-2.5 py-1.5 shadow-sm whitespace-nowrap flex-shrink-0">${_ti('plus', 'w-3.5 h-3.5')}Aggiungi</button>` : '',
+    empty: !needs.length ? 'Aggiungi un bisogno per poter creare i suoi task.'
+      : nd ? 'Nessun task per questo bisogno. Aggiungi le attività per verificarlo: interviste, ricerche, dati da raccogliere…'
+      : 'Nessun task ancora. Apri un bisogno oppure usa "Aggiungi".'
+  });
 }
 function canteraAddNeedTask(needId) {
   const p = _canteraGet(canteraOpenId);
@@ -7262,17 +7381,11 @@ function canteraAddNeedTask(needId) {
   if (!id) return;
   openTaskDrawer(null, null, { canteraId: p.id, needId: id, assignee: p.ownerId, dealId: '' });
 }
-function toggleCanteraPmTasks(memberId) {
-  _cTasksExpanded[memberId] = !_cTasksExpanded[memberId];
-  _renderCanteraGrid();
-}
-// PM card: every task on the needs of that person's ideas
+// PM card on the overview: summary of the tasks on all needs of that person's ideas
 function _cPmTasksPanel(m, tasks) {
   if (!m || !tasks.length) return '';
   const open = tasks.filter(t => t.status !== 'Done').sort(_taskSort);
   const c = _cTaskCounts(tasks);
-  const expanded = !!_cTasksExpanded[m.id];
-  const shown = expanded ? open : open.slice(0, 3);
   const chip = (txt, cls) => `<span class="text-[11px] font-medium rounded-md px-1.5 py-0.5 ${cls}">${txt}</span>`;
   return `
     <div class="px-4 py-3 bg-white border-b border-slate-100">
@@ -7285,8 +7398,8 @@ function _cPmTasksPanel(m, tasks) {
           ${c.done ? chip(c.done + (c.done === 1 ? ' completato' : ' completati'), 'bg-emerald-50 text-emerald-700') : ''}
         </div>
       </div>
-      ${open.length ? `<div>${shown.map(t => `
-        <div onclick="openTaskDrawer('${esc(t.uid)}')" class="flex items-center gap-2 px-2 py-1.5 -mx-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+      ${open.length ? `<div>${open.slice(0, 3).map(t => `
+        <div class="flex items-center gap-2 py-1.5">
           <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 ${_taskStatusMeta(t.status).dot}" title="${_taskStatusMeta(t.status).label}"></span>
           <div class="flex-1 min-w-0">
             <div class="text-sm text-slate-800 truncate">${esc(t.title || '(senza titolo)')}</div>
@@ -7295,7 +7408,7 @@ function _cPmTasksPanel(m, tasks) {
           ${_dueChip(t)}
           ${_avatarHtml(_memberById(t.assignee), 'w-6 h-6 text-[10px]')}
         </div>`).join('')}</div>` : '<div class="text-xs text-slate-500">Tutti i task sono completati.</div>'}
-      ${open.length > 3 ? `<button type="button" onclick="toggleCanteraPmTasks('${esc(m.id)}')" class="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">${expanded ? 'Mostra meno' : 'Mostra tutti (' + open.length + ')'}</button>` : ''}
+      ${open.length > 3 ? `<div class="mt-0.5 text-xs text-slate-500">e altri ${open.length - 3} nella scheda</div>` : ''}
     </div>`;
 }
 // Called after any task change: keep the open need or the overview in sync
@@ -7309,6 +7422,7 @@ function _refreshCanteraTasksIfVisible() {
     if (canteraPhaseView === 1 && !canteraNeedOpen && document.getElementById('cn-needs')) _renderCanteraMain(p); // task counts on the need cards
     return;
   }
+  if (canteraPmOpen) { _renderCanteraPm(); return; }
   if (document.getElementById('cn-grid')) _renderCanteraGrid();
 }
 
@@ -8094,6 +8208,7 @@ function setCanteraView(v) {
   canteraView = v;
   try { localStorage.setItem('ui_canteraView', v); } catch(_) {}
   canteraOpenId = null;
+  canteraPmOpen = null;
   renderCantera();
 }
 function setCanteraDashFilter(k, v) { canteraDashFilter[k] = v; _renderCanteraDashboard(); }
