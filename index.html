@@ -1112,7 +1112,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox(', 'canteraChatAt('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox(', 'canteraChatAt(', 'toggleCanteraPmTasks('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -4542,10 +4542,19 @@ function _newTaskObject(over) {
 function _allTasks(includeDeal) {
   const dealList = loadDeals();
   const dealById = new Map(dealList.map(d => [d.id, d]));
-  const out = loadTasks().map(t => ({
-    ...t, uid: 'g:' + t.id, _source: 'global',
-    _dealName: t.dealId && dealById.get(t.dealId) ? dealById.get(t.dealId).company : ''
-  }));
+  const cnById = new Map(loadCantera().map(p => [p.id, p]));
+  const out = loadTasks().map(t => {
+    const x = { ...t, uid: 'g:' + t.id, _source: 'global',
+      _dealName: t.dealId && dealById.get(t.dealId) ? dealById.get(t.dealId).company : '' };
+    // Tasks on a La Cantera need carry the idea and need names for chips and search
+    const p = t.canteraId ? cnById.get(t.canteraId) : null;
+    if (p) {
+      const nd = _cNeeds(p).find(n => n.id === t.needId);
+      x._cnIdea = p.title || '';
+      x._cnNeed = nd ? (String(nd.title || '').trim() || 'Bisogno senza titolo') : '';
+    }
+    return x;
+  });
   if (includeDeal) {
     dealList.forEach(d => (d.tasks || []).forEach(t => {
       if (!t || !t.id || !(t.title || '').trim()) return;
@@ -4681,7 +4690,7 @@ function _filteredTasks(opts) {
   const q = (f.q || '').trim().toLowerCase();
   return _allTasks(f.includeDeal).filter(t => {
     if (q) {
-      const hay = ((t.title || '') + ' ' + _stripHtml(t.description) + ' ' + (t._dealName || '')).toLowerCase();
+      const hay = ((t.title || '') + ' ' + _stripHtml(t.description) + ' ' + (t._dealName || '') + ' ' + (t._cnIdea || '') + ' ' + (t._cnNeed || '')).toLowerCase();
       if (!hay.includes(q)) return false;
     }
     if (!opts.ignoreAssignee) {
@@ -4818,17 +4827,21 @@ function _renderTasksBody() {
   const contentEl = document.getElementById('tasks-content');
   if (!statsEl || !contentEl) return;
   _taskTeamIdx = null;
-  _taskCommentCounts = {};
-  loadTaskComments().forEach(c => { if (!c.removed) _taskCommentCounts[c.taskUid] = (_taskCommentCounts[c.taskUid] || 0) + 1; });
+  _recountTaskComments();
   statsEl.innerHTML = _renderTaskStats(_filteredTasks({ ignoreStatus: true, ignoreDue: true }));
   contentEl.innerHTML = taskView === 'board' ? _renderTaskBoard(_filteredTasks())
                       : taskView === 'people' ? _renderTaskPeople()
                       : _renderTaskList(_filteredTasks());
 }
 
+function _recountTaskComments() {
+  _taskCommentCounts = {};
+  loadTaskComments().forEach(c => { if (!c.removed) _taskCommentCounts[c.taskUid] = (_taskCommentCounts[c.taskUid] || 0) + 1; });
+}
 function _refreshTasksPageIfVisible() {
   const el = document.getElementById('page-tasks');
   if (el && !el.classList.contains('hidden')) _renderTasksBody();
+  _refreshCanteraTasksIfVisible();
   refreshTasksNavBadge();
 }
 
@@ -4900,7 +4913,12 @@ function _renderTaskList(tasks) {
   }).join('');
 }
 
-function _taskRowHtml(t) {
+function _cnTaskChip(t, cls) {
+  if (!t._cnIdea) return '';
+  return `<span class="${cls || 'hidden md:inline-flex'} items-center gap-1 text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md max-w-[13rem]" title="La Cantera · ${esc(t._cnIdea)}${t._cnNeed ? ' · ' + esc(t._cnNeed) : ''}">${_ti('bulb', 'w-3 h-3 flex-shrink-0')}<span class="truncate">${esc(t._cnNeed || t._cnIdea)}</span></span>`;
+}
+function _taskRowHtml(t, opts) {
+  opts = opts || {};
   const done = t.status === 'Done';
   const st = _taskStatusMeta(t.status);
   const desc = _stripHtml(t.description);
@@ -4920,6 +4938,7 @@ function _taskRowHtml(t) {
       ${desc ? `<div class="text-xs text-slate-500 truncate mt-0.5">${esc(desc)}</div>` : ''}
     </div>
     ${t._dealName ? `<span class="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md max-w-[11rem]" title="${t._source === 'deal' ? 'Task dalla scheda progetto' : 'Progetto'}: ${esc(t._dealName)}">${_ti('folder', 'w-3 h-3 flex-shrink-0')}<span class="truncate">${esc(t._dealName)}</span></span>` : ''}
+    ${opts.hideCantera ? '' : _cnTaskChip(t)}
     ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400" title="${att} allegat${att === 1 ? 'o' : 'i'}">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
     ${_taskCommentBadge(t)}
     ${_dueChip(t)}
@@ -4988,6 +5007,7 @@ function _taskCardHtml(t, editable) {
     </div>
     ${desc ? `<p class="text-xs text-slate-500 mt-1.5 line-clamp-2">${esc(desc)}</p>` : ''}
     ${t._dealName ? `<div class="mt-2"><span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md max-w-full">${_ti('folder', 'w-3 h-3 flex-shrink-0')}<span class="truncate">${esc(t._dealName)}</span></span></div>` : ''}
+    ${t._cnIdea ? `<div class="mt-2">${_cnTaskChip(t, 'inline-flex')}</div>` : ''}
     <div class="flex items-center gap-2 mt-3">
       ${_dueChip(t)}
       ${att ? `<span class="inline-flex items-center gap-0.5 text-xs text-slate-400">${_ti('clip', 'w-3.5 h-3.5')}${att}</span>` : ''}
@@ -5091,7 +5111,7 @@ function _renderTaskPeople() {
 }
 
 // ---------- detail drawer ----------
-function openTaskDrawer(uid, presetStatus) {
+function openTaskDrawer(uid, presetStatus, preset) {
   if (uid) {
     const t = _findTaskByUid(uid);
     if (!t) return;
@@ -5106,7 +5126,7 @@ function openTaskDrawer(uid, presetStatus) {
     }
   } else {
     if (!_tasksCanEdit()) return;
-    const data = _newTaskObject({ assignee: _defaultAssignee(), status: presetStatus || 'To do' });
+    const data = _newTaskObject(Object.assign({ assignee: _defaultAssignee(), status: presetStatus || 'To do' }, preset || {}));
     _taskDraft = { uid: 'g:' + data.id, source: 'global', isNew: true, data };
   }
   _renderTaskDrawer();
@@ -5167,12 +5187,14 @@ function _renderTaskDrawer() {
   const inputCls = 'text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50 disabled:text-slate-500';
   const creator = t.createdByName || ((_memberById(t.createdBy) || {}).name) || '';
   const pendingComment = (document.getElementById('td-comment-input') || {}).value || '';
+  const cnCtx = _cTaskContext(t);
 
   document.getElementById('task-drawer').innerHTML = `
     <div class="flex items-center justify-between gap-3 px-5 h-14 border-b border-slate-100 flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0 text-xs text-slate-500">
         ${isDeal
           ? `<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-medium flex-shrink-0">${_ti('folder', 'w-3 h-3')}Scheda progetto</span><span class="truncate">${esc(t._dealName)}</span>`
+          : cnCtx.p ? `<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-medium flex-shrink-0">${_ti('bulb', 'w-3 h-3')}La Cantera</span><span class="truncate">${d.isNew ? 'Nuovo task · ' : ''}${esc(cnCtx.p.title)}</span>`
           : `<span class="font-medium text-slate-600">${d.isNew ? 'Nuovo task' : 'Task'}</span>`}
         <span id="td-saved" class="inline-flex items-center gap-1 text-emerald-600 opacity-0 transition-opacity">${_ti('check', 'w-3.5 h-3.5')}Salvato</span>
       </div>
@@ -5221,7 +5243,12 @@ function _renderTaskDrawer() {
           ${TASK_PRIORITIES.map(p => `<button type="button" ${dis} onclick="taskDrawerSet('priority','${p.key}',true)" class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition ${t.priority === p.key ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}">${_prioIcon(p.key)}${p.label}</button>`).join('')}
         </div>
 
-        ${propLabel('folder', 'Progetto')}
+        ${cnCtx.p ? `${propLabel('bulb', 'Bisogno')}
+        <div class="py-1.5 min-w-0">
+          <div class="text-sm font-medium text-slate-800 break-words">${cnCtx.nd ? esc(String(cnCtx.nd.title || '').trim() || 'Bisogno senza titolo') : '<span class="text-slate-400">Bisogno eliminato</span>'}</div>
+          <div class="text-xs text-slate-500 break-words">Idea: ${esc(cnCtx.p.title)}</div>
+          ${d.isNew ? '' : `<button type="button" onclick="taskDrawerOpenNeed()" class="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">Apri il bisogno →</button>`}
+        </div>` : `${propLabel('folder', 'Progetto')}
         <div class="py-1">
           ${isDeal
             ? `<div class="text-sm text-slate-700 py-1.5">${esc(t._dealName)}${t._criterion ? `<span class="text-slate-400"> · ${esc(_conceptFieldLabel(t._criterion))}</span>` : ''}</div>`
@@ -5229,7 +5256,7 @@ function _renderTaskDrawer() {
                 <option value="">— Nessun progetto —</option>
                 ${dealList.map(x => `<option value="${esc(x.id)}" ${t.dealId === x.id ? 'selected' : ''}>${esc(x.company)}</option>`).join('')}
               </select>`}
-        </div>
+        </div>`}
       </div>
 
       ${isDeal ? `<p class="text-xs text-slate-500 bg-amber-50/60 border border-amber-100 rounded-lg px-3 py-2">Questo task è stato creato nella scheda progetto. Descrizione e allegati si gestiscono dalla scheda.</p>` : `
@@ -5345,6 +5372,21 @@ function taskDrawerSetDueIn(days) {
   dt.setDate(dt.getDate() + days);
   taskDrawerSet('dueDate', _ymd(dt), true);
 }
+function _cTaskContext(t) {
+  const p = t && t.canteraId ? _canteraGet(t.canteraId) : null;
+  const nd = p ? _cNeeds(p).find(x => x.id === t.needId) || null : null;
+  return { p, nd };
+}
+function taskDrawerOpenNeed() {
+  const t = _taskDraft && _taskDraft.data;
+  if (!t || !t.canteraId) return;
+  const canteraId = t.canteraId, needId = t.needId;
+  closeTaskDrawer();
+  if (_taskDraft || !_canteraGet(canteraId) || !canView('cantera')) return;
+  openCanteraProject(canteraId);
+  canteraSelectPhase(1);
+  if (needId) canteraOpenNeed(needId);
+}
 function taskDrawerOpenDeal() {
   const dealId = _taskDraft && _taskDraft.data.dealId;
   _taskDraft = null;
@@ -5459,7 +5501,7 @@ function _taskCommentsSectionHtml(d) {
   }
   return `
   <div>
-    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Commenti <span id="td-com-count" class="text-slate-400 font-medium normal-case"></span></div>
+    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">${d.data.canteraId ? 'Conversazione' : 'Commenti'} <span id="td-com-count" class="text-slate-400 font-medium normal-case"></span></div>
     <div id="td-comments" class="space-y-4"></div>
     ${me ? `
     <div class="mt-4 flex gap-3">
@@ -5467,7 +5509,7 @@ function _taskCommentsSectionHtml(d) {
       <div class="flex-1 min-w-0">
         <div id="td-reply-chip"></div>
         <div class="border border-slate-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-indigo-200 focus-within:border-indigo-300 transition">
-          <textarea id="td-comment-input" rows="2" placeholder="Scrivi un commento…"
+          <textarea id="td-comment-input" rows="2" placeholder="${d.data.canteraId ? 'Scrivi un messaggio…' : 'Scrivi un commento…'}"
             onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();postTaskComment();}" oninput="_autoGrow(this)"
             class="w-full resize-none border-0 bg-transparent px-3 pt-2.5 text-sm focus:ring-0 focus:outline-none"></textarea>
           <div class="flex items-center justify-between gap-2 px-3 pb-2">
@@ -5514,7 +5556,8 @@ function _renderTaskComments() {
     </div>`;
   };
 
-  el.innerHTML = top.length ? top.map(c => {
+  if (d.data.canteraId) _renderTaskCommentsChat(el, all, me, canModerate);
+  else el.innerHTML = top.length ? top.map(c => {
     const replies = all.filter(r => r.parentId === c.id);
     return `<div>${one(c)}${replies.length ? `<div class="ml-11 mt-3 pl-4 border-l-2 border-slate-100 space-y-3">${replies.map(one).join('')}</div>` : ''}</div>`;
   }).join('') : '<div class="text-xs text-slate-400">Nessun commento. Avvia la conversazione.</div>';
@@ -5526,11 +5569,41 @@ function _renderTaskComments() {
     : '';
 }
 
+// Chat layout (La Cantera need tasks): one time-ordered thread, own messages on the right,
+// a reply quotes the message it answers
+function _renderTaskCommentsChat(el, all, me, canModerate) {
+  const byId = new Map(all.map(c => [c.id, c]));
+  const sorted = all.slice().sort((a, b) => (a.at < b.at ? -1 : 1));
+  const snip = (s, n) => { s = String(s || '').replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n) + '…' : s; };
+  el.innerHTML = sorted.length ? `<div class="space-y-3">${sorted.map(c => {
+    const mine = me && c.authorId === me.id;
+    const author = _memberById(c.authorId) || { id: c.authorId || c.authorName, name: c.authorName || '?' };
+    const parent = c.parentId ? byId.get(c.parentId) : null;
+    const pName = parent ? ((_memberById(parent.authorId) || {}).name || parent.authorName || '') : '';
+    const canDelete = !c.removed && me && (c.authorId === me.id || canModerate);
+    const quote = parent ? `<div class="mb-1.5 pl-2 border-l-2 text-xs ${mine ? 'border-white/50 text-indigo-100' : 'border-slate-300 text-slate-500'}"><span class="font-semibold">${esc(pName)}</span>: ${esc(parent.removed ? 'messaggio eliminato' : snip(parent.text, 90))}</div>` : '';
+    const bubble = c.removed ? 'italic bg-white text-slate-400 border border-slate-200 rounded-2xl'
+      : mine ? 'bg-indigo-600 text-white rounded-2xl rounded-br-md' : 'bg-slate-100 text-slate-800 rounded-2xl rounded-bl-md';
+    return `<div class="flex gap-2 ${mine ? 'justify-end' : ''}">
+      ${mine ? '' : _avatarHtml(author, 'w-7 h-7 text-[10px]')}
+      <div class="max-w-[85%] min-w-0">
+        <div class="text-[11px] text-slate-400 mb-0.5 ${mine ? 'text-right' : ''}">${mine ? 'Tu' : esc(author.name)} · <span title="${esc(new Date(c.at).toLocaleString('it-IT'))}">${esc(_relTime(c.at))}</span></div>
+        <div class="px-3 py-2 text-sm whitespace-pre-wrap break-words ${bubble}">${c.removed ? 'Messaggio eliminato' : quote + esc(c.text)}</div>
+        ${!c.removed && me ? `<div class="flex gap-3 mt-0.5 text-[11px] ${mine ? 'justify-end' : ''}">
+          <button type="button" onclick="taskCommentReply('${esc(c.id)}')" class="font-medium text-slate-400 hover:text-indigo-600">Rispondi</button>
+          ${canDelete ? `<button type="button" onclick="taskCommentDelete('${esc(c.id)}')" class="text-slate-400 hover:text-rose-600">Elimina</button>` : ''}
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('')}</div>` : '<div class="text-xs text-slate-400">Nessun messaggio. Avvia la conversazione.</div>';
+}
+
 function taskCommentReply(commentId) {
   const c = loadTaskComments().find(x => x.id === commentId);
   if (!c) return;
   const name = (_memberById(c.authorId) || {}).name || c.authorName || '';
-  _taskReplyTo = { id: c.parentId || c.id, name };
+  // Threads nest one level; the chat layout quotes the exact message
+  _taskReplyTo = { id: (_taskDraft && _taskDraft.data.canteraId) ? c.id : (c.parentId || c.id), name };
   _renderTaskComments();
   const ta = document.getElementById('td-comment-input');
   if (!ta) return;
@@ -6118,6 +6191,10 @@ function _renderCanteraGrid() {
   const allMembers = loadTeam();
   const active = all.filter(p => p.status === 'active');
   const inReview = active.filter(p => p.phases[p.currentPhase].state === 'review');
+  // Tasks on the needs, grouped by the owner of the idea
+  const ownerOf = new Map(all.map(p => [p.id, p.ownerId]));
+  const pmTasks = new Map();
+  _allTasks(false).forEach(t => { const o = t.canteraId && ownerOf.get(t.canteraId); if (o) { if (!pmTasks.has(o)) pmTasks.set(o, []); pmTasks.get(o).push(t); } });
 
   const stat = (label, value, tone, onclick) => `
     <button type="button" ${onclick ? `onclick="${onclick}"` : 'disabled'} class="text-left bg-white rounded-xl border border-slate-200 p-4 transition ${onclick ? 'hover:border-slate-300 hover:shadow-sm' : 'cursor-default'}">
@@ -6190,6 +6267,7 @@ function _renderCanteraGrid() {
           ${projects.length !== nActive ? stat(projects.length, 'in totale', 'bg-white/60 text-slate-500') : ''}
         </div>
       </div>
+      ${_cPmTasksPanel(m, m ? (pmTasks.get(m.id) || []) : [])}
       <div class="p-3 space-y-2.5 bg-slate-50/70 flex-1">${sorted.map(projectCard).join('')}</div>
     </div>`;
   };
@@ -7023,6 +7101,7 @@ function _cNeedsControl(p, n, sec, editable) {
           <div class="font-semibold text-slate-800 mt-1 leading-snug">${String(nd.title || '').trim() ? esc(nd.title) : '<span class="italic font-normal text-slate-400">Senza titolo</span>'}</div>
           ${String(nd.description || '').trim() ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(nd.description)}</p>` : ''}
           <div class="mt-auto pt-3">${_cNeedBar(st)}${_cNeedLegend(st)}</div>
+          ${(() => { const tc = _cTaskCounts(_cNeedTaskList(p, nd.id)); return tc.open + tc.done ? `<div class="mt-2 text-[11px] text-slate-600 flex items-center gap-1">${_ti('inbox', 'w-3 h-3 text-slate-400 flex-shrink-0')}<span>${tc.open} task ${tc.open === 1 ? 'aperto' : 'aperti'}${tc.overdue ? ` · <span class="text-rose-600 font-medium">${tc.overdue} in ritardo</span>` : ''}${tc.done ? ` · ${tc.done} ${tc.done === 1 ? 'completato' : 'completati'}` : ''}</span></div>` : ''; })()}
           <span class="mt-2.5 text-xs font-medium text-sky-700">${editable ? 'Apri e compila il canvas' : 'Apri il canvas'} →</span>
         </button>`;
       }).join('')}</div>
@@ -7087,6 +7166,7 @@ function _cNeedsControl(p, n, sec, editable) {
       : `<div class="text-lg font-semibold text-slate-800 mt-1">${named ? esc(nd.title) : '<span class="italic font-normal text-slate-400">Senza titolo</span>'}</div>
         ${String(nd.description || '').trim() ? `<p class="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">${esc(nd.description)}</p>` : ''}`}
     </div>
+    <div id="cn-need-tasks" class="mt-5">${_cNeedTasksInner(p, nd.id)}</div>
     <div class="mt-5">
       <div class="font-semibold text-slate-800">Canvas del bisogno</div>
       <p class="text-xs text-slate-500 mt-0.5">${editable ? 'Per ogni blocco scrivi cosa sai e indica se è un\'ipotesi o se è validato; se è validato, indica come. Un blocco vuoto resta un dato mancante.' : 'Stato di ciascun blocco: validato, ipotesi o dato mancante.'}</p>
@@ -7096,6 +7176,86 @@ function _cNeedsControl(p, n, sec, editable) {
     <div id="cn-need-canvas" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 transition ${editable && !named ? 'opacity-50 pointer-events-none' : ''}">${CANTERA_CANVAS.map(block).join('')}</div>
     <p class="text-xs text-slate-500 italic mt-3">Per ogni campo: evidenza, ipotesi oppure dato mancante.</p>
   </div>`;
+}
+
+// ---------- tasks on a need (global tasks linked with canteraId + needId) ----------
+let _cTasksExpanded = {}; // PM card: show all open tasks
+function _cNeedTaskList(p, needId) { return _allTasks(false).filter(t => t.canteraId === p.id && t.needId === needId); }
+function _cTaskCounts(tasks) {
+  const open = tasks.filter(t => t.status !== 'Done');
+  return { open: open.length, overdue: open.filter(t => _dueBucket(t) === 'overdue').length, soon: open.filter(t => ['today', 'week'].includes(_dueBucket(t))).length, done: tasks.length - open.length };
+}
+function _cNeedTasksInner(p, needId) {
+  _recountTaskComments();
+  const tasks = _cNeedTaskList(p, needId);
+  const open = tasks.filter(t => t.status !== 'Done').sort(_taskSort);
+  const done = tasks.filter(t => t.status === 'Done').sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+  const c = _cTaskCounts(tasks);
+  const canAdd = _cCanEditProject(p) && _tasksCanEdit();
+  return `
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <div class="font-semibold text-slate-800">Task del bisogno</div>
+        <div class="text-xs text-slate-500">${tasks.length ? `${c.open} ${c.open === 1 ? 'aperto' : 'aperti'}${c.overdue ? ` · <span class="text-rose-600 font-medium">${c.overdue} in ritardo</span>` : ''}${c.done ? ` · ${c.done} ${c.done === 1 ? 'completato' : 'completati'}` : ''}` : 'Le attività per verificare il bisogno: interviste, ricerche, dati da raccogliere…'}</div>
+      </div>
+      ${canAdd ? `<button type="button" onclick="canteraAddNeedTask('${esc(needId)}')" class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-100 rounded-lg px-2.5 py-1.5 shadow-sm">${_ti('plus', 'w-3.5 h-3.5')}Aggiungi task</button>` : ''}
+    </div>
+    ${tasks.length ? `<div class="mt-2.5 bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">${open.concat(done).map(t => _taskRowHtml(t, { hideCantera: true })).join('')}</div>` : ''}`;
+}
+function canteraAddNeedTask(needId) {
+  const p = _canteraGet(canteraOpenId);
+  if (!p || !_cCanEditProject(p) || !_tasksCanEdit()) return;
+  openTaskDrawer(null, null, { canteraId: p.id, needId, assignee: p.ownerId, dealId: '' });
+}
+function toggleCanteraPmTasks(memberId) {
+  _cTasksExpanded[memberId] = !_cTasksExpanded[memberId];
+  _renderCanteraGrid();
+}
+// PM card: every task on the needs of that person's ideas
+function _cPmTasksPanel(m, tasks) {
+  if (!m || !tasks.length) return '';
+  const open = tasks.filter(t => t.status !== 'Done').sort(_taskSort);
+  const c = _cTaskCounts(tasks);
+  const expanded = !!_cTasksExpanded[m.id];
+  const shown = expanded ? open : open.slice(0, 3);
+  const chip = (txt, cls) => `<span class="text-[11px] font-medium rounded-md px-1.5 py-0.5 ${cls}">${txt}</span>`;
+  return `
+    <div class="px-4 py-3 bg-white border-b border-slate-100">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+        <div class="text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5">${_ti('inbox', 'w-3.5 h-3.5 text-slate-400')}Task sui bisogni</div>
+        <div class="flex flex-wrap gap-1">
+          ${chip(c.open + (c.open === 1 ? ' aperto' : ' aperti'), 'bg-slate-100 text-slate-700')}
+          ${c.overdue ? chip(c.overdue + ' in ritardo', 'bg-rose-100 text-rose-700') : ''}
+          ${c.soon ? chip(c.soon + ' in scadenza', 'bg-amber-100 text-amber-800') : ''}
+          ${c.done ? chip(c.done + (c.done === 1 ? ' completato' : ' completati'), 'bg-emerald-50 text-emerald-700') : ''}
+        </div>
+      </div>
+      ${open.length ? `<div>${shown.map(t => `
+        <div onclick="openTaskDrawer('${esc(t.uid)}')" class="flex items-center gap-2 px-2 py-1.5 -mx-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+          <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 ${_taskStatusMeta(t.status).dot}" title="${_taskStatusMeta(t.status).label}"></span>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-slate-800 truncate">${esc(t.title || '(senza titolo)')}</div>
+            <div class="text-[11px] text-slate-500 truncate">${esc(t._cnNeed || 'Bisogno eliminato')} · ${esc(t._cnIdea)}</div>
+          </div>
+          ${_dueChip(t)}
+          ${_avatarHtml(_memberById(t.assignee), 'w-6 h-6 text-[10px]')}
+        </div>`).join('')}</div>` : '<div class="text-xs text-slate-500">Tutti i task sono completati.</div>'}
+      ${open.length > 3 ? `<button type="button" onclick="toggleCanteraPmTasks('${esc(m.id)}')" class="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">${expanded ? 'Mostra meno' : 'Mostra tutti (' + open.length + ')'}</button>` : ''}
+    </div>`;
+}
+// Called after any task change: keep the open need or the overview in sync
+function _refreshCanteraTasksIfVisible() {
+  const el = document.getElementById('page-cantera');
+  if (!el || el.classList.contains('hidden')) return;
+  if (canteraOpenId) {
+    const p = _canteraGet(canteraOpenId);
+    if (!p || canteraPhaseView !== 1) return;
+    const box = document.getElementById('cn-need-tasks');
+    if (box && canteraNeedOpen) box.innerHTML = _cNeedTasksInner(p, canteraNeedOpen);
+    else if (!canteraNeedOpen && document.getElementById('cn-needs')) _renderCanteraMain(p);
+    return;
+  }
+  if (document.getElementById('cn-grid')) _renderCanteraGrid();
 }
 
 function _cNeedsSec() { return _cPhase(1).sections.find(s => s.type === 'needs'); }
