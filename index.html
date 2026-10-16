@@ -5710,7 +5710,7 @@ let CANTERA_GATE_PANEL = false;
 const CANTERA_MSGS_KEY = 'dealflow_cantera_msgs';
 const CANTERA_PHASES = [
   {
-    n: 1, name: 'Identificare e comprendere il bisogno', short: 'Bisogno', weeks: 3,
+    n: 1, name: 'Identificare e comprendere il bisogno', short: 'Bisogno', weeks: 8,
     color: { card: 'bg-sky-50 border-sky-200', bar: 'bg-sky-500', num: 'bg-sky-500', title: 'text-sky-900', chip: 'bg-sky-100 text-sky-700', value: 'text-sky-600', edge: 'border-l-sky-500', ring: 'ring-sky-100', fill: 'bg-sky-400' },
     question: 'Qual è il bisogno reale, di chi è e quanto conta?',
     output: 'I bisogni su cui si lavora, ciascuno descritto con il canvas a 12 blocchi, distinguendo evidenze, ipotesi e dati mancanti.',
@@ -5720,7 +5720,7 @@ const CANTERA_PHASES = [
     ]
   },
   {
-    n: 2, name: 'Esplorare le possibili soluzioni', short: 'Soluzioni', weeks: 3,
+    n: 2, name: 'Esplorare le possibili soluzioni', short: 'Soluzioni', weeks: 8,
     color: { card: 'bg-violet-50 border-violet-200', bar: 'bg-violet-500', num: 'bg-violet-500', title: 'text-violet-900', chip: 'bg-violet-100 text-violet-700', value: 'text-violet-600', edge: 'border-l-violet-500', ring: 'ring-violet-100', fill: 'bg-violet-400' },
     question: 'Quali soluzioni possono rispondere al bisogno?',
     output: 'Una mappa delle soluzioni possibili, comprese quelle già esistenti, confrontate con end-user e stakeholder e con i criteri per scegliere.',
@@ -5750,7 +5750,7 @@ const CANTERA_PHASES = [
     ]
   },
   {
-    n: 3, name: 'Scelta della soluzione e fattibilità', short: 'Fattibilità', weeks: 4,
+    n: 3, name: 'Scelta della soluzione e fattibilità', short: 'Fattibilità', weeks: 8,
     color: { card: 'bg-teal-50 border-teal-200', bar: 'bg-teal-500', num: 'bg-teal-500', title: 'text-teal-900', chip: 'bg-teal-100 text-teal-700', value: 'text-teal-600', edge: 'border-l-teal-500', ring: 'ring-teal-100', fill: 'bg-teal-400' },
     question: 'Quale soluzione sviluppiamo, e possiamo realizzarla?',
     output: 'La soluzione scelta con le motivazioni, i segnali di interesse concreti (LOI, pilot) e il piano tecnico: traiettoria TRL, milestone e risorse.',
@@ -5782,7 +5782,7 @@ const CANTERA_PHASES = [
     ]
   },
   {
-    n: 4, name: 'Piano di investimento', short: 'Investimento', weeks: 2,
+    n: 4, name: 'Piano di investimento', short: 'Investimento', weeks: 8,
     color: { card: 'bg-pink-50 border-pink-200', bar: 'bg-pink-500', num: 'bg-pink-500', title: 'text-pink-900', chip: 'bg-pink-100 text-pink-700', value: 'text-pink-600', edge: 'border-l-pink-500', ring: 'ring-pink-100', fill: 'bg-pink-400' },
     question: 'Quanto serve, da dove arrivano le risorse e con quale struttura?',
     output: 'Budget e uso dei fondi, funding roadmap con le call pubbliche reali mappate e scenario equity.',
@@ -5906,8 +5906,21 @@ let canteraPmOpen = null;   // product manager page open (member id)
 
 // ---------- storage & helpers ----------
 function loadCantera() {
-  try { const v = JSON.parse(localStorage.getItem(CANTERA_KEY) || '[]'); return Array.isArray(v) ? v.filter(p => p && p.id && !p._deleted).map(_cMigrate) : []; }
+  try { const v = JSON.parse(localStorage.getItem(CANTERA_KEY) || '[]'); return Array.isArray(v) ? v.filter(p => p && p.id && !p._deleted).map(_cMigrate).map(_cRefreshDefaultPlan) : []; }
   catch(_) { return []; }
+}
+// Plans still on a previous standard duration (never changed by hand) follow the current
+// one, keeping the start date; plans edited by hand are left as they are.
+function _cRefreshDefaultPlan(p) {
+  if (!p || !p.plan) return p;
+  const OLD_DEFAULT_WEEKS = ['3,3,4,2', '3,4,3,2'];
+  const ds = _cPhaseNums().map(n => p.plan[n]).concat([p.plan.end]).map(_parseYmd);
+  if (ds.some(d => !d)) return p;
+  const days = ds.slice(1).map((d, i) => Math.round((d - ds[i]) / 86400000));
+  if (days.some(x => x % 7)) return p;
+  const weeks = days.map(x => x / 7).join();
+  if (weeks === CANTERA_PHASES.map(ph => ph.weeks).join() || !OLD_DEFAULT_WEEKS.includes(weeks)) return p;
+  return Object.assign({}, p, { plan: _cDefaultPlan(p.plan[1]) });
 }
 function loadCanteraMsgs() {
   try { const v = JSON.parse(localStorage.getItem(CANTERA_MSGS_KEY) || '[]'); return Array.isArray(v) ? v.filter(m => m && m.id && !m._deleted) : []; }
@@ -6515,7 +6528,6 @@ function openCanteraTemplate(n) {
       </div>
       <div class="mt-2 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded-xl py-2">+ ${esc(sec.addLabel)}${sec.min ? ` · minimo ${sec.min}` : ''}${sec.max ? ` · massimo ${sec.max}` : ''}${sec.minWhere ? ` · di cui ${sec.minWhere.min} ${sec.minWhere.label}` : ''}</div>`;
   };
-  const req = ph.sections.filter(s => s.required);
   document.getElementById('cantera-tpl-body').innerHTML = `
     <div class="h-1.5 ${ph.color.bar}"></div>
     <div class="${ph.color.card} border-b px-6 py-5">
@@ -6533,10 +6545,6 @@ function openCanteraTemplate(n) {
       <p class="text-sm text-slate-600 mt-1"><span class="font-semibold">Output atteso:</span> ${esc(ph.output)}</p>
     </div>
     <div class="px-6 py-5 space-y-5 max-h-[65vh] overflow-y-auto">
-      <div class="rounded-xl border border-slate-200 p-4">
-        <div class="text-xs font-semibold text-slate-600 mb-2">Requisiti per inviare al gate ${ph.n}</div>
-        <ul class="space-y-1">${req.map(s => `<li class="flex items-start gap-2 text-sm text-slate-600"><span class="mt-0.5 w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"></span><span>${esc(s.label)}${s.type === 'list' ? ` <span class="text-slate-400">(almeno ${s.min || 1}${s.minWhere ? ', di cui ' + s.minWhere.min + ' ' + s.minWhere.label : ''})</span>` : s.type === 'needs' ? ' <span class="text-slate-400">(almeno 1 bisogno con il canvas completo)</span>' : ''}</span></li>`).join('')}</ul>
-      </div>
       ${ph.sections.map((sec, i) => `
         <section>
           <div class="flex items-start justify-between gap-3">
@@ -6821,7 +6829,7 @@ function openCanteraModal(editId, presetOwner, focusDates) {
       </div>
       <div class="border-t border-slate-100 pt-4">
         <div class="text-sm font-medium text-slate-600">Percorso pianificato</div>
-        <p class="text-[11px] text-slate-400 mt-0.5 mb-2">Date di inizio delle fasi. Le durate consigliate sono ${CANTERA_PHASES.map(ph => ph.weeks).join(', ').replace(/, (\d+)$/, ' e $1')} settimane${p ? '' : ': cambiando l\'inizio della Fase 1 le altre si aggiornano'}.</p>
+        <p class="text-[11px] text-slate-400 mt-0.5 mb-2">Date di inizio delle fasi. ${CANTERA_PHASES.every(ph => ph.weeks === CANTERA_PHASES[0].weeks) ? `Ogni fase dura ${CANTERA_PHASES[0].weeks} settimane` : `Le durate consigliate sono ${CANTERA_PHASES.map(ph => ph.weeks).join(', ').replace(/, (\d+)$/, ' e $1')} settimane`}${p ? '' : ': cambiando l\'inizio della Fase 1 le altre si aggiornano'}.</p>
         <div class="grid grid-cols-2 gap-3">
           ${_cPhaseNums().map(n => [String(n), 'Inizio Fase ' + n + ' · ' + _cPhase(n).short]).concat([['end', 'Gate finale']]).map(([k, l]) => `
             <label class="text-xs text-slate-500">${l}
