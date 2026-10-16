@@ -6260,7 +6260,6 @@ function _renderCanteraGrid() {
           ${_cPmPhotoHtml(m)}
           <div class="flex-1 min-w-0">
             <div class="text-lg font-bold text-slate-900 leading-tight truncate">${m ? esc(m.name) : 'Responsabile non più nel team'}</div>
-            ${m && m.role ? `<div class="text-xs text-slate-600 mt-0.5">${esc(m.role)}</div>` : ''}
             ${(() => { const sec = _cMemberSectorsHtml(m); return sec ? `<div class="mt-2">${sec}</div>` : ''; })()}
           </div>
           ${m && _cCanCreateFor(m.id) ? `<button type="button" onclick="openCanteraModal(null,'${esc(m.id)}')" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-100 rounded-lg px-2.5 py-1.5 shadow-sm whitespace-nowrap">${_ti('plus', 'w-3.5 h-3.5')}Nuova idea</button>` : ''}
