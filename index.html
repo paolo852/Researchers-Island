@@ -9618,6 +9618,43 @@ const DEMO_INVESTORS = [
   }
 ];
 
+// One-off import of a curated investor list. Runs once for the whole team: the first
+// signed-in user who can edit investors, after a successful cloud load, adds the
+// investors that are not there yet (same id or same name) and writes a marker row,
+// so nobody imports them again and deleted ones never come back.
+const INVESTOR_IMPORTS = [
+  { key: 'dealflow_import_inv_healthcare_2026_11', investors: /*__INV_IMPORT_DATA__*/[] }
+];
+function _invNameKey(s) { return String(s || '').toLowerCase().replace(/\([^)]*\)/g, '').replace(/[^a-z0-9]+/g, ''); }
+function _runInvestorImports() {
+  if (!_sb || !_cloudLoadOk) return;
+  const me = currentUser();
+  if (!me || !canEdit('investors')) return;
+  INVESTOR_IMPORTS.forEach(imp => {
+    if (!imp.investors.length || localStorage.getItem(imp.key)) return;
+    let list = [];
+    try { const v = JSON.parse(localStorage.getItem(INVESTORS_KEY) || '[]'); if (Array.isArray(v)) list = v.filter(x => x && x.id && !x._deleted); } catch(_) {}
+    const ids = new Set(list.map(x => x.id));
+    const names = list.map(x => _invNameKey(x.name)).filter(Boolean);
+    const sameName = n => names.some(e => e === n || (e.length >= 5 && n.length >= 5 && (e.startsWith(n) || n.startsWith(e))));
+    const now = new Date().toISOString();
+    const added = [];
+    imp.investors.forEach(x => {
+      if (ids.has(x.id) || sameName(_invNameKey(x.name))) return;
+      added.push(Object.assign({
+        type: 'VC', status: 'Cold', contactName: '', contactEmail: '', contactLinkedin: '', relationship: '',
+        stages: [], sectors: [], geographies: [], instruments: ['equity'],
+        leadInvestor: false, coInvestmentInterest: true, boardSeat: false, files: [], pitches: []
+      }, JSON.parse(JSON.stringify(x)), { importedAt: now, importedBy: me.name, updatedAt: now }));
+    });
+    if (added.length) saveInvestors(list.concat(added));
+    const marker = { at: now, by: me.name, byId: me.id, added: added.map(x => x.id) };
+    localStorage.setItem(imp.key, JSON.stringify(marker));
+    _sbSync(imp.key, marker);
+    if (added.length) console.info('Investitori importati:', added.length);
+  });
+}
+
 function loadInvestors() {
   const raw = localStorage.getItem(INVESTORS_KEY);
   if (raw) { try { return JSON.parse(raw); } catch(e) {} }
@@ -11423,6 +11460,7 @@ function showApp() {
   const el = document.getElementById('sidebar-user');
   if (u && el) el.textContent = u.name + ' · ' + u.role;
   generateDueSoonNotifications();
+  try { _runInvestorImports(); } catch(e) { console.warn('Import investitori:', e.message); }
   refreshNotifBadge();
   renderPipeline();
   refreshTasksNavBadge();
@@ -11446,6 +11484,7 @@ function showApp() {
 // ============================================================
 // INIT
 // ============================================================
+var _cloudLoadOk = false; // (var: no TDZ) true once this session has the cloud state (imports only run then)
 (async function startApp() {
   const overlay = document.getElementById('loading-overlay');
   const status  = document.getElementById('loading-status');
@@ -11466,6 +11505,7 @@ function showApp() {
         _sbLoadAll(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Supabase (8s) — passo a dati locali')), 8000))
       ]);
+      _cloudLoadOk = true;
       if (status) status.textContent = 'Dati caricati ✓';
     } catch(e) {
       console.warn('Supabase load failed, using local data:', e.message);
