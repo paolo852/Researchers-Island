@@ -1113,7 +1113,7 @@ function _readonlyClickBlocker(e) {
   if (!btn) return;
   // Allow navigation buttons and layout toggles
   const oc = (btn.getAttribute('onclick') || '').trim();
-  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox(', 'canteraChatAt(', 'openCanteraPm(', 'closeCanteraPm('];
+  const SAFE_PREFIXES = ['navigate(', 'openDeal(', 'openInvestorDetail(', 'toggleBlock(', 'toggleCollapse(', 'closeInvestorDetail(', 'openPortfolioDetail(', 'toggleNotifPanel(', 'onNotifClick(', 'markNotifRead(', 'markAllNotifRead(', 'toggleFilterBlock(', 'toggleQuickAdd(', 'renderPipeline(', 'renderDashboard(', 'downloadEcoFinTemplate(', 'openTaskDrawer(', 'setTaskView(', 'setTaskFilter(', 'setInvestorFilter(', 'resetInvestorFilters(', 'applyTaskQuickFilter(', 'toggleTaskGroup(', 'showPersonTasks(', 'resetTaskFilters(', 'openCanteraProject(', 'closeCanteraProject(', 'canteraSelectPhase(', 'setCanteraFilter(', 'postCanteraMsg(', 'toggleCanteraHowTo(', 'setCanteraView(', 'setCanteraDashFilter(', 'canteraDashFilter', 'openCanteraTemplate(', 'closeCanteraTemplate(', 'canteraOpenNeed(', 'canteraCloseNeed(', 'openCanteraToolbox(', 'canteraChatAt(', 'openCanteraPm(', 'closeCanteraPm('];
   if (!oc) return; // no inline handler → likely a <details>/<summary>; allow
   // Opening a hidden file picker is not a mutation — only the subsequent upload is (guarded elsewhere).
   if (/document\.getElementById\(['"][\w-]+-input['"]\)\.click\(\)/.test(oc)) return;
@@ -9927,6 +9927,310 @@ function _runInvestorImports() {
     _sbSync(imp.key, marker);
     if (added.length) console.info('Investitori importati:', added.length);
   });
+  _runInvestorPatches(me);
+}
+
+// One-off corrections to imported investors, applied once (cloud marker) after the imports.
+// italy: { id: [status 'si'|'possibile'|'no', evidence, source] }
+const INVESTOR_PATCHES = [
+  { key: 'dealflow_patch_inv_italy_2026_11', checkedAt: '2026-11-09', italy: {
+      "inv-eu-3vc": ["no", "Investe solo in aziende con legami con DACH, Europa centro-orientale e Paesi baltici", "https://tech.eu/2022/06/15/viennas-3vc-rolls-out-eur150-million-to-back-startups-in-cee-and-dach-region/"],
+      "inv-eu-4bio-capital": ["possibile", "Investe in terapie avanzate in Europa/UK e USA, nessun deal italiano trovato", "https://funding.tech.eu/investors/4BIO%20Capital"],
+      "inv-eu-50-partners": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-abingworth": ["possibile", "Investe in life science in Europa e negli Stati Uniti; nessun deal italiano trovato", "https://scrip.citeline.com/SC123374/Abingworth-Closes-12th-Life-Sciences-Fund-ABV-VII-At-$315M"],
+      "inv-eu-act-venture-capital": ["possibile", "Focus prioritario sull'Irlanda con copertura europea selettiva (anche UK, Germania, USA); nessun deal italiano trovato", "https://f4.fund/firms/act-venture-capital"],
+      "inv-eu-ada-ventures": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-adesso-ventures": ["possibile", "Investe in startup early-stage in Europa con focus DACH, nessun deal italiano trovato", "https://superscout.co/investor/adesso-ventures"],
+      "inv-eu-advent-life-sciences": ["possibile", "Investe in life science in UK, Europa e USA (circa 70% Europa), nessun deal italiano trovato", "https://g-medtech.com/database/medtech-players/index/advent-life-sciences/"],
+      "inv-eu-afi-ventures": ["possibile", "Fondo seed a impatto di Parigi legato a un acceleratore europeo (Alliance for Impact); portafoglio soprattutto francese, nessun deal italiano trovato", "https://ventechvc.com/afi-ventures"],
+      "inv-eu-ahren-innovation-capital": ["possibile", "Investe in deep tech a livello globale con focus su UK ed Europa occidentale, nessun deal italiano trovato", "https://privateequitylist.com/public/investor/ahren-innovation-capital"],
+      "inv-eu-albionvc": ["possibile", "Focus prevalente sul Regno Unito, ma dichiara di investire ormai in tutta Europa; nessun deal italiano trovato", "https://f4.fund/firms/albionvc"],
+      "inv-eu-almi-invest": ["no", "Mandato geografico limitato a Svezia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-alpana-ventures": ["possibile", "Investe in Svizzera, Europa e Nord America, nessun deal italiano trovato", "https://privateequitylist.com/public/investor/alpana-ventures"],
+      "inv-eu-alpha-intelligence-capital": ["possibile", "Investe in AI a livello globale (es. InstaDeep, Virtuo), nessun deal italiano trovato", "https://funding.tech.eu/investors/Alpha%20Intelligence%20Capital"],
+      "inv-eu-amadeus-capital-partners": ["si", "Nel 2013 ha acquisito il 20% di Bellco (Mirandola, tecnologie per la dialisi)", "https://www.unquote.com/southern-europe/official-record/70377/amadeus-capital-partners-backs-bellco"],
+      "inv-eu-amino-collective": ["possibile", "Investe in digital health/bio early-stage in tutta Europa (e USA), nessun deal italiano trovato", "https://www.noaber.com/en/portfolio/amino-collective"],
+      "inv-eu-ananda-impact-ventures": ["possibile", "Investe in startup a impatto in Europa (e mercati emergenti), nessun deal italiano trovato", "https://sifted.eu/articles/ananda-impact-ventures-closes-e73m"],
+      "inv-eu-angelor": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-apex-ventures": ["possibile", "Investe in deep tech in Europa con focus DACH/CEE, nessun deal italiano trovato", "https://techcrunch.com/2023/02/21/european-vc-firms-amadeus-and-apex-partner-for-e80m-early-stage-deep-tech-fund"],
+      "inv-eu-apposite-capital": ["si", "Ha acquisito il controllo di CrestOptics (Roma, microscopia) nel 2021", "https://bebeez.it/private-equity/il-private-equity-apposite-capital-al-controllo-dei-microscopi-italiani-crestoptics/"],
+      "inv-eu-asabys-partners": ["possibile", "Investe in healthcare/life science in Spagna e in Europa, nessun deal italiano trovato", "https://www.vestbee.com/vc-list/asabys-partners"],
+      "inv-eu-atlantic-labs": ["possibile", "Investitore pre-seed/seed europeo con sede a Berlino (deal anche in Francia), nessun deal italiano trovato", "https://funding.tech.eu/investors/Atlantic%20Labs"],
+      "inv-eu-auriga-partners": ["possibile", "VC parigino in life science con focus principale su Francia ed Europa, nessun deal italiano trovato", "https://seedtable.com/investors/auriga-partners"],
+      "inv-eu-b2venture": ["possibile", "Investe in startup early-stage europee (focus DACH), nessun deal italiano trovato", "https://ai-radar.it/article/b2venture-chiude-il-fondo-v-a-150-milioni-per-startup-europee"],
+      "inv-eu-backingminds": ["no", "Investe in startup early-stage dei Paesi nordici", "https://tech.eu/2022/11/23/untapped-potential-vc/"],
+      "inv-eu-bgf-business-growth-fund": ["no", "Mandato geografico limitato a Irlanda e Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-big-pi-ventures": ["no", "Mandato geografico limitato a Grecia e Lussemburgo (elenco «Healthcare funds list»)", ""],
+      "inv-eu-biogeneration-ventures": ["possibile", "Investe in biotech early-stage in Europa (soprattutto Benelux e Germania), nessun deal italiano trovato", "https://tech.eu/2020/06/24/biogeneration-ventures-fund/"],
+      "inv-eu-bioinnovation-institute": ["si", "Ha lanciato il BII Catalyst Fund I per l'Italia, con Lazio Innova e Panakès Partners, dedicato a startup terapeutiche italiane", "https://www.italiaoggi.it/economia-e-politica/economia-e-finanza/bio-innovation-institute-spinge-linnovazione-terapeutica-in-italia-er3tu90n"],
+      "inv-eu-bm-t-beteiligungsmanagement-thuringen": ["no", "Mandato geografico limitato a Germania (elenco «Healthcare funds list»)", ""],
+      "inv-eu-bmh-beteiligungs-managementgesellschaft-hessen": ["no", "Mandato geografico limitato a Germania (elenco «Healthcare funds list»)", ""],
+      "inv-eu-boehringer-ingelheim-venture-fund": ["possibile", "Investe a livello globale (UE, USA, Cina); ha investito in AgomAb, nata da ricerca dell'Università di Torino ma con sede a Gand (Belgio), nessuna società con sede in Italia trovata", "https://globalventuring.com/boehringer-ingelheim-regenerates-agomab"],
+      "inv-eu-bonventure": ["no", "Investitore d'impatto con focus sulla regione DACH (Germania, Austria, Svizzera)", "https://inforcapital.com/funds/bonventure-iv/"],
+      "inv-eu-boost-capital-partners": ["possibile", "Investe pre-seed/seed in Europa, America Latina e Stati Uniti, nessun deal italiano trovato", "https://www.uktech.news/funding/vc-funding/boost-capital-partners-fund-20230620"],
+      "inv-eu-borski-fund": ["possibile", "Fondo gender-lens focalizzato su Paesi Bassi con deal anche in altri paesi europei, nessun deal italiano trovato", "https://beyondthebillion.com/our-partners/borski-fund/"],
+      "inv-eu-bpifrance-digital-venture": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-brandenburg-kapital": ["no", "Mandato geografico limitato a Germania (elenco «Healthcare funds list»)", ""],
+      "inv-eu-brightlands-venture-partners": ["no", "Mandato geografico limitato a Germania e Paesi Bassi (elenco «Healthcare funds list»)", ""],
+      "inv-eu-british-design-fund": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-business-venture-partners": ["no", "Mandato geografico limitato a Irlanda (elenco «Healthcare funds list»)", ""],
+      "inv-eu-butterfly-ventures": ["no", "Investe in startup seed di Paesi nordici e baltici", "https://butterfly.vc/"],
+      "inv-eu-byfounders": ["no", "Investe in startup di Paesi nordici e baltici", "https://tech.eu/2019/04/03/byfounders-closes-a-e100-million-fund-to-invest-across-the-nordics-and-baltics/"],
+      "inv-eu-bynd-venture-capital": ["no", "Mandato geografico limitato a Portogallo e Spagna (elenco «Healthcare funds list»)", ""],
+      "inv-eu-caesar-ventures": ["possibile", "Fondo early-stage tedesco (Monaco/Berlino) attivo soprattutto in Germania, mandato non limitato esplicitamente; nessun deal italiano trovato", "https://pitchbook.com/profiles/investor/510323-41"],
+      "inv-eu-calculus-capital": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-calm-storm-ventures": ["possibile", "Investe in healthtech in Europa (il secondo fondo punta su imprenditori austriaci), nessun deal italiano trovato", "https://trendingtopics.eu/calm-storm-ventures-after-the-foundation-comes-the-storm"],
+      "inv-eu-cambridge-angels": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-cambridge-innovation-capital": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-capacura": ["possibile", "Investitore d'impatto tedesco (Lohmar) early-stage, mandato geografico non limitato esplicitamente; nessun deal italiano trovato", "https://munich-startup.de/news/impact-investor-capacura"],
+      "inv-eu-capital-cell": ["no", "Mandato geografico limitato a Spagna (elenco «Healthcare funds list»)", ""],
+      "inv-eu-capricorn-partners": ["possibile", "Investe in aziende tecnologiche in Europa con focus sul Benelux, nessun deal italiano trovato", "https://vestbee.com/vc-list/capricorn-partners"],
+      "inv-eu-cathay-capital": ["possibile", "Investe in Europa (soprattutto Francia, Germania, Spagna), Nord America e Asia, nessun deal italiano trovato", "https://bebeez.eu/?p=57459"],
+      "inv-eu-cipio-partners": ["possibile", "Growth capital e minority buyout per aziende tech europee, nessun deal italiano trovato", "https://www.cipiopartners.com/"],
+      "inv-eu-clarendon-fund-managers": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-clave": ["possibile", "Fondo healthcare spagnolo che investe in Spagna e in Europa, nessun deal italiano trovato", "https://www.eu-startups.com/2023/02/clave-capital-announces-new-e50-million-fund-to-invest-in-healthcare-startups-from-spain-and-across-europe/"],
+      "inv-eu-cleverage-capital": ["possibile", "Fondo healthcare rumeno focalizzato su Romania/CEE ma con deal anche in Europa occidentale (es. inHEART, Francia); nessun deal italiano trovato", "https://pitchbook.com/profiles/investor/483676-48"],
+      "inv-eu-columbus-venture-partners": ["possibile", "Fondo life science spagnolo che investe in Spagna, Europa e USA (un database cita anche l'Italia); nessun deal italiano trovato", "https://www.startuphub.ai/investors/columbus-venture-partners"],
+      "inv-eu-creadev": ["possibile", "Investitore evergreen globale della famiglia Mulliez (Europa, Nord America, Africa, Asia), nessun deal italiano trovato", "https://www.creadev.com"],
+      "inv-eu-crista-galli-ventures": ["possibile", "Fondo healthtech europeo seed/Serie A, nessun deal italiano trovato", "https://techcrunch.com/2020/09/15/crista-galli-ventures"],
+      "inv-eu-debiopharm-innovation-fund": ["possibile", "Fondo corporate globale in digital health e oncologia, nessun deal italiano trovato", "https://www.eu-startups.com/2023/09/debiopharm-innovation-fund-a-e141-million-initiative-to-transform-pharma-rd-and-cancer-care-innovation/"],
+      "inv-eu-deepbridge-capital": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-dementia-discovery-fund": ["possibile", "Fondo globale dedicato alla demenza (portafoglio UK, USA, Israele), nessun deal italiano trovato", "https://globalventuring.com/dementia-discovery-fund-delivers-350m-close"],
+      "inv-eu-droia-ventures": ["possibile", "Investitore biotech (oncologia e malattie genetiche) in Europa e USA, nessun deal italiano trovato", "https://droiaventures.com/"],
+      "inv-eu-dsw-ventures": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-dvh-ventures": ["possibile", "Investitore early-stage europeo con portafoglio quasi solo tedesco, nessun deal italiano trovato", "https://funding.tech.eu/investors/DVH%20Ventures"],
+      "inv-eu-eka-ventures": ["no", "Investe in startup fondate nel Regno Unito (Fondo II dedicato a startup UK in salute e sostenibilità)", "https://new.htworld.co.uk/by-region/europe/uk-europe/eka-ventures-closes-e91-5-million-fund-ii-htsu26/"],
+      "inv-eu-elkstone-capital-partners": ["no", "Mandato geografico limitato a Irlanda (elenco «Healthcare funds list»)", ""],
+      "inv-eu-embryo-ventures": ["possibile", "Investitore early-stage di Londra che investe in UK, Europa e a livello globale; nessun deal italiano trovato", "https://superscout.co/investor/embryo-ventures"],
+      "inv-eu-empirical-ventures": ["no", "Fondo SEIS/EIS che investe solo in startup deep tech del Regno Unito", "https://www.british-business-bank.co.uk/news-and-events/news/empirical-ventures-specialist-deeptech-fund-secures-additional-ps10m-british-business-bank"],
+      "inv-eu-encomenda-venture-capital": ["no", "Mandato geografico limitato a Portogallo e Spagna (elenco «Healthcare funds list»)", ""],
+      "inv-eu-endeavour-vision": ["possibile", "Investitore growth in medtech in Europa e USA, nessun deal italiano trovato", "https://www.fiercebiotech.com/medical-devices/endeavour-vision-closes-275m-dedicated-med-tech-digital-health-fund"],
+      "inv-eu-eoniq-fund": ["no", "Mandato geografico limitato a Spagna (elenco «Healthcare funds list»)", ""],
+      "inv-eu-epidarex": ["no", "Investe in life science early-stage solo nel Regno Unito e negli Stati Uniti", "https://www.thebank.scot/epidarex-capital-fund-iv"],
+      "inv-eu-eqt": ["si", "Ufficio a Milano dal 2019; ha acquisito Facile.it (Milano) nel 2021 e Lima Corporate (Udine) nel 2016", "https://eqtgroup.com/news/eqt-acquisisce-facileit-la-piattaforma-leader-in-italia-nella-comparazione-online"],
+      "inv-eu-esperante-ventures": ["possibile", "Corporate VC che investe in farmaci in fase clinica in Nord America, Europa e Israele, nessun deal italiano trovato", "https://www.cbinsights.com/investor/esperante"],
+      "inv-eu-eurasante": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-eurazeo": ["si", "Ufficio a Milano (Corso Matteotti) con team locale; investimenti italiani in Alma Farmacie, Tikedo e Demenego", "https://www.eurazeo.com/en/newsroom/press-releases/eurazeo-strengthens-its-footprint-italy-new-office-milan-and-expands-its"],
+      "inv-eu-excellis": ["si", "Holding con sede a Torino che investe in startup fondate da italiani (es. Zaphiro e Synthara, con sede in Svizzera)", "https://bebeez.it/venture-capital/linvestitore-in-startup-excellis-punta-sulle-smart-grid-di-zaphiro-e-i-superchip-di-synthara-entrambe-svizzere-ma-dal-cuore-italiano/"],
+      "inv-eu-exceptional-ventures": ["si", "Ha partecipato al seed da 3,2 mln di euro di BonusX (SimplifAI Ted, Italia) nel 2023", "https://forbes.it/2023/10/12/anche-la-famiglia-agnelli-investe-su-bonusx-la-startup-che-semplifica-laccesso-ai-bonus-statali"],
+      "inv-eu-fly-ventures": ["possibile", "Investe seed in startup enterprise e deep tech in tutta Europa, nessun deal italiano trovato", "https://siliconcanals.com/fly-ventures-closes-fund-iii-at-80m/"],
+      "inv-eu-forbion-capital": ["si", "Ha co-guidato la Serie B da 141 mln di dollari di AAVantgarde Bio (biotech italiana) nel 2025", "https://app.mergerlinks.com/transactions/2025-11-03-aavantgarde-bio"],
+      "inv-eu-fountain-healthcare-partners": ["si", "Ha investito in Medical Microinstruments (MMI, Pisa) nella Serie A del 2018 e nella Serie B del 2022", "https://www.prnewswire.co.uk/news-releases/medical-microinstruments-spa-announces-20m-in-series-a-funding-to-advance-its-robotic-platform-for-680084123.html"],
+      "inv-eu-frontier-ip-group-plc": ["no", "Mandato geografico limitato a Portogallo e Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-fund": ["no", "Mandato geografico limitato a Belgio (elenco «Healthcare funds list»)", ""],
+      "inv-eu-future-planet-capital": ["possibile", "Investitore globale in scienza e tecnologia con sede a Londra, nessun deal italiano trovato", "https://altss.com/profile/future-planet-capital.md"],
+      "inv-eu-future-positive-capital": ["possibile", "Fondo pan-europeo deep tech, nessun deal italiano trovato", "https://www.privateequityinternational.com/future-positive-capital-collects-57-1-mln-for-fund/"],
+      "inv-eu-g-fund": ["possibile", "Investe early-stage in consumer tech in Europa e Israele (focus DACH), nessun deal italiano trovato", "https://altss.com/profile/g-fund.md"],
+      "inv-eu-giant-ventures": ["si", "Ha guidato il seed da 3,2 mln di euro di BonusX (SimplifAI Ted, Italia) nel 2023", "https://forbes.it/2023/10/12/anche-la-famiglia-agnelli-investe-su-bonusx-la-startup-che-semplifica-laccesso-ai-bonus-statali"],
+      "inv-eu-gimv-life-sciences": ["possibile", "Investe in life science in Europa; nessun deal italiano (solo l'exit di Breath Therapeutics venduta all'italiana Zambon); nel 2026 annunciato lo stop ai nuovi investimenti life science", "https://www.biospace.com/gimv-and-other-shareholders-sell-biopharmaceutical-company-breath-therapeutics-to-zambon-after-a-fast-development"],
+      "inv-eu-hadean-ventures": ["possibile", "Investe in life science in Europa con focus sui paesi nordici, nessun deal italiano trovato", "https://labiotech.eu/medical/hadean-ventures-e100m-fund/"],
+      "inv-eu-heal-capital": ["possibile", "Fondo digital health che investe in Europa (Germania, Paesi Bassi, Polonia), nessun deal italiano trovato", "https://www.pkv.de/positionen/heal-capital/"],
+      "inv-eu-healthcap": ["possibile", "Investe in life science in Europa e USA con focus nordico, nessun deal italiano trovato", "https://en.wikipedia.org/wiki/HealthCap"],
+      "inv-eu-hg-capital": ["si", "Ha investito in TeamSystem (Pesaro) dal 2010 al 2024", "https://www.hgcapitaltrust.com/news-insights/news/2021/18-01-2021-131229553"],
+      "inv-eu-hikma-ventures": ["possibile", "CVC di Hikma che investe in digital health e life sciences a livello globale (USA, Europa, MENA); nessun deal italiano trovato", "https://hikma.com/about/hikma-ventures"],
+      "inv-eu-htgf": ["no", "Mandato geografico limitato a Germania (elenco «Healthcare funds list»)", ""],
+      "inv-eu-ibb-ventures": ["no", "Mandato geografico limitato a Germania (elenco «Healthcare funds list»)", ""],
+      "inv-eu-imec-xpand": ["possibile", "Investe in startup deeptech/semiconduttori in Europa e nel mondo (dove la tecnologia imec è rilevante); nessun deal italiano trovato", "https://www.eenewseurope.com/en/imec-xpand-launches-second-semiconductor-fund-with-e300m"],
+      "inv-eu-industrifonden": ["no", "Investe principalmente in innovazioni svedesi e in life science/deep tech dei Paesi nordici", "https://industrifonden.com/news/a-vc-with-a-twist-industrifondens-investment-approach/"],
+      "inv-eu-inhealth-ventures": ["possibile", "Investe in healthtech early-stage in Europa e USA; nessun deal italiano trovato", "https://pitchbook.com/profiles/investor/182356-30"],
+      "inv-eu-innovation-fund-denmark": ["no", "Mandato geografico limitato a Danimarca (elenco «Healthcare funds list»)", ""],
+      "inv-eu-innovation-industries": ["no", "Investe in deep tech di Benelux e Germania", "https://assetmanagement.apg.nl/media/hn0puajj/press-release-innovation-industries-fund-iii-240515.pdf"],
+      "inv-eu-innovestor": ["no", "Fondi focalizzati su Paesi nordici e baltici", "https://paaomasijoittajat.fi/en/ajankohtaista/news/14925/innovestor-launches-life-science-health-fund-in-the-nordics/"],
+      "inv-eu-inventure": ["no", "Investe in startup early-stage nordiche e baltiche", "https://techcrunch.com/2017/12/19/inventure-2"],
+      "inv-eu-invivo-partners": ["possibile", "Investe in life sciences in Europa (co-investimento con Angelini Ventures nella danese Neumirna); nessuna società italiana in portafoglio trovata", "https://bebeez.eu/?p=48392"],
+      "inv-eu-ip-group": ["no", "Investe in spin-off universitari di Regno Unito (oltre a USA e Australia); nessun investimento italiano trovato", "https://sharecast.com/equity/IP_Group-IPOL/profile"],
+      "inv-eu-iw-capital": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-ixo-private-equity": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-jvh-ventures": ["possibile", "Investe in Europa, prevalentemente Germania (anche UK, Svezia, Danimarca); nessun deal italiano trovato", "https://www.pipeseed.com/investor/jvh-ventures-162326"],
+      "inv-eu-karista": ["possibile", "VC parigino early-stage (salute, digitale, tech) con focus Francia/Europa; nessun deal italiano trovato", "https://www.vestbee.com/vc-list/karista"],
+      "inv-eu-kelvin-capital": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-kinnevik": ["possibile", "Investe in aziende tech in Europa e USA; nessuna società italiana in portafoglio trovata", "https://stockanalysis.com/quote/sto/KINV.A/company"],
+      "inv-eu-kreos-capital": ["possibile", "Venture debt per società europee e israeliane; nessun finanziamento a società italiane documentato trovato", "https://calcalistech.com/ctech/articles/0,7340,L-3755807,00.html"],
+      "inv-eu-kurma-partners": ["possibile", "Investe in biotech in tutta Europa (partnership con l'italiana Angelini in Argobio, con sede in Francia); nessuna biotech italiana in portafoglio trovata", "https://bebeez.eu/2025/06/12/elkedonia-attracts-11-25-million-euros-seed-resources-from-kurma-partners-and-angelini-ventures/"],
+      "inv-eu-lauxera-capital-partners": ["possibile", "Investe in healthtech/medtech europee (sedi a Parigi e San Francisco); nessun deal italiano trovato", "https://www.fiercebiotech.com/medtech/lauxera-capital-partners-raises-hefty-eu520m-health-medtech-companies"],
+      "inv-eu-lifeline-ventures": ["possibile", "Circa 95% dei deal in Finlandia, ma il nuovo fondo da 400 mln € copre tutta Europa; nessun deal italiano trovato", "https://www.privateequitywire.co.uk/lifeline-ventures-closes-e400m-tech-fund/"],
+      "inv-eu-m-ventures": ["possibile", "CVC di Merck KGaA che investe in biotech e tecnologia a livello globale; nessun deal italiano trovato", "https://www.fiercebiotech.com/biotech/merck-kgaa-steps-up-vc-activity-677m-investment-positioning-m-ventures-to-keep-pace"],
+      "inv-eu-maven-capital-partners": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-meridian-health-ventures": ["no", "Fondo healthtech transatlantico focalizzato su Regno Unito (NHS) e Stati Uniti", "https://vestbee.com/insights/articles/meridian-health-ventures-raises-44-7-m-fund"],
+      "inv-eu-merieux-equity-partners": ["si", "Ha investito nel 2019 (con ICG) in DOC Generici (Milano), principale produttore italiano indipendente di farmaci generici", "https://www.unquote.com/southern-europe/official-record/3014494/merieux-icg-invest-in-italian-pharma-company-doc-generici"],
+      "inv-eu-metaplanet": ["possibile", "Investe a livello globale (anche Europa meridionale secondo i database); nessuna startup italiana trovata", "https://www.hopohopo.io/investors/metaplanet"],
+      "inv-eu-mig-capital": ["possibile", "Investe in deeptech e life sciences prevalentemente in Europa, con focus sui paesi germanofoni; nessun deal italiano trovato", "https://www.hopohopo.io/investors/mig-capital"],
+      "inv-eu-monograph-capital": ["possibile", "Investe e crea biotech early-stage (USA/UK) senza limiti geografici espliciti; nessun deal italiano trovato", "https://monograph.bio/?p=15"],
+      "inv-eu-mundi-ventures": ["possibile", "Investe in tech (insurtech, fintech, climate, deeptech) in Europa; nessun deal italiano confermato", "https://www.cbinsights.com/company/mundi-ventures"],
+      "inv-eu-mutschler-ventures-ag": ["possibile", "Family office svizzero con focus DACH (ha investito anche fuori area, es. Adyen nei Paesi Bassi); nessun deal italiano trovato", "https://inforcapital.com/companies/mutschler-ventures/"],
+      "inv-eu-nina-capital": ["possibile", "Investe in healthtech in Europa (60%), USA, Canada, Israele, Australia; fondatrice italiana ma nessun deal italiano trovato", "https://sifted.eu/articles/exclusive-nina-capitals-new-e50m-fund-sets-sights-on-early-stage-healthtechs"],
+      "inv-eu-nlc-health-ventures": ["possibile", "Venture builder healthtech attivo in tutta Europa (un database indica ~3% dei deal in Italia) ma nessuna società italiana identificata", "https://pipeseed.com/investor/nlc-601056"],
+      "inv-eu-northern-gritstone": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-northstar-ventures": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-novartis-venture-fund": ["possibile", "Investe in biotech a livello globale; nessun deal italiano trovato", "https://www.privateequityinternational.com/institution-profiles/novartis-venture-fund.html"],
+      "inv-eu-novo-holdings": ["si", "Nel luglio 2026 ha sostenuto un fondo dedicato alle startup farmaceutiche italiane (fonte Bloomberg via TNW); inoltre ha controllato il sito Catalent di Anagni", "https://thenextweb.com/news/novo-holdings-italy-fund-drug-startups"],
+      "inv-eu-o2h-ventures": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-octalfa": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-octopus-ventures": ["si", "Ha investito in Qomodo (fintech di Milano) nel round 2023 e nel Series A da 13,5 mln € del 2025", "https://financialit.net/news/fundraising-news/qomodo-welcomes-rtp-global-and-lmdv-capital-new-investors-and-raises-eu135m"],
+      "inv-eu-oxford-science-enterprises": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-peppermint-venture-partners": ["possibile", "Investe in healthcare early-stage in Europa con focus sui paesi germanofoni; nessun deal italiano trovato", "https://www.hopohopo.io/investors/peppermint-venture-partners"],
+      "inv-eu-philips-ventures": ["possibile", "CVC di Philips che investe in healthtech a livello globale (anche Europa meridionale); nessun deal italiano trovato", "https://www.hopohopo.io/investors/philips-ventures"],
+      "inv-eu-pmv": ["no", "Mandato geografico limitato a Belgio (elenco «Healthcare funds list»)", ""],
+      "inv-eu-polytechnique-ventures": ["no", "Investe solo in startup legate all'École polytechnique (alumni, spin-off dei laboratori o incubate nel campus), di fatto in Francia", "https://www.polytechnique.edu/en/news/polytechnique-ventures-closes-its-first-early-stage-investment-fund-eu36-millions"],
+      "inv-eu-portugal-ventures": ["no", "Mandato geografico limitato a Portogallo (elenco «Healthcare funds list»)", ""],
+      "inv-eu-purple-ventures": ["no", "Investe in startup pre-seed/seed dell'Europa centro-orientale (CEE)", "https://www.unquote.com/cee/news/3029340/purple-ventures-plans-eur-30m-eur-40m-fund-to-invest-across-cee"],
+      "inv-eu-push-vc": ["no", "Mandato geografico limitato a Austria e Germania (elenco «Healthcare funds list»)", ""],
+      "inv-eu-pxn-group": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-qantx": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-qbic-fund": ["no", "Mandato geografico limitato a Belgio (elenco «Healthcare funds list»)", ""],
+      "inv-eu-qubis": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-redalpine": ["possibile", "Investe in tech/deeptech in Europa (es. Proxima Fusion, tedesca con fondatori italiani); nessuna società italiana trovata", "https://bebeez.it/venture-capital/la-tedesca-proxima-fusion-con-tre-italiani-tra-i-fondatori-incassa-round-da-20-mln-euro-dal-venture-capital-svizzero-redalpine/"],
+      "inv-eu-region-sud-investissement": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-rheingau-founders": ["possibile", "Investe in startup B2B early-stage in Europa, prevalentemente Germania; nessun deal italiano trovato", "https://www.deutsche-startups.de/verzeichnisse/investors-a-z/rheingau-founders/"],
+      "inv-eu-ryse": ["possibile", "Investe in digital health early-stage per l'NHS e altri sistemi sanitari (portafoglio anche europeo, es. Braingaze); nessun deal italiano trovato", "https://pharmaphorum.com/news/ryses-50m-digital-health-fund-makes-first-investment"],
+      "inv-eu-sandwater": ["no", "Investe in startup dei Paesi nordici e del Nord Europa", "https://venturecapitaljournal.com/nordic-vc-firm-sandwater-closes-venture-fund-at-136m"],
+      "inv-eu-scalehouse-capital": ["no", "Mandato geografico limitato a Germania (elenco «Healthcare funds list»)", ""],
+      "inv-eu-seventure-partners": ["possibile", "Investe in life sciences in tutta Europa e digitale in Francia/Germania; nessuna società italiana trovata", "https://www.deutsche-startups.de/verzeichnisse/investors-a-z/seventure-partners/"],
+      "inv-eu-sistafund": ["possibile", "Fondo europeo per startup con co-fondatrici donne, senza criteri di nazionalità (60% Francia); nessun deal italiano trovato", "https://sifted.eu/articles/sista-vc-fund-raise-france"],
+      "inv-eu-sofina": ["possibile", "Holding che investe in growth tech in Europa e nel mondo; nessun deal italiano confermato", "https://funding.tech.eu/investors/Sofina"],
+      "inv-eu-sofinnova-partners": ["si", "Ha un ufficio a Milano e gestisce il Sofinnova Telethon Fund dedicato alle biotech italiane (es. Genespire, AAVantgarde Bio)", "https://sofinnovapartners.com/news/sofinnova-partners-announces-three-new-investments-from-its-fund-dedicated-to-italian-scientific-research"],
+      "inv-eu-springvest": ["no", "Mandato geografico limitato a Finlandia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-square-one-foods": ["possibile", "Investe in startup food/foodtech solo in Europa; nessun deal italiano trovato", "https://superscout.co/investor/square-one-foods"],
+      "inv-eu-supernova-invest": ["si", "Ha partecipato nel 2025 al Series C da 70 mln € di Exein (Roma), società di cybersecurity", "https://nordic9.com/news/exein-raised-70m-in-a-series-c-funding-round-led-by-lakestar-joined-by-balderton-supernova-invest-united-ventures-33n-and-partech"],
+      "inv-eu-syncona-partners-llp": ["possibile", "Crea e finanzia società life science prevalentemente nel Regno Unito e in Europa; nessun deal italiano trovato", "https://www.trustintelligence.co.uk/investor/funds/syncona"],
+      "inv-eu-ta-ventures": ["si", "Investitore in Prima Assicurazioni (Milano), insurtech italiana", "https://www.preqin.com/data/profile/asset/prima-assicurazioni-s-p-a-/299965"],
+      "inv-eu-techstart-ventures": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-thena-capital": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-tilia-impact-ventures": ["no", "Investe in startup a impatto dell'Europa centro-orientale (CEE)", "https://seenews.com/news/tilia-impact-raises-second-fund-to-drive-esg-investment-in-cee-834226"],
+      "inv-eu-turenne-capital": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-tvm-capital": ["si", "Ha guidato un round da 10,5 mln € in BioXell S.p.A. (Milano), biotech italiana", "https://www.biospace.com/bioxell-s-p-a-l-raises-additional-10-5-million-in-private-financing-led-by-b-tvm-capital-b"],
+      "inv-eu-ucb-ventures": ["possibile", "CVC di UCB che investe in biotech early-stage in USA ed Europa; nessun deal italiano trovato", "https://ucbventures.com/"],
+      "inv-eu-ui-investissement": ["no", "Mandato geografico limitato a Francia (elenco «Healthcare funds list»)", ""],
+      "inv-eu-uk-innovation-science-seed-fund": ["no", "Mandato geografico limitato a Regno Unito (elenco «Healthcare funds list»)", ""],
+      "inv-eu-unfold-vc": ["no", "Fondo seed di Breslavia (Polonia) focalizzato su startup tecnologiche polacche", "https://comparic.pl/fundusz-unfold-vc-ma-rekordowy-zwrot-w-infermedice-i-szykuje-kilkumilionowa-dywidende-dla-akcjonariuszy/"],
+      "inv-eu-unilever-ventures": ["possibile", "Investe a livello globale nel consumer; nessun deal italiano di Unilever Ventures (Grom ed Equilibra sono acquisizioni di Unilever, non del fondo)", "https://f4.fund/firms/unilever-ventures"],
+      "inv-eu-v-bio-ventures": ["si", "Ha guidato nel 2022 il Series A da 23 mln € di Sibylla Biotech (Verona)", "https://nordic9.com/news/sibylla-biotech-raised-23m-in-a-round-led-by-v-bio-venture-joined-by-seroba-3b-future-health-fund-claris-ventures-and-cdp-venture-capital/"],
+      "inv-eu-vi-partners": ["possibile", "Investe in startup svizzere ed europee (healthcare/tech); un database cita l'Italia tra i Paesi, ma nessun deal italiano nominato", "https://nordic9.com/companies/vi-partners-ag-investor1056775439/"],
+      "inv-eu-voima-ventures": ["no", "Investe in deep tech di Paesi nordici e baltici", "https://tech.eu/2023/06/13/a-deep-tech-fund-for-the-nordics-and-baltics-voima-ventures-launches-90-million-fund/"],
+      "inv-eu-vorwerk-ventures": ["possibile", "Focus principale DACH con investimenti selettivi nel resto d'Europa; nessun deal italiano trovato", "https://f4.fund/firms/vorwerk-ventures"],
+      "inv-eu-walter-ventures": ["possibile", "Investe in Europa occidentale e meridionale e nei Paesi nordici/baltici (es. Nearby Computing, Spagna); nessun deal italiano trovato", "https://www.caplight.com/investor/walter-ventures"],
+      "inv-eu-we-venture-capital": ["possibile", "Braccio di corporate venture di Werfen (Barcellona), investe in startup della diagnostica a livello internazionale; nessun deal italiano trovato", "https://globalventuring.com/people/powerlist-2026-louise-warme-we-venture-capital/"],
+      "inv-eu-wellington-partners": ["possibile", "Investitore paneuropeo (il fondo life science punta soprattutto sui Paesi di lingua tedesca); nessun deal italiano trovato", "https://www.mednous.com/news/wellington-partners-raises-eu210-million"],
+      "inv-eu-white-star-capital": ["si", "Ha aperto un ufficio in Italia (Milano) guidato dalla Senior Principal Elisa Steccaglia per investire in startup italiane", "https://startupitalia.eu/?p=700459"],
+      "inv-eu-ysios-capital": ["possibile", "Biotech VC spagnolo con focus sulla Spagna ma investimenti anche in Europa e USA; nessun deal italiano trovato", "https://catalonia.health/news/ysios-capital-closes-its-third-biotech-fund-at-216-million"],
+      "inv-eu-zubi-capital": ["possibile", "Fondo di venture debt d'impatto per startup europee (accordo con il FEI); nessun deal italiano trovato", "https://valenciaplaza.com/valenciaplaza/zubi-capital-y-el-fei-firman-un-acuerdo-para-apoyar-a-startups-europeas-innovadoras-de-impacto"],
+      "inv-imp-406-ventures": ["no", "Investe quasi esclusivamente in startup statunitensi (focus East Coast USA)", "https://www.406ventures.com/?p=813"],
+      "inv-imp-5am-ventures": ["possibile", "Investe in life science soprattutto USA, con alcuni deal europei (co-investimenti con EIB e Indaco); nessun deal italiano confermato", "https://funding.tech.eu/investors/5AM%20Ventures"],
+      "inv-imp-8vc": ["possibile", "Ha investito in 13 aziende europee/estere (UK, Irlanda, Israele, Turchia), nessun deal italiano trovato", "https://funding.tech.eu/investors/8VC"],
+      "inv-imp-accelmed-partners": ["possibile", "Investe in medtech a livello internazionale (USA, Israele, alcuni deal europei), nessun deal italiano trovato", "https://funding.tech.eu/investors/Accelmed%20Growth%20Partners"],
+      "inv-imp-andera-partners": ["si", "Ha un team a Milano (attivo in Italia dal 2010); ha investito in Adler Ortho (Cormano, 2025) ed è investitore di MMI - Medical Microinstruments (Pisa)", "https://financecommunity.it/andera-partners-consolida-la-presenza-in-italia-e-in-europa/"],
+      "inv-imp-arboretum-ventures": ["no", "Investe in healthcare solo in Nord America, con focus sul Midwest USA", "https://hub.waveup.com/funds/arboretum-ventures"],
+      "inv-imp-arch-venture-partners": ["possibile", "Nessuna restrizione geografica dichiarata, portafoglio soprattutto USA; nessun deal italiano trovato", "https://en.wikipedia.org/wiki/Arch_Venture_Partners"],
+      "inv-imp-atlas-venture": ["si", "Ha co-guidato la Serie A da 61 mln € (2023) e la Serie B da 141 mln $ (2025) di AAVantgarde Bio (Milano)", "https://www.biospace.com/aavantgarde-closes-61-million-series-a-financing-to-advance-two-therapeutic-programs-into-the-clinic"],
+      "inv-imp-canaan": ["possibile", "Portata d'investimento globale (uffici USA e Tel Aviv), nessun deal italiano trovato", "https://privateequitylist.com/investors/canaan-partners"],
+      "inv-imp-catalyst-health-ventures": ["possibile", "Fondo medtech di Boston con portafoglio prevalentemente USA; nessuna esclusione geografica esplicita, nessun deal italiano trovato", "https://mtec-sc.org/life-sciences/catalyst-health-ventures"],
+      "inv-imp-dcvc": ["possibile", "Ha investito in Europa (Regno Unito, Svizzera), nessun deal italiano trovato", "https://funding.tech.eu/investors/DCVC"],
+      "inv-imp-deerfield-management": ["si", "È investitore di MMI - Medical Microinstruments (Pisa) e ha partecipato al round di Serie C da 110 mln $ (2024)", "https://www.biospace.com/mmi-raises-110-million-in-series-c-financing"],
+      "inv-imp-flagship-pioneering": ["possibile", "Crea e finanzia società proprie soprattutto a Cambridge (USA), con presenza anche a Londra; nessun deal italiano trovato", "https://builtinlondon.uk/company/flagship-pioneering"],
+      "inv-imp-gilde-healthcare": ["possibile", "Investe in healthcare in Europa e Nord America, nessun deal italiano trovato", "https://www.bebeez.eu/2023/04/19/gilde-healthcare-raises-e600-million-to-invest-in-healthcare-innovation/"],
+      "inv-imp-longitude-capital": ["possibile", "Investitore healthcare (biotech/medtech) senza restrizioni geografiche dichiarate, portafoglio prevalentemente USA; nessun deal italiano trovato", "https://signal.nfx.com/firms/longitude-capital"],
+      "inv-imp-lux-capital": ["possibile", "Investe a livello globale (13 aziende europee in portafoglio: UK, Francia, Irlanda, Danimarca, ecc.), nessun deal italiano trovato", "https://funding.tech.eu/investors/Lux%20Capital"],
+      "inv-imp-norwest-venture-partners": ["possibile", "Investe anche fuori dagli USA (India, Israele, Europa: es. Serie A di xtype, Austria), nessun deal italiano trovato", "https://bebeez.eu/2024/10/02/xtype-raises-e19-million-to-fuel-innovation-on-the-servicenow-platform-with-rd-based-in-austria/"],
+      "inv-imp-orbimed": ["possibile", "Investitore healthcare globale (deal in Israele, UK, Danimarca, Svizzera, Francia, Germania), nessun deal italiano trovato", "https://funding.tech.eu/investors/OrbiMed"],
+      "inv-imp-peregrine-ventures": ["no", "Investe in startup medtech israeliane (incubatore con l'Israel Innovation Authority)", "https://www.timesofisrael.com/israels-peregrine-ventures-raises-115-million-for-new-med-tech-fund/"],
+      "inv-imp-polaris-partners": ["possibile", "Uffici a Boston, San Francisco e Dublino (Irlanda); nessun deal italiano trovato", "https://www.fiercebiotech.com/biotech/polaris-preps-for-a-400m-fund-to-back-a-new-wave-of-biotechs"],
+      "inv-imp-redpoint-china-ventures": ["no", "Fondo dedicato esclusivamente a startup cinesi", ""],
+      "inv-imp-sant-ventures": ["no", "Investe principalmente negli Stati Uniti (Texas e Centro USA)", "https://www.vcsheet.com/fund/sante-ventures"],
+      "inv-imp-sequoia-capital": ["possibile", "Investe anche in Europa (es. Pennylane, Stark, Mubi), nessun deal italiano trovato", "https://bebeez.eu/2025/04/07/unicorn-pennylane-bags-an-additional-e75-million-for-electronic-invoicing/"],
+      "inv-imp-sonder-capital": ["possibile", "Investe in medtech anche in Europa (es. Serie A di Vitestro, Paesi Bassi), nessun deal italiano trovato", "https://nordic9.com/news/vitestro-raised-12m-series-a-led-by-sonder-capital/"],
+      "inv-imp-triventures": ["no", "Investe in startup medtech e digital health israeliane (e USA)", "https://en.globes.co.il/en/article-triventures-raises-70m-israel-biomed-fund-1001038048"],
+      "inv-imp-u-s-venture-partners": ["possibile", "Fondo della Silicon Valley con portafoglio prevalentemente USA, senza esclusioni geografiche esplicite; nessun deal italiano trovato", "https://builtin.com/company/us-venture-partners"],
+      "inv-imp-vensana-capital": ["no", "Investe principalmente in medtech negli Stati Uniti", "https://www.pipeseed.com/investor/vensana-capital-669344"],
+      "inv-it-360-capital": ["si", "In Italia: Talentware (pre-seed da 800k €, 2024, lead), Tundr (seed da 7,2 M€, 2025, lead tramite 360 DigItaly)", "https://www.startupbusiness.it/en/?p=142987"],
+      "inv-it-360-life-ii": ["si", "Fondo climate tech sull'asse Italia-Francia, con CDP Venture Capital e A2A come anchor investor", "https://tech.eu/2024/12/23/360-capital-closes-new-climate-tech-fund-at-140m/"],
+      "inv-it-a2a-life-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://gruppoa2a.it"],
+      "inv-it-angelini-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://angeliniventures.com"],
+      "inv-it-angels4women": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://angels4women.com"],
+      "inv-it-azimut-libera-impresa-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Sellrapido, Fessura, Serenis)", "https://azimut-group.com"],
+      "inv-it-b-heroes-boost-heroes": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://bheroes.it"],
+      "inv-it-base10-partners": ["si", "In Italia: Jet HR (round da 25 mln €, giugno 2025, lead), Lexroom (Series A da 16 mln € / 19 mln $, settembre 2025, lead)", "https://www.startupbusiness.it/en/jet-hr-eur-25-million-round-led-by-us-vc-base10/146363/"],
+      "inv-it-cariplo-factory": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://cariplofactory.it"],
+      "inv-it-cdp-venture-capital-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://cdpventurecapital.it"],
+      "inv-it-claris-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://clarisventures.com"],
+      "inv-it-club-degli-investitori": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://clubdeglinvestitori.it"],
+      "inv-it-cysero": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://avmgestioni.com"],
+      "inv-it-earlybird-venture-capital": ["si", "In Italia: Involve Space (seed 2024, lead), Pillar (seed 2025, co-lead con Base10 Partners)", "https://bebeez.eu/2024/09/10/italys-angels-incubators-and-venture-capital-weekly-roundup-news-from-and-more-29/"],
+      "inv-it-eureka-venture-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://eurekaventure.it"],
+      "inv-it-extend": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://cdpventurecapital.it"],
+      "inv-it-farming-future": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://farmingfuture.vc"],
+      "inv-it-fondazione-enea-tech-e-biomedical": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://eneatechbiomedical.it"],
+      "inv-it-g-factor": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://fondazionegolinelli.it"],
+      "inv-it-galaxia": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://galaxia.vc"],
+      "inv-it-indaco-bio": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://indacosgr.com"],
+      "inv-it-indaco-venture-partners-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: newcleo, Newronika, Pi-Cardia)", "https://indacosgr.com"],
+      "inv-it-italian-angels-for-biotech": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://italianangelsforbiotech.it"],
+      "inv-it-italian-angels-for-growth": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://italianangels.net"],
+      "inv-it-italian-founders-fund": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: JetHR, Glaut, Compri)", "https://italianfoundersfund.com"],
+      "inv-it-kairos-ventures-esg-one": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Endostart, Underscore District, Materia Medica Processing)", "https://kairospartners.com"],
+      "inv-it-leonardo": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://leonardo.com"],
+      "inv-it-liftt": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://liftt.com"],
+      "inv-it-lumen-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://lumen.ventures"],
+      "inv-it-mito-technology": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://mitotech.eu"],
+      "inv-it-moonstone-venture-capital": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Foreverland, Cato)", ""],
+      "inv-it-nana-bianca": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://nanabianca.it"],
+      "inv-it-neva-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://nevasgr.com"],
+      "inv-it-nextalia-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Hlpy, Shop Circle, Datapizza)", "https://nextalia.com"],
+      "inv-it-oltre-impact": ["si", "Gestore con sede in Italia, investe in startup italiane", ""],
+      "inv-it-opes-italia": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://opesitalia.com"],
+      "inv-it-p101-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Cortilia, Tannico, Carol Health)", "https://p101.it"],
+      "inv-it-panakes-partners": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://panakes.it"],
+      "inv-it-partech": ["si", "In Italia: Smartpricing (Series A da 13 mln €, dicembre 2023, lead), Netsec (società franco-italiana, round da oltre 8,9 mln €, 2026, lead)", "https://www.startupbusiness.it/en/partech-venture-fund-debuts-with-an-investment-in-an-italian-startup/129914/"],
+      "inv-it-pi-campus": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Askdata (exit a SAP), Cyberwave, Intron Health)", "https://picampus.it"],
+      "inv-it-picus-capital": ["si", "In Italia: Jet HR (seed da 12 mln €, 2024, lead), Compri (seed da 3,2 mln €, giugno 2026, lead)", "https://nordic9.com/news/jet-hr-raised-a-seed-round-of-12-million-led-by-picus-capital-joined-by-exor-ventures-italian-founders-fund-2100-ventures-and-italian-angel-investors/"],
+      "inv-it-primo-capital-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Bricks)", "https://primo.capital"],
+      "inv-it-primo-climate": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://primo.capital"],
+      "inv-it-primo-space": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://primo.capital"],
+      "inv-it-rialto-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Aidem, Roboze, Keyless)", "https://rialto.vc"],
+      "inv-it-roboit": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://cdpventurecapital.it"],
+      "inv-it-scientifica-venture-capital": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://scientifica.vc"],
+      "inv-it-sella-direct-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://sella.vc"],
+      "inv-it-sinergia-venture-fund": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Contents, Ermes, Soplaya)", ""],
+      "inv-it-sofinnova-telethon-fund": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://sofinnovapartners.com"],
+      "inv-it-startup-bakery": ["si", "Gestore con sede in Italia, investe in startup italiane", ""],
+      "inv-it-step-venture": ["si", "Gestore con sede in Italia, investe in startup italiane", ""],
+      "inv-it-tech-europe-foundation": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://b4i.unibocconi.it"],
+      "inv-it-tech4planet": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://cdpventurecapital.it"],
+      "inv-it-terna-forward": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://terna.it"],
+      "inv-it-the-techshop-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Cyberwave)", "https://techshop.capital"],
+      "inv-it-united-ventures": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Musixmatch, Moneyfarm, Fiscozen)", "https://unitedventures.com"],
+      "inv-it-vento": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Lexroom)", "https://vento.ventures"],
+      "inv-it-vertis-sgr": ["si", "Gestore con sede in Italia, investe in startup italiane (in portafoglio: Credimi, Milkman, Mosaicoon)", "https://vertis.it"],
+      "inv-it-xgen-venture": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://xgenventure.com"],
+      "inv-it-zcube": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://zcube.it"],
+      "inv-it-zest": ["si", "Gestore con sede in Italia, investe in startup italiane", "https://zestgroup.vc"]
+    } }
+];
+function _runInvestorPatches(me) {
+  INVESTOR_PATCHES.forEach(pt => {
+    const italy = pt.italy || {};
+    if (!Object.keys(italy).length || localStorage.getItem(pt.key)) return;
+    let list = [];
+    try { const v = JSON.parse(localStorage.getItem(INVESTORS_KEY) || '[]'); if (Array.isArray(v)) list = v.filter(x => x && x.id && !x._deleted); } catch(_) {}
+    const now = new Date().toISOString();
+    const changed = [];
+    list = list.map(inv => {
+      const p = italy[inv.id];
+      if (!p || (inv.italy && inv.italy.status)) return inv; // never overwrite a check made by the team
+      const [status, evidence, source] = p;
+      const upd = Object.assign({}, inv, {
+        italy: { status, evidence: evidence || '', source: source || '', checkedAt: pt.checkedAt, checkedBy: 'Ricerca web' },
+        updatedAt: now
+      });
+      if (status === 'si' && !(inv.geographies || []).includes('Italia')) upd.geographies = ['Italia'].concat(inv.geographies || []);
+      changed.push(inv.id);
+      return upd;
+    });
+    if (changed.length) saveInvestors(list);
+    const marker = { at: now, by: me.name, byId: me.id, changed };
+    localStorage.setItem(pt.key, JSON.stringify(marker));
+    _sbSync(pt.key, marker);
+    if (changed.length) console.info('Investitori aggiornati:', changed.length);
+  });
 }
 
 function loadInvestors() {
@@ -9957,19 +10261,157 @@ function _invLastInteraction(inv) {
   return dates.length ? dates.sort().slice(-1)[0] : '';
 }
 
-function renderInvestors() {
-  const el = document.getElementById('page-investors');
-  const list = loadInvestors();
-  const allDeals = deals;
+const INV_STAGES_ALL = ['Pre-seed','Seed','Series A','Series B','Series C','Growth'];
+const INV_SECTORS_ALL = ['Medtech','Cleantech','Deep Tech','Biotech','AI','Robotica','Spazio','Altro'];
+const INV_ITALY = {
+  si:        { label: 'Investe in Italia',     short: 'Italia ✓', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  possibile: { label: 'Italia possibile',      short: 'Italia ?', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  no:        { label: "Non investe in Italia", short: 'No Italia', cls: 'bg-rose-50 text-rose-700 border-rose-200' }
+};
+// Italy status: the verified check wins; otherwise an investor whose geographies list Italy counts as "si".
+function _invItalyStatus(inv) {
+  const s = inv && inv.italy && inv.italy.status;
+  if (s && INV_ITALY[s]) return s;
+  return (inv && (inv.geographies || []).includes('Italia')) ? 'si' : '';
+}
+function _invItalyBadge(inv) {
+  const s = inv && inv.italy && inv.italy.status;
+  if (!s || !INV_ITALY[s]) {
+    return _invItalyStatus(inv) === 'si'
+      ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border border-emerald-200 text-emerald-700" title="Italia indicata tra le geografie (non verificato)">Italia</span>`
+      : '';
+  }
+  const it = INV_ITALY[s];
+  return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${it.cls}" title="${esc(inv.italy.evidence || it.label)}">${it.short}</span>`;
+}
 
-  // Sort: most recent interaction first, then no-interaction alphabetically
-  const sorted = [...list].sort((a, b) => {
+const INV_FILTER_DEFAULT = { q: '', sector: '', stage: '', italy: '' };
+let investorFilter = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem('ui_investorFilter') || 'null');
+    if (v && typeof v === 'object') return Object.assign({}, INV_FILTER_DEFAULT, v, { q: '' });
+  } catch(_) {}
+  return Object.assign({}, INV_FILTER_DEFAULT);
+})();
+function _saveInvestorFilter() {
+  try { localStorage.setItem('ui_investorFilter', JSON.stringify({ sector: investorFilter.sector, stage: investorFilter.stage, italy: investorFilter.italy })); } catch(_) {}
+}
+function setInvestorFilter(k, v) {
+  investorFilter[k] = v;
+  _saveInvestorFilter();
+  if (k === 'q') _renderInvestorRows(); else renderInvestors();
+}
+function resetInvestorFilters() {
+  investorFilter = Object.assign({}, INV_FILTER_DEFAULT);
+  _saveInvestorFilter();
+  renderInvestors();
+}
+function _invFilterActive() { return !!(investorFilter.q.trim() || investorFilter.sector || investorFilter.stage || investorFilter.italy); }
+function _invApplyFilter(list) {
+  const f = investorFilter;
+  const q = _invNameKey(f.q);
+  return list.filter(inv => {
+    if (f.sector && !(inv.sectors || []).includes(f.sector)) return false;
+    if (f.stage && !(inv.stages || []).includes(f.stage)) return false;
+    if (f.italy) {
+      const s = _invItalyStatus(inv);
+      if (f.italy === 'nd' ? s !== '' : s !== f.italy) return false;
+    }
+    if (q) {
+      const hay = _invNameKey([inv.name, inv.manager, inv.country, inv.contactName, (inv.sectors||[]).join(' '), inv.notes].join(' '));
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+function _invSorted(list) {
+  // Most recent interaction first, then no-interaction alphabetically
+  return [...list].sort((a, b) => {
     const da = _invLastInteraction(a), db = _invLastInteraction(b);
     if (da && db) return db.localeCompare(da);
     if (da) return -1;
     if (db) return 1;
     return (a.name||'').localeCompare(b.name||'');
   });
+}
+function _invRowHtml(inv) {
+  const lastDate = _invLastInteraction(inv);
+  const lastPitch = lastDate ? [...(inv.pitches||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0] : null;
+  const lastDeal = lastPitch ? deals.find(d=>d.id===lastPitch.dealId) : null;
+  const outcomeColor = lastPitch ? (PITCH_OUTCOME_COLORS[lastPitch.outcome]||'bg-slate-100 text-slate-600') : '';
+  const fmtDate = lastDate ? new Date(lastDate).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  const f = investorFilter;
+  // When filtering by a sector/stage, show that chip first so the match is visible.
+  const firstOf = (arr, x) => x && arr.includes(x) ? [x].concat(arr.filter(y => y !== x)) : arr;
+  const sectors = firstOf(inv.sectors||[], f.sector).slice(0,3).map(s=>`<span class="${s===f.sector?'bg-indigo-600 text-white':'bg-indigo-50 text-indigo-700'} px-1.5 py-0.5 rounded text-xs">${esc(s)}</span>`).join(' ');
+  const stages  = firstOf(inv.stages||[], f.stage).slice(0,3).map(s=>`<span class="${s===f.stage?'bg-slate-700 text-white':'bg-slate-100 text-slate-500'} px-1.5 py-0.5 rounded text-xs">${esc(s)}</span>`).join(' ');
+  return `
+  <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="openInvestorDetail('${inv.id}')">
+    <td class="px-4 py-3">
+      <div class="font-medium text-slate-800">${esc(inv.name)}</div>
+      <div class="flex flex-wrap items-center gap-1.5 mt-1">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_TYPE_COLORS[inv.type]||'bg-slate-100 text-slate-600'}">${esc(inv.type)}</span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_STATUS_COLORS[inv.status]||'bg-slate-100'}">${esc(inv.status)}</span>
+        ${_invItalyBadge(inv)}
+      </div>
+    </td>
+    <td class="px-4 py-3">
+      <div class="flex flex-wrap gap-1">${sectors}${stages}</div>
+    </td>
+    <td class="px-4 py-3 text-xs text-slate-600">
+      <div>${esc(inv.aum||'—')}</div>
+      <div class="text-slate-400">${inv.ticketMin ? '€'+Number(inv.ticketMin).toLocaleString('it-IT')+'–€'+Number(inv.ticketMax).toLocaleString('it-IT') : '—'}</div>
+    </td>
+    <td class="px-4 py-3 text-xs">
+      ${lastPitch ? `
+        <div class="flex items-center gap-2 mb-1">
+          <span class="px-2 py-0.5 rounded-full font-medium ${outcomeColor}">${esc(lastPitch.outcome)}</span>
+          <span class="text-slate-400">${fmtDate}</span>
+        </div>
+        <div class="text-slate-500 truncate max-w-[160px]">${lastDeal ? esc(lastDeal.company) : '—'}</div>
+      ` : '<span class="text-slate-300 italic">Nessuna</span>'}
+    </td>
+    <td class="px-4 py-3" onclick="event.stopPropagation()">
+      <div class="flex gap-2 justify-end">
+        <button onclick="openInvestorModal('${inv.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
+        <button onclick="deleteInvestor('${inv.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium">Elimina</button>
+      </div>
+    </td>
+  </tr>`;
+}
+// Re-renders only the rows and the counter, so typing in the search box keeps focus.
+function _renderInvestorRows() {
+  const tbody = document.getElementById('investors-tbody');
+  if (!tbody) return;
+  const list = loadInvestors();
+  const shown = _invSorted(_invApplyFilter(list));
+  tbody.innerHTML = list.length === 0
+    ? `<tr><td colspan="5" class="text-center py-12 text-slate-400">Nessun investitore. Aggiungine uno.</td></tr>`
+    : shown.length === 0
+      ? `<tr><td colspan="5" class="text-center py-12 text-slate-400">Nessun investitore corrisponde ai filtri.
+           <button onclick="resetInvestorFilters()" class="ml-1 text-indigo-600 hover:underline font-medium">Azzera filtri</button></td></tr>`
+      : shown.map(_invRowHtml).join('');
+  const cnt = document.getElementById('inv-count');
+  if (cnt) cnt.innerHTML = _invFilterActive()
+    ? `<span class="font-semibold text-slate-700">${shown.length}</span> di ${list.length} investitori`
+    : `${list.length} investitori`;
+  const rst = document.getElementById('inv-reset');
+  if (rst) rst.classList.toggle('hidden', !_invFilterActive());
+}
+
+function renderInvestors() {
+  const el = document.getElementById('page-investors');
+  const list = loadInvestors();
+  const f = investorFilter;
+  const sectorOpts = INV_SECTORS_ALL.concat([...new Set(list.flatMap(i => i.sectors || []))].filter(s => s && !INV_SECTORS_ALL.includes(s)).sort());
+  const selCls = 'text-sm border rounded-lg px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300';
+  const sel = (key, label, opts) => `
+    <label class="flex flex-col gap-1">
+      <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">${label}</span>
+      <select data-ro-keep onchange="setInvestorFilter('${key}', this.value)" aria-label="${label}" class="${selCls} ${f[key] ? 'border-indigo-300 text-indigo-700 font-medium' : 'border-slate-200 text-slate-700'}">
+        ${opts.map(([v, t]) => `<option value="${esc(v)}" ${f[key] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+      </select>
+    </label>`;
 
   el.innerHTML = `
     <div class="max-w-6xl mx-auto">
@@ -9994,65 +10436,58 @@ function renderInvestors() {
         ].map(c=>`<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200"><div class="text-2xl font-bold ${c.color}">${c.val}</div><div class="text-sm text-slate-500">${c.label}</div></div>`).join('')}
       </div>
 
+      <!-- Filters -->
+      <div id="inv-filters" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="flex flex-col gap-1 flex-1 min-w-[14rem]">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Cerca</span>
+            <div class="relative">
+              <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+              <input id="inv-search" data-ro-keep type="search" value="${esc(f.q)}" oninput="setInvestorFilter('q', this.value)" placeholder="Nome, paese, referente, note…" class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+          </label>
+          ${sel('sector', 'Settore', [['', 'Tutti i settori']].concat(sectorOpts.map(s => [s, s])))}
+          ${sel('stage', 'Fase', [['', 'Tutte le fasi']].concat(INV_STAGES_ALL.map(s => [s, s])))}
+          ${sel('italy', 'Italia', [['', 'Tutti'], ['si', 'Investe in Italia'], ['possibile', 'Possibile (Europa)'], ['no', 'Non investe in Italia'], ['nd', 'Non verificato']])}
+        </div>
+        <div class="flex items-center justify-between mt-3 text-xs text-slate-500">
+          <span id="inv-count"></span>
+          <button id="inv-reset" onclick="resetInvestorFilters()" class="hidden text-indigo-600 hover:text-indigo-800 font-medium">Azzera filtri</button>
+        </div>
+      </div>
+
       <!-- Table -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide bg-slate-50 border-b border-slate-200">
               <th class="px-4 py-3">Investitore</th>
-              <th class="px-4 py-3">Settori · Stage</th>
+              <th class="px-4 py-3">Settori · Fasi</th>
               <th class="px-4 py-3">AUM · Ticket</th>
               <th class="px-4 py-3">Ultima interazione</th>
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody id="investors-tbody">
-            ${sorted.length === 0 ? `<tr><td colspan="5" class="text-center py-12 text-slate-400">Nessun investitore. Aggiungine uno.</td></tr>` :
-              sorted.map(inv => {
-                const lastDate = _invLastInteraction(inv);
-                const lastPitch = lastDate ? [...(inv.pitches||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0] : null;
-                const lastDeal = lastPitch ? allDeals.find(d=>d.id===lastPitch.dealId) : null;
-                const outcomeColor = lastPitch ? (PITCH_OUTCOME_COLORS[lastPitch.outcome]||'bg-slate-100 text-slate-600') : '';
-                const fmtDate = lastDate ? new Date(lastDate).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}) : '';
-                const sectors = (inv.sectors||[]).slice(0,3).map(s=>`<span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-xs">${esc(s)}</span>`).join(' ');
-                const stages  = (inv.stages||[]).slice(0,3).map(s=>`<span class="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs">${esc(s)}</span>`).join(' ');
-                return `
-                <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="openInvestorDetail('${inv.id}')">
-                  <td class="px-4 py-3">
-                    <div class="font-medium text-slate-800">${esc(inv.name)}</div>
-                    <div class="flex items-center gap-1.5 mt-1">
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_TYPE_COLORS[inv.type]||'bg-slate-100 text-slate-600'}">${esc(inv.type)}</span>
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INV_STATUS_COLORS[inv.status]||'bg-slate-100'}">${esc(inv.status)}</span>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="flex flex-wrap gap-1">${sectors}${stages}</div>
-                  </td>
-                  <td class="px-4 py-3 text-xs text-slate-600">
-                    <div>${esc(inv.aum||'—')}</div>
-                    <div class="text-slate-400">${inv.ticketMin ? '€'+Number(inv.ticketMin).toLocaleString('it-IT')+'–€'+Number(inv.ticketMax).toLocaleString('it-IT') : '—'}</div>
-                  </td>
-                  <td class="px-4 py-3 text-xs">
-                    ${lastPitch ? `
-                      <div class="flex items-center gap-2 mb-1">
-                        <span class="px-2 py-0.5 rounded-full font-medium ${outcomeColor}">${esc(lastPitch.outcome)}</span>
-                        <span class="text-slate-400">${fmtDate}</span>
-                      </div>
-                      <div class="text-slate-500 truncate max-w-[160px]">${lastDeal ? esc(lastDeal.company) : '—'}</div>
-                    ` : '<span class="text-slate-300 italic">Nessuna</span>'}
-                  </td>
-                  <td class="px-4 py-3" onclick="event.stopPropagation()">
-                    <div class="flex gap-2 justify-end">
-                      <button onclick="openInvestorModal('${inv.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium">Modifica</button>
-                      <button onclick="deleteInvestor('${inv.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium">Elimina</button>
-                    </div>
-                  </td>
-                </tr>`;
-              }).join('')}
-          </tbody>
+          <tbody id="investors-tbody"></tbody>
         </table>
       </div>
     </div>`;
+  _renderInvestorRows();
+}
+
+function _invItalyDetail(inv) {
+  const it = inv.italy;
+  if (!it || !INV_ITALY[it.status]) return '';
+  const d = it.checkedAt ? new Date(it.checkedAt).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' }) : '';
+  let src = '';
+  if (it.source && /^https?:\/\//i.test(it.source)) {
+    let host = it.source;
+    try { host = new URL(it.source).hostname.replace(/^www\./, ''); } catch(_) {}
+    src = ` · <a href="${esc(it.source)}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline">${esc(host)}</a>`;
+  }
+  return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${INV_ITALY[it.status].cls}">${INV_ITALY[it.status].label}</span>
+    ${it.evidence ? `<span class="block text-xs text-slate-500 mt-1">${esc(it.evidence)}</span>` : ''}
+    <span class="block text-[11px] text-slate-400 mt-0.5">Verificato${it.checkedBy === 'Ricerca web' ? ' con ricerca web' : it.checkedBy ? ' da ' + esc(it.checkedBy) : ''}${d ? ' · ' + d : ''}${src}</span>`;
 }
 
 function openInvestorDetail(id) {
@@ -10120,6 +10555,7 @@ function openInvestorDetail(id) {
           ${row('TRL', inv.trlMin ? inv.trlMin+'–'+inv.trlMax : '')}
           ${row('Portfolio', inv.portfolioCount ? inv.portfolioCount+' aziende' : '')}
           ${row('Sito', inv.website ? `<a href="${esc(inv.website.startsWith('http')?inv.website:'https://'+inv.website)}" target="_blank" class="text-indigo-600 hover:underline">${esc(inv.website)}</a>` : '')}
+          ${row('Italia', _invItalyDetail(inv))}
         </div>
         <div>
           <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contatto</h3>
@@ -10213,6 +10649,12 @@ function openInvestorModal(id) {
             <select name="status" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
               ${['Warm','Cold','In valutazione','Partner'].map(s=>`<option value="${s}" ${inv&&inv.status===s?'selected':''}>${s}</option>`).join('')}
             </select></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Investe in Italia?</label>
+            <select name="italyStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              ${[['', 'Non verificato'], ['si', 'Sì, investe in Italia'], ['possibile', 'Possibile (investe in Europa)'], ['no', 'No']].map(([k, t]) => `<option value="${k}" ${((inv && inv.italy && inv.italy.status) || '') === k ? 'selected' : ''}>${t}</option>`).join('')}
+            </select></div>
+          <div><label class="block text-xs font-medium text-slate-600 mb-1">Evidenza Italia (deal, sede, programma)</label>
+            <input name="italyEvidence" type="text" value="${esc(inv && inv.italy ? inv.italy.evidence || '' : '')}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"></div>
         </div>
       </div>
 
@@ -10337,7 +10779,21 @@ function saveInvestor(e, id) {
   };
   const list = loadInvestors();
   const idx = list.findIndex(x => x.id === id);
-  if (idx >= 0) list[idx] = inv; else list.push(inv);
+  const prev = idx >= 0 ? list[idx] : null;
+  // Italy check: keep the stored verification unless the user changed status or evidence.
+  const itStatus = g('italyStatus'), itEvidence = g('italyEvidence').trim();
+  const prevIt = prev && prev.italy;
+  if (itStatus) {
+    inv.italy = (prevIt && prevIt.status === itStatus && (prevIt.evidence || '') === itEvidence)
+      ? prevIt
+      : { status: itStatus, evidence: itEvidence, source: prevIt && prevIt.status === itStatus ? prevIt.source || '' : '',
+          checkedAt: new Date().toISOString().slice(0, 10), checkedBy: (currentUser() || {}).name || '' };
+  } else {
+    inv.italy = null;
+  }
+  inv.updatedAt = new Date().toISOString();
+  // Keep fields the form doesn't edit (import metadata, …).
+  if (prev) list[idx] = Object.assign({}, prev, inv); else list.push(inv);
   saveInvestors(list);
   closeInvestorModal();
   renderInvestors();
